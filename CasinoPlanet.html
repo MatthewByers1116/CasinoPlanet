@@ -1133,7 +1133,7 @@ kbd {
 }
 
 /* Responsive Viewport Constraints */
-@media (max-width: 1150px) {
+@media (max-width: 1650px) {
   .hud-container {
     height: auto !important;
     flex-wrap: wrap !important;
@@ -1152,6 +1152,53 @@ kbd {
     align-items: center !important;
     width: auto !important;
     justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 950px) {
+  .hud-container {
+    top: 10px !important;
+    left: 10px !important;
+    right: 10px !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+  .hud-left, .hud-center, .hud-right {
+    gap: 6px !important;
+  }
+  .chip-counter #chip-balance {
+    font-size: 20px !important;
+  }
+  .build-btn {
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+  }
+  .dropdown-toggle {
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+  }
+  .action-btn {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    height: 28px !important;
+  }
+}
+
+@media (max-width: 650px) {
+  .hud-container {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .hud-left, .hud-center, .hud-right {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .build-panel {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 4px !important;
   }
 }
 
@@ -1924,7 +1971,7 @@ kbd {
     </div>
 
     <!-- Floating Alerts Feed (Bottom Left) -->
-    <div id="complaints-log" class="glass-panel" style="position: absolute; bottom: 20px; left: 20px; width: 280px; max-height: 150px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: auto; font-size: 11px; border-color: rgba(255, 77, 77, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+    <div id="complaints-log" class="glass-panel" style="position: fixed; bottom: 20px; left: 20px; width: 280px; max-height: 150px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 99999; pointer-events: auto; font-size: 11px; border-color: rgba(255, 77, 77, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
       <div style="font-weight: 800; color: #ff4d4d; border-bottom: 1px solid rgba(255, 77, 77, 0.2); padding-bottom: 4px; margin-bottom: 2px;">⚠️ CASINO ALERTS</div>
       <div id="complaints-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow: hidden;">
         <!-- Alert lines will slide in here -->
