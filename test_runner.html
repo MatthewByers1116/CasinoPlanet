@@ -623,6 +623,159 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       writeToLog("* Verified that upgrading the seat capacity succeeds and updates the game state.");
     });
 
+    await runTestCase("UI Interactive Elements Clickability Check", async () => {
+      // Create iframe
+      const iframe = document.createElement('iframe');
+      iframe.src = './index.html?v=' + Date.now();
+      iframe.width = '1920';
+      iframe.height = '1080';
+      iframe.style.position = 'absolute';
+      iframe.style.visibility = 'hidden';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '1920px';
+      iframe.style.height = '1080px';
+      document.body.appendChild(iframe);
+
+      // Wait for iframe load
+      await new Promise(resolve => iframe.onload = resolve);
+
+      const doc = iframe.contentDocument;
+      const win = iframe.contentWindow;
+
+      // Helper assert function to verify computed visibility and pointer events
+      const assertButtonClickable = (selector, name) => {
+        const el = doc.querySelector(selector);
+        if (!el) throw new Error(`${name} button (${selector}) not found in DOM`);
+        const style = win.getComputedStyle(el);
+        if (style.display === 'none') {
+          throw new Error(`${name} button (${selector}) is hidden via display:none`);
+        }
+        if (style.visibility === 'hidden') {
+          throw new Error(`${name} button (${selector}) is hidden via visibility:hidden`);
+        }
+        if (parseFloat(style.opacity) === 0) {
+          throw new Error(`${name} button (${selector}) is hidden via opacity:0`);
+        }
+        if (style.pointerEvents === 'none') {
+          throw new Error(`${name} button (${selector}) has pointer-events: none (cannot be clicked by user)`);
+        }
+      };
+
+      // Wait for ClientGame initialization
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const gameInstance = win.Casino.clientInstance;
+      if (!gameInstance) throw new Error("ClientGame instance not found");
+
+      // Test Mode Selection Overlay buttons before starting game
+      assertButtonClickable('#mode-solo-btn', 'Solo Mode Selection');
+      assertButtonClickable('#mode-host-btn', 'Host Multiplayer Mode');
+      assertButtonClickable('#mode-join-btn', 'Join Multiplayer Mode');
+      assertButtonClickable('#mode-load-btn', 'Load Saved Game Mode');
+
+      // Click Solo button
+      doc.getElementById('mode-solo-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Test Difficulty selection buttons
+      assertButtonClickable('#difficulty-easy-btn', 'Sandbox Mode Difficulty');
+      assertButtonClickable('#difficulty-medium-btn', 'Medium Difficulty');
+      assertButtonClickable('#difficulty-hard-btn', 'Hard Difficulty');
+      assertButtonClickable('#difficulty-gambler-btn', 'Gamblers Mode Difficulty');
+
+      // Start Solo Play Easy Mode
+      doc.getElementById('difficulty-easy-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Test HUD buttons
+      assertButtonClickable('#btn-toggle-music', 'HUD Music Toggle');
+      assertButtonClickable('#btn-detail-mode', 'HUD Details View Toggle');
+      assertButtonClickable('#btn-save-game', 'HUD Save Game');
+      assertButtonClickable('#btn-tutorial', 'HUD Tutorial Help');
+      assertButtonClickable('#btn-select', 'HUD Selection Tool');
+      assertButtonClickable('button[title="Build Arcade Games"]', 'HUD Games Dropdown Toggle');
+      assertButtonClickable('button[title="Casino Amenities & Services"]', 'HUD Amenities Dropdown Toggle');
+      assertButtonClickable('button[title="Food and Beverage options"]', 'HUD Food/Dining Dropdown Toggle');
+      assertButtonClickable('button[title="Entertainment Stage & Decorations"]', 'HUD Decor/Stage Dropdown Toggle');
+      assertButtonClickable('button[title="Hire Casino Staff"]', 'HUD Staff Dropdown Toggle');
+
+      // Open Build Tool and place a soda machine to test upgrade modal buttons
+      doc.querySelector('button[title="Casino Amenities & Services"]').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      gameInstance.sendAction(win.Casino.Protocol.Commands.PLACE_OBJECT, {
+        type: 'soda_machine',
+        gridX: 4,
+        gridY: 4
+      });
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      let sodaObj = gameInstance.state.grid.objects.find(o => o.type === 'soda_machine');
+      if (!sodaObj) throw new Error("Soda machine failed to place during UI verification");
+
+      // Trigger Table Upgrade Dialog
+      gameInstance.showTableUpgradeDialog(sodaObj);
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Test upgrade buttons inside the dialog overlay
+      assertButtonClickable('#upgrade-seat-btn', 'Table Upgrade Dialog: Buy Seat');
+      assertButtonClickable('#upgrade-income-btn', 'Table Upgrade Dialog: Upgrade Limits');
+      assertButtonClickable('#upgrade-close-btn', 'Table Upgrade Dialog: Close Button');
+      assertButtonClickable('#upgrade-move-btn', 'Table Upgrade Dialog: Move Item');
+      assertButtonClickable('#upgrade-sell-btn', 'Table Upgrade Dialog: Sell Table');
+
+      // Close the Table Upgrade dialog
+      doc.getElementById('upgrade-close-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Open Staff menu and hire a dealer
+      doc.querySelector('button[title="Hire Casino Staff"]').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      gameInstance.sendAction(win.Casino.Protocol.Commands.HIRE_EMPLOYEE, { role: 'dealer' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Open employee details modal
+      let dealerEmp = Object.values(gameInstance.state.employees).find(e => e.role === 'dealer');
+      if (!dealerEmp) throw new Error("Dealer failed to hire during UI verification");
+
+      gameInstance.showCharacterDetailsDialog(dealerEmp, 'Dealer');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Test employee upgrade panel buttons
+      assertButtonClickable('#btn-close-char-modal', 'Character Details Modal: Close');
+      assertButtonClickable('#btn-upgrade-speed', 'Character Details Modal: Speed Upgrade');
+      assertButtonClickable('#btn-upgrade-capacity', 'Character Details Modal: Capacity Upgrade');
+      assertButtonClickable('#btn-upgrade-needs', 'Character Details Modal: Needs Upgrade');
+
+      // Close the Character Details modal
+      doc.getElementById('btn-close-char-modal').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Open a Minigame Overlay (e.g. slots minigame)
+      gameInstance.minigameUI.open('slots', 'obj_1');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Test Minigame window controls
+      assertButtonClickable('#minigame-close-btn', 'Minigame Modal Window: Close button');
+      assertButtonClickable('#minigame-help-btn', 'Minigame Modal Window: Help/Rules Button');
+      assertButtonClickable('#minigame-debug-toggle', 'Minigame Modal Window: Debug Log Button');
+
+      // Close minigame
+      doc.getElementById('minigame-close-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Cleanup
+      document.body.removeChild(iframe);
+
+      writeToLog("### Test Case: UI Interactive Elements Clickability Check");
+      writeToLog("* Verified that all Mode Selection buttons have valid computed pointer-events (auto) and are clickable.");
+      writeToLog("* Verified that all Difficulty Selection buttons are clickable.");
+      writeToLog("* Verified that all HUD Control & Panel tools are clickable.");
+      writeToLog("* Verified that all Table Upgrade dialog controls are clickable and interactable.");
+      writeToLog("* Verified that all Character Details employee upgrading buttons are clickable.");
+      writeToLog("* Verified that all Minigame modal window header controls are clickable.");
+    });
+
     // Write final report markdown file
     let summaryTable = `
 | Test Suite / Case | Status | Notes |
