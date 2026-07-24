@@ -995,8 +995,12 @@
 
         const jsonStr = JSON.stringify(progressionSave);
         const saveCode = btoa(unescape(encodeURIComponent(jsonStr)));
-        localStorage.setItem('casino_planet_autosave', saveCode);
-        console.log("[Autosave] Game auto-saved successfully at end of day!");
+        if (!window.isMobile) {
+          localStorage.setItem('casino_planet_autosave', saveCode);
+          console.log("[Autosave] Game auto-saved successfully at end of day!");
+        } else {
+          console.log("[Autosave] Autosave skipped on mobile.");
+        }
       } catch (e) {
         console.error("[Autosave] Failed to auto-save game:", e);
       }
@@ -1575,7 +1579,72 @@
         const obj = this.getObjectAt(gridX, gridY);
         if (obj) {
           this.showTableUpgradeDialog(obj);
+        } else {
+          this.movePlayerTo(gridX, gridY);
         }
+      }
+    }
+
+    movePlayerTo(targetX, targetY) {
+      const localPlayer = this.state.players[this.playerId];
+      if (!localPlayer) return;
+
+      const cols = this.state.grid.cols;
+      const rows = this.state.grid.rows;
+      const entranceX = Math.floor(cols / 2);
+
+      const Catalog = window.Casino.GameObjects.Catalog;
+
+      // Mock GridManager interface for Pathfinding A* library
+      const clientGridManager = {
+        cols: cols,
+        rows: rows,
+        entranceX: entranceX,
+        isCellWalkable: (x, y) => {
+          if (x < 0 || x >= cols || y < 0 || y >= rows) return false;
+          if (y === 0 || x === 0 || x === cols - 1) return false;
+          if (y === rows - 1 && Math.abs(x - entranceX) > 1) return false;
+
+          for (const obj of this.state.grid.objects) {
+            const template = Catalog[obj.type];
+            if (!template) continue;
+            if (x >= obj.gridX && x < obj.gridX + template.width && y >= obj.gridY && y < obj.gridY + template.height) {
+              return false;
+            }
+          }
+          return true;
+        }
+      };
+
+      const path = window.Casino.Pathfinding.findPath(
+        clientGridManager,
+        localPlayer.gridX,
+        localPlayer.gridY,
+        targetX,
+        targetY,
+        false
+      );
+
+      if (path && path.length > 0) {
+        if (this.playerMoveInterval) {
+          clearInterval(this.playerMoveInterval);
+        }
+
+        let stepIndex = 0;
+        this.playerMoveInterval = setInterval(() => {
+          if (stepIndex >= path.length || this.isInMinigame || this.isInQTE) {
+            clearInterval(this.playerMoveInterval);
+            this.playerMoveInterval = null;
+            return;
+          }
+
+          const nextStep = path[stepIndex];
+          this.sendAction(window.Casino.Protocol.Commands.MOVE_PLAYER, {
+            x: nextStep.x,
+            y: nextStep.y
+          });
+          stepIndex++;
+        }, 150);
       }
     }
 
@@ -1877,6 +1946,10 @@
       if (now - this.lastMoveTime > cooldown) {
         const { dx, dy } = this.inputHandler.getMovementDirection();
         if (dx !== 0 || dy !== 0) {
+          if (this.playerMoveInterval) {
+            clearInterval(this.playerMoveInterval);
+            this.playerMoveInterval = null;
+          }
           const player = this.state.players[this.playerId];
           if (player) {
             const targetX = player.gridX + dx;
