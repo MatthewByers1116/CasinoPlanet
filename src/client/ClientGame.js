@@ -2306,6 +2306,9 @@
         }
       }
 
+      return true;
+    }
+
     openAmenityShop(objectId) {
       const obj = this.state.grid.objects.find(o => o.id === objectId);
       if (!obj) return;
