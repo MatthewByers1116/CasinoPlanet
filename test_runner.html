@@ -1093,6 +1093,73 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that multiplayer co-play sidebar updates players lists on Ride The Bus tables.");
 
+      // Verify Waitress Restocking Fix:
+      const barId = "bar_restock_test";
+      hostGame.sim.gridManager.placedObjects.set(barId, {
+        id: barId,
+        type: 'soda_machine',
+        gridX: 5,
+        gridY: 5,
+        width: 1,
+        height: 1,
+        seats: [{ rx: 0, ry: 1, guestId: null }]
+      });
+      const testWaitress = new winHost.Casino.EmployeeAI("waitress_test_id", "waitress", 3, 5);
+      testWaitress.drinks = 0;
+      hostGame.sim.employees.set("waitress_test_id", testWaitress);
+      testWaitress.findJobOrWander(hostGame.sim.gridManager, hostGame.sim);
+      if (testWaitress.state !== 'WALKING') {
+        throw new Error(`Expected waitress state to be WALKING, got: ${testWaitress.state}`);
+      }
+      if (testWaitress.targetObjectId !== barId) {
+        throw new Error(`Expected waitress targetObjectId to be ${barId}, got: ${testWaitress.targetObjectId}`);
+      }
+      const pathEnd = testWaitress.path[testWaitress.path.length - 1];
+      const distToBar = Math.sqrt((pathEnd.x - 5)**2 + (pathEnd.y - 5)**2);
+      if (distToBar > 1.5) {
+        throw new Error(`Waitress path destination (${pathEnd.x}, ${pathEnd.y}) is not adjacent to bar at (5,5)`);
+      }
+      writeToLog("* Verified that waitress pathfinding successfully routes to walkable adjacent cells next to solid objects instead of failing.");
+
+      // Verify QTE Puzzle Mode:
+      let qteResolved = false;
+      hostGame.startQTEMinigame(
+        "🔧 REPAIR PUZZLE TEST",
+        "Test puzzle mode",
+        () => { qteResolved = true; },
+        null,
+        'puzzle'
+      );
+      const puzzleWrap = docHost.getElementById('qte-puzzle-wrap');
+      if (!puzzleWrap || puzzleWrap.classList.contains('hidden')) {
+        throw new Error("QTE puzzle wrap element not created or not visible");
+      }
+      const targetSequenceRow = puzzleWrap.querySelector('div');
+      const indicators = Array.from(targetSequenceRow.children);
+      const targetHexes = indicators.map(ind => ind.style.background);
+      const nodeButtonsContainer = puzzleWrap.children[1];
+      const nodeButtons = Array.from(nodeButtonsContainer.children);
+      targetHexes.forEach(targetHex => {
+        const matchBtn = nodeButtons.find(btn => {
+          const core = btn.firstChild;
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = targetHex;
+          const norm1 = ctx.fillStyle;
+          ctx.fillStyle = core.style.background;
+          const norm2 = ctx.fillStyle;
+          return norm1 === norm2;
+        });
+        if (!matchBtn) {
+          throw new Error(`Could not find button matching target color: ${targetHex}`);
+        }
+        matchBtn.click();
+      });
+      if (!qteResolved) {
+        throw new Error("Interactive QTE puzzle failed to resolve after matching clicks sequence");
+      }
+      writeToLog("* Verified that new QTE puzzle mode processes interactive clicks correctly and resolves upon completion.");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));

@@ -1306,13 +1306,19 @@
         const isDealerSeat = (player.gridX === dealerX && player.gridY === dealerY);
 
         if (isTable && isDealerSeat) {
+          const isWheel = ['roulette', 'big_six'].includes(closestObj.type);
+          const title = isWheel ? "🎰 WHEEL SPINNING BOOST" : "🤵 CARD DEALING BOOST";
+          const instrs = isWheel ? "Perform wheel spinning! Hit the GREEN zone!" : "Perform card dealing! Hit the GREEN zone!";
+          
           this.startQTEMinigame(
-            "🤵 CARD DEALING BOOST",
-            "Perform card dealing! Hit the GREEN zone!",
+            title,
+            instrs,
             () => {
               this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: closestObj.id });
-              this.showNotification("🤵 Dealing boosted! Modifiers doubled to +40% for 60 seconds!", "success");
-            }
+              this.showNotification(`${isWheel ? '🎰 Wheel spinning' : '🤵 Dealing'} boosted! Modifiers doubled to +40% for 60 seconds!`, "success");
+            },
+            null,
+            isWheel ? 'slider' : null // Wheel spinning QTE is always a timing slider
           );
           return;
         }
@@ -1325,7 +1331,7 @@
       }
     }
 
-    startQTEMinigame(title, instructions, successCallback, failureCallback) {
+    startQTEMinigame(title, instructions, successCallback, failureCallback, preferredMode) {
       if (this.isInQTE) return;
       this.isInQTE = true;
 
@@ -1345,15 +1351,24 @@
       titleEl.innerText = title;
       container.classList.remove('hidden');
 
-      // Randomly select mode: slider (Timing zone) or sequence (Key matching)
-      const mode = Math.random() < 0.5 ? 'slider' : 'sequence';
+      // Hide all wraps initially
+      sliderWrap.classList.add('hidden');
+      sequenceWrap.classList.add('hidden');
+      const oldPuzzleWrap = document.getElementById('qte-puzzle-wrap');
+      if (oldPuzzleWrap) oldPuzzleWrap.classList.add('hidden');
+
+      // Randomly select mode: slider (Timing zone), sequence (Key matching), or puzzle (Wiring)
+      let mode = preferredMode;
+      if (!mode) {
+        const modeChoice = Math.random();
+        mode = modeChoice < 0.33 ? 'slider' : (modeChoice < 0.66 ? 'sequence' : 'puzzle');
+      }
 
       let cleanUp = null;
       let active = true;
 
       if (mode === 'slider') {
         sliderWrap.classList.remove('hidden');
-        sequenceWrap.classList.add('hidden');
         instrEl.innerText = instructions + " (Zone expands over time!)";
         if (footerTip) footerTip.innerText = "PRESS [SPACE] OR [E] TO TRIGGER!";
 
@@ -1426,7 +1441,7 @@
         };
         window.addEventListener('keydown', handleKey);
 
-      } else {
+      } else if (mode === 'sequence') {
         // Sequence Typing Mode
         sliderWrap.classList.add('hidden');
         sequenceWrap.classList.remove('hidden');
@@ -1546,6 +1561,194 @@
           }
         };
         window.addEventListener('keydown', handleKeyPress);
+      } else if (mode === 'puzzle') {
+        // Color Wiring Sequence Puzzle Mode
+        sliderWrap.classList.add('hidden');
+        sequenceWrap.classList.add('hidden');
+        instrEl.innerText = "Connect the wires! Click the nodes in order of the target sequence.";
+        if (footerTip) footerTip.innerText = "CLICK THE COLOR NODES!";
+
+        // Get or create puzzle wrapper
+        let puzzleWrap = document.getElementById('qte-puzzle-wrap');
+        if (!puzzleWrap) {
+          puzzleWrap = document.createElement('div');
+          puzzleWrap.id = 'qte-puzzle-wrap';
+          puzzleWrap.style.marginTop = '12px';
+          puzzleWrap.style.marginBottom = '16px';
+          puzzleWrap.style.display = 'flex';
+          puzzleWrap.style.flexDirection = 'column';
+          puzzleWrap.style.alignItems = 'center';
+          puzzleWrap.style.gap = '12px';
+          puzzleWrap.style.width = '100%';
+          container.insertBefore(puzzleWrap, footerTip);
+        }
+        puzzleWrap.classList.remove('hidden');
+        puzzleWrap.innerHTML = '';
+
+        // Generate target sequence
+        const colors = [
+          { name: 'Red', hex: '#ff4d4d' },
+          { name: 'Green', hex: '#39ff14' },
+          { name: 'Blue', hex: '#00f0ff' },
+          { name: 'Yellow', hex: '#ffaa00' }
+        ];
+        
+        const targetSequence = [];
+        for (let i = 0; i < 4; i++) {
+          targetSequence.push(colors[Math.floor(Math.random() * colors.length)]);
+        }
+
+        // Render target sequence preview
+        const targetRow = document.createElement('div');
+        targetRow.style.display = 'flex';
+        targetRow.style.gap = '8px';
+        targetRow.style.justifyContent = 'center';
+        targetRow.style.background = 'rgba(0,0,0,0.3)';
+        targetRow.style.padding = '8px';
+        targetRow.style.borderRadius = '8px';
+        targetRow.style.border = '1px solid rgba(255,255,255,0.08)';
+        targetRow.style.width = '100%';
+        targetRow.style.boxSizing = 'border-box';
+
+        targetSequence.forEach(color => {
+          const indicator = document.createElement('div');
+          indicator.style.width = '16px';
+          indicator.style.height = '16px';
+          indicator.style.borderRadius = '50%';
+          indicator.style.background = color.hex;
+          indicator.style.boxShadow = `0 0 6px ${color.hex}`;
+          targetRow.appendChild(indicator);
+        });
+        puzzleWrap.appendChild(targetRow);
+
+        // Render interactive node terminals
+        const nodesRow = document.createElement('div');
+        nodesRow.style.display = 'flex';
+        nodesRow.style.gap = '12px';
+        nodesRow.style.justifyContent = 'center';
+
+        let playerIndex = 0;
+
+        const nodeButtons = colors.map(color => {
+          const btn = document.createElement('button');
+          btn.style.width = '42px';
+          btn.style.height = '42px';
+          btn.style.borderRadius = '50%';
+          btn.style.border = '2px solid rgba(255,255,255,0.2)';
+          btn.style.background = 'rgba(0,0,0,0.4)';
+          btn.style.cursor = 'pointer';
+          btn.style.display = 'flex';
+          btn.style.alignItems = 'center';
+          btn.style.justifyContent = 'center';
+          btn.style.transition = 'all 0.15s ease';
+          
+          // Inner core color
+          const core = document.createElement('div');
+          core.style.width = '20px';
+          core.style.height = '20px';
+          core.style.borderRadius = '50%';
+          core.style.background = color.hex;
+          core.style.boxShadow = `0 0 4px ${color.hex}`;
+          btn.appendChild(core);
+
+          // Click handling
+          btn.addEventListener('click', () => {
+            if (!active) return;
+            window.Casino.SoundManager.playClick();
+            
+            // Check matching color
+            const targetColor = targetSequence[playerIndex];
+            if (color.name === targetColor.name) {
+              // Correct color node! Highlight indicator
+              targetRow.children[playerIndex].style.opacity = '0.3'; // dim completed indicator
+              playerIndex++;
+              
+              if (playerIndex >= targetSequence.length) {
+                // Success!
+                cleanUp();
+                window.Casino.SoundManager.playWin();
+                successCallback();
+              }
+            } else {
+              // Incorrect wire! Fail!
+              cleanUp();
+              window.Casino.SoundManager.playLose();
+              if (failureCallback) {
+                failureCallback();
+              } else {
+                this.showNotification("Wrong wire connection! QTE Failed.", "error");
+              }
+            }
+          });
+
+          // Hover feedback
+          btn.addEventListener('mouseenter', () => {
+            btn.style.transform = 'scale(1.1)';
+            btn.style.borderColor = color.hex;
+            btn.style.boxShadow = `0 0 10px ${color.hex}`;
+          });
+          btn.addEventListener('mouseleave', () => {
+            btn.style.transform = 'scale(1.0)';
+            btn.style.borderColor = 'rgba(255,255,255,0.2)';
+            btn.style.boxShadow = 'none';
+          });
+
+          nodesRow.appendChild(btn);
+          return btn;
+        });
+
+        puzzleWrap.appendChild(nodesRow);
+
+        // Timer bar
+        const timerContainer = document.createElement('div');
+        timerContainer.style.position = 'relative';
+        timerContainer.style.width = '100%';
+        timerContainer.style.height = '6px';
+        timerContainer.style.background = '#222';
+        timerContainer.style.borderRadius = '3px';
+        timerContainer.style.overflow = 'hidden';
+
+        const timerBar = document.createElement('div');
+        timerBar.style.position = 'absolute';
+        timerBar.style.top = '0';
+        timerBar.style.left = '0';
+        timerBar.style.height = '100%';
+        timerBar.style.width = '100%';
+        timerBar.style.background = '#ff007f';
+        timerContainer.appendChild(timerBar);
+        puzzleWrap.appendChild(timerContainer);
+
+        const totalDuration = 6000; // 6 seconds for puzzle
+        const startTime = performance.now();
+        let timerInterval = null;
+
+        const tickTimer = () => {
+          if (!active) return;
+          const elapsed = performance.now() - startTime;
+          const remainingPct = Math.max(0, 100 - (elapsed / totalDuration) * 100);
+          timerBar.style.width = remainingPct + '%';
+
+          if (elapsed >= totalDuration) {
+            cleanUp();
+            window.Casino.SoundManager.playLose();
+            if (failureCallback) {
+              failureCallback();
+            } else {
+              this.showNotification("Time ran out! QTE Failed.", "error");
+            }
+          } else {
+            timerInterval = requestAnimationFrame(tickTimer);
+          }
+        };
+        timerInterval = requestAnimationFrame(tickTimer);
+
+        cleanUp = () => {
+          active = false;
+          cancelAnimationFrame(timerInterval);
+          container.classList.add('hidden');
+          puzzleWrap.classList.add('hidden');
+          this.isInQTE = false;
+        };
       }
     }
 
@@ -2032,7 +2235,8 @@
               const isDealerSeat = (player.gridX === dealerX && player.gridY === dealerY);
 
               if (isTable && isDealerSeat) {
-                promptText = `🤵 ${closestObj.name} Dealer Slot (Press E to Deal)`;
+                const isWheel = ['roulette', 'big_six'].includes(closestObj.type);
+                promptText = isWheel ? `🎰 ${closestObj.name} Wheel Slot (Press E to Spin)` : `🤵 ${closestObj.name} Dealer Slot (Press E to Deal)`;
               } else if (['jazz_band', 'hologram', 'fountain'].includes(closestObj.type)) {
                 promptText = `🎭 ${closestObj.name} Stage (Press E to Perform)`;
               } else if (['bar', 'restaurant'].includes(closestObj.type)) {

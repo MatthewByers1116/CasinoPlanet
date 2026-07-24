@@ -9,6 +9,28 @@
     WANDERING: 'WANDERING'
   };
 
+  function findWalkableAdjacent(gridManager, obj) {
+    if (!obj) return null;
+    const w = obj.width || 1;
+    const h = obj.height || 1;
+    const x1 = obj.gridX;
+    const y1 = obj.gridY;
+    const x2 = x1 + w - 1;
+    const y2 = y1 + h - 1;
+    
+    const adjacent = [];
+    for (let x = x1; x <= x2; x++) {
+      adjacent.push({ x, y: y1 - 1 });
+      adjacent.push({ x, y: y2 + 1 });
+    }
+    for (let y = y1; y <= y2; y++) {
+      adjacent.push({ x: x1 - 1, y });
+      adjacent.push({ x: x2 + 1, y });
+    }
+    
+    return adjacent.find(c => gridManager.isCellWalkable(c.x, c.y)) || null;
+  }
+
   class EmployeeAI {
     constructor(id, role, startX, startY) {
       this.id = id;
@@ -93,21 +115,24 @@
           if (this.targetGuestId && (this.role === 'waitress' || this.role === 'chef')) {
             const guest = sim.guests.get(this.targetGuestId);
             if (guest && guest.state !== 'LEAVING') {
-              if (!this.path || this.path.length === 0 || 
-                  Math.abs(this.path[this.path.length - 1].x - guest.gridX) > 1 || 
-                  Math.abs(this.path[this.path.length - 1].y - guest.gridY) > 1) {
-                const path = window.Casino.Pathfinding.findPath(
-                  gridManager,
-                  this.gridX,
-                  this.gridY,
-                  guest.gridX,
-                  guest.gridY,
-                  false
-                );
-                if (path && path.length > 0) {
-                  this.path = path;
-                  this.pathIndex = 0;
-                  this.moveProgress = 0;
+              const adj = findWalkableAdjacent(gridManager, guest);
+              if (adj) {
+                if (!this.path || this.path.length === 0 || 
+                    Math.abs(this.path[this.path.length - 1].x - adj.x) > 1 || 
+                    Math.abs(this.path[this.path.length - 1].y - adj.y) > 1) {
+                  const path = window.Casino.Pathfinding.findPath(
+                    gridManager,
+                    this.gridX,
+                    this.gridY,
+                    adj.x,
+                    adj.y,
+                    false
+                  );
+                  if (path && path.length > 0) {
+                    this.path = path;
+                    this.pathIndex = 0;
+                    this.moveProgress = 0;
+                  }
                 }
               }
             } else {
@@ -517,23 +542,26 @@
             });
             
             if (closestBar) {
-              this.targetObjectId = closestBar.id;
-              const path = window.Casino.Pathfinding.findPath(
-                gridManager,
-                this.gridX,
-                this.gridY,
-                closestBar.gridX,
-                closestBar.gridY,
-                false
-              );
-              if (path && path.length > 0) {
-                this.path = path;
-                this.pathIndex = 0;
-                this.moveProgress = 0;
-                this.state = States.WALKING;
-                return;
-              } else {
-                this.targetObjectId = null;
+              const adj = findWalkableAdjacent(gridManager, closestBar);
+              if (adj) {
+                this.targetObjectId = closestBar.id;
+                const path = window.Casino.Pathfinding.findPath(
+                  gridManager,
+                  this.gridX,
+                  this.gridY,
+                  adj.x,
+                  adj.y,
+                  false
+                );
+                if (path && path.length > 0) {
+                  this.path = path;
+                  this.pathIndex = 0;
+                  this.moveProgress = 0;
+                  this.state = States.WALKING;
+                  return;
+                } else {
+                  this.targetObjectId = null;
+                }
               }
             }
           }
@@ -543,24 +571,26 @@
           if (thirstyGuests.length > 0) {
             // Pick random thirsty guest
             const target = thirstyGuests[Math.floor(Math.random() * thirstyGuests.length)];
-            this.targetGuestId = target.id;
-            
-            const path = window.Casino.Pathfinding.findPath(
-              gridManager,
-              this.gridX,
-              this.gridY,
-              target.gridX,
-              target.gridY,
-              false
-            );
-            if (path && path.length > 0) {
-              this.path = path;
-              this.pathIndex = 0;
-              this.moveProgress = 0;
-              this.state = States.WALKING;
-              return;
-            } else {
-              this.targetGuestId = null;
+            const adj = findWalkableAdjacent(gridManager, target);
+            if (adj) {
+              this.targetGuestId = target.id;
+              const path = window.Casino.Pathfinding.findPath(
+                gridManager,
+                this.gridX,
+                this.gridY,
+                adj.x,
+                adj.y,
+                false
+              );
+              if (path && path.length > 0) {
+                this.path = path;
+                this.pathIndex = 0;
+                this.moveProgress = 0;
+                this.state = States.WALKING;
+                return;
+              } else {
+                this.targetGuestId = null;
+              }
             }
           }
         }
@@ -584,13 +614,43 @@
             });
             
             if (closestKitchen) {
-              this.targetObjectId = closestKitchen.id;
+              const adj = findWalkableAdjacent(gridManager, closestKitchen);
+              if (adj) {
+                this.targetObjectId = closestKitchen.id;
+                const path = window.Casino.Pathfinding.findPath(
+                  gridManager,
+                  this.gridX,
+                  this.gridY,
+                  adj.x,
+                  adj.y,
+                  false
+                );
+                if (path && path.length > 0) {
+                  this.path = path;
+                  this.pathIndex = 0;
+                  this.moveProgress = 0;
+                  this.state = States.WALKING;
+                  return;
+                } else {
+                  this.targetObjectId = null;
+                }
+              }
+            }
+          }
+        } else {
+          // Find hungry guests to serve
+          const hungryGuests = Array.from(sim.guests.values()).filter(g => g.hunger < 50 && g.state !== 'LEAVING');
+          if (hungryGuests.length > 0) {
+            const target = hungryGuests[Math.floor(Math.random() * hungryGuests.length)];
+            const adj = findWalkableAdjacent(gridManager, target);
+            if (adj) {
+              this.targetGuestId = target.id;
               const path = window.Casino.Pathfinding.findPath(
                 gridManager,
                 this.gridX,
                 this.gridY,
-                closestKitchen.gridX,
-                closestKitchen.gridY,
+                adj.x,
+                adj.y,
                 false
               );
               if (path && path.length > 0) {
@@ -600,33 +660,8 @@
                 this.state = States.WALKING;
                 return;
               } else {
-                this.targetObjectId = null;
+                this.targetGuestId = null;
               }
-            }
-          }
-        } else {
-          // Find hungry guests to serve
-          const hungryGuests = Array.from(sim.guests.values()).filter(g => g.hunger < 50 && g.state !== 'LEAVING');
-          if (hungryGuests.length > 0) {
-            const target = hungryGuests[Math.floor(Math.random() * hungryGuests.length)];
-            this.targetGuestId = target.id;
-            
-            const path = window.Casino.Pathfinding.findPath(
-              gridManager,
-              this.gridX,
-              this.gridY,
-              target.gridX,
-              target.gridY,
-              false
-            );
-            if (path && path.length > 0) {
-              this.path = path;
-              this.pathIndex = 0;
-              this.moveProgress = 0;
-              this.state = States.WALKING;
-              return;
-            } else {
-              this.targetGuestId = null;
             }
           }
         }
@@ -638,24 +673,26 @@
         const brokenObjs = objects.filter(obj => obj.isBroken);
         if (brokenObjs.length > 0) {
           const chosen = brokenObjs[Math.floor(Math.random() * brokenObjs.length)];
-          this.targetObjectId = chosen.id;
-          
-          const path = window.Casino.Pathfinding.findPath(
-            gridManager,
-            this.gridX,
-            this.gridY,
-            chosen.gridX,
-            chosen.gridY,
-            false
-          );
-          if (path && path.length > 0) {
-            this.path = path;
-            this.pathIndex = 0;
-            this.moveProgress = 0;
-            this.state = States.WALKING;
-            return;
-          } else {
-            this.targetObjectId = null;
+          const adj = findWalkableAdjacent(gridManager, chosen);
+          if (adj) {
+            this.targetObjectId = chosen.id;
+            const path = window.Casino.Pathfinding.findPath(
+              gridManager,
+              this.gridX,
+              this.gridY,
+              adj.x,
+              adj.y,
+              false
+            );
+            if (path && path.length > 0) {
+              this.path = path;
+              this.pathIndex = 0;
+              this.moveProgress = 0;
+              this.state = States.WALKING;
+              return;
+            } else {
+              this.targetObjectId = null;
+            }
           }
         }
         
