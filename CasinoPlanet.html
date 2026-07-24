@@ -279,6 +279,7 @@ kbd {
   align-items: center;
   z-index: 100;
   animation: fadeIn 0.3s ease-out;
+  pointer-events: auto;
 }
 
 .minigame-modal {
@@ -865,6 +866,7 @@ kbd {
   justify-content: center;
   align-items: center;
   z-index: 200;
+  pointer-events: auto;
 }
 .custom-dialog-card {
   width: 320px;
@@ -1813,7 +1815,7 @@ kbd {
     </div>
 
     <!-- QTE Mini-Game Modal -->
-    <div id="qte-container" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 20px var(--accent-blue); padding: 20px; border-radius: 12px; z-index: 10000; width: 320px; text-align: center; color: #fff; font-family: 'Outfit', sans-serif;">
+    <div id="qte-container" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 20px var(--accent-blue); padding: 20px; border-radius: 12px; z-index: 10000; width: 320px; text-align: center; color: #fff; font-family: 'Outfit', sans-serif; pointer-events: auto;">
       <h3 id="qte-title" style="margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase; color: var(--accent-blue);">🔧 QUICK TIMING EVENT</h3>
       <p id="qte-instructions" style="margin: 0 0 16px 0; font-size: 11px; color: var(--text-secondary);">Press SPACE when the bar is in the GREEN zone!</p>
       

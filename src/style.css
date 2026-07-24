@@ -272,6 +272,7 @@ kbd {
   align-items: center;
   z-index: 100;
   animation: fadeIn 0.3s ease-out;
+  pointer-events: auto;
 }
 
 .minigame-modal {
@@ -858,6 +859,7 @@ kbd {
   justify-content: center;
   align-items: center;
   z-index: 200;
+  pointer-events: auto;
 }
 .custom-dialog-card {
   width: 320px;

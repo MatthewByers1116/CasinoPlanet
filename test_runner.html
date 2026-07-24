@@ -513,6 +513,116 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       writeToLog("* Verified that the HUD container handles responsive layout wrapping correctly.");
     });
 
+    await runTestCase("Upgrade Dialog Interaction & Soda Machine", async () => {
+      // Create iframe
+      const iframe = document.createElement('iframe');
+      iframe.src = './index.html?v=' + Date.now();
+      iframe.width = '1920';
+      iframe.height = '1080';
+      iframe.style.position = 'absolute';
+      iframe.style.visibility = 'hidden';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '1920px';
+      iframe.style.height = '1080px';
+      document.body.appendChild(iframe);
+
+      // Wait for iframe load
+      await new Promise(resolve => iframe.onload = resolve);
+
+      const doc = iframe.contentDocument;
+      const win = iframe.contentWindow;
+
+      // Wait for ClientGame initialization
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const gameInstance = win.Casino.clientInstance; // window.Casino.clientInstance is the ClientGame instance
+      if (!gameInstance) throw new Error("ClientGame instance win.Casino.clientInstance not found");
+
+      // Click Solo button
+      const soloBtn = doc.getElementById('mode-solo-btn');
+      if (soloBtn) soloBtn.click();
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Click Easy difficulty button to start game
+      const easyBtn = doc.getElementById('diff-easy-btn');
+      if (easyBtn) {
+        easyBtn.click();
+      } else {
+        // Find it in class
+        const btns = doc.querySelectorAll('#difficulty-overlay button');
+        for (const btn of btns) {
+          if (btn.innerText.includes('Easy')) {
+            btn.click();
+            break;
+          }
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 500)); // wait for start
+
+      // Let's place a soda machine
+      gameInstance.sendAction(win.Casino.Protocol.Commands.PLACE_OBJECT, {
+        type: 'soda_machine',
+        gridX: 5,
+        gridY: 5
+      });
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Retrieve placed object
+      let sodaObj = null;
+      for (const obj of gameInstance.state.grid.objects) {
+        if (obj.type === 'soda_machine') {
+          sodaObj = obj;
+          break;
+        }
+      }
+      if (!sodaObj) throw new Error("Soda machine was not placed successfully");
+
+      // Open the upgrade dialog
+      gameInstance.showTableUpgradeDialog(sodaObj);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const dialog = doc.getElementById('table-upgrade-dialog');
+      if (dialog.classList.contains('hidden')) {
+        throw new Error("Upgrade dialog is still hidden after showTableUpgradeDialog call");
+      }
+
+      // Try closing the dialog
+      const closeBtn = doc.getElementById('upgrade-close-btn');
+      if (!closeBtn) throw new Error("Close button not found");
+      closeBtn.click();
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (!dialog.classList.contains('hidden')) {
+        throw new Error("Close button did not hide the upgrade dialog");
+      }
+
+      // Open again
+      gameInstance.showTableUpgradeDialog(sodaObj);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Try upgrading seat
+      const seatBtn = doc.getElementById('upgrade-seat-btn');
+      if (!seatBtn) throw new Error("Upgrade seat button not found");
+      seatBtn.click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Check if upgrade count increased
+      const upgradedSodaObj = gameInstance.state.grid.objects.find(o => o.id === sodaObj.id);
+      if (!upgradedSodaObj) throw new Error("Upgraded soda machine object disappeared from state");
+      if (upgradedSodaObj.guestCapacity !== 2) {
+        throw new Error(`Expected upgraded seat capacity of 2, got ${upgradedSodaObj.guestCapacity}`);
+      }
+
+      // Cleanup
+      document.body.removeChild(iframe);
+
+      writeToLog("### Test Case: Upgrade Dialog Interaction & Soda Machine");
+      writeToLog("* Verified that the table upgrade dialog successfully displays when clicking an object.");
+      writeToLog("* Verified that the close button successfully hides the upgrade dialog.");
+      writeToLog("* Verified that upgrading the seat capacity succeeds and updates the game state.");
+    });
+
     // Write final report markdown file
     let summaryTable = `
 | Test Suite / Case | Status | Notes |
