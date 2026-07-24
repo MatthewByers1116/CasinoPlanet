@@ -2140,7 +2140,9 @@
           this.connections.delete(conn.peer);
           if (this.sim) {
             this.sim.players.delete(conn.peer);
-            this.sim.clients.delete(conn.peer);
+            if (this.sim.clients) {
+              this.sim.clients.delete(conn.peer);
+            }
             this.sim.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.sim.getFullState());
           }
           this.showNotification(`Manager left lobby: ${conn.peer}`, "info");

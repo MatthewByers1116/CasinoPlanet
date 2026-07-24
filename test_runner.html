@@ -1,6 +1,92 @@
 <!DOCTYPE html>
 <html>
   <script>
+    // In-memory WebRTC PeerJS Mocking class for multiplayer testing
+    class MockConnection {
+      constructor(peerId, remoteId) {
+        this.peer = remoteId;
+        this.remoteId = remoteId;
+        this.listeners = {};
+        this.open = true;
+        this.remoteConn = null;
+      }
+      on(event, callback) {
+        this.listeners[event] = callback;
+        console.log(`[MockConnection] Register listener on connection (peer: ${this.peer}, remote: ${this.remoteId}): ${event}`);
+      }
+      send(data) {
+        if (!this.open) return;
+        setTimeout(() => {
+          if (this.remoteConn && this.remoteConn.listeners['data']) {
+            this.remoteConn.listeners['data'](JSON.parse(data));
+          }
+        }, 10);
+      }
+      close() {
+        this.open = false;
+        if (this.listeners['close']) {
+          this.listeners['close']();
+        }
+        if (this.remoteConn && this.remoteConn.open) {
+          this.remoteConn.open = false;
+          if (this.remoteConn.listeners['close']) {
+            this.remoteConn.listeners['close']();
+          }
+        }
+      }
+    }
+
+    class MockPeer {
+      static peers = new Map();
+      constructor(id) {
+        this.id = id || 'guest_' + Math.random().toString(36).substr(2, 9);
+        this.listeners = {};
+        MockPeer.peers.set(this.id, this);
+        console.log(`[MockPeer] Created MockPeer: ${this.id}`);
+        setTimeout(() => {
+          if (this.listeners['open']) {
+            console.log(`[MockPeer] Firing open event for peer: ${this.id}`);
+            this.listeners['open'](this.id);
+          }
+        }, 10);
+      }
+      on(event, callback) {
+        this.listeners[event] = callback;
+        console.log(`[MockPeer] Register listener on peer ${this.id}: ${event}`);
+      }
+      connect(targetId) {
+        console.log(`[MockPeer] Peer ${this.id} connecting to target ${targetId}`);
+        const targetPeer = MockPeer.peers.get(targetId);
+        if (!targetPeer) {
+          throw new Error(`MockPeer: target peer ${targetId} not found`);
+        }
+        const hostConn = new MockConnection(targetId, this.id);
+        const guestConn = new MockConnection(this.id, targetId);
+        hostConn.remoteConn = guestConn;
+        guestConn.remoteConn = hostConn;
+        setTimeout(() => {
+          if (targetPeer.listeners['connection']) {
+            console.log(`[MockPeer] Triggering connection event on target peer: ${targetId} with guest connection: ${this.id}`);
+            targetPeer.listeners['connection'](hostConn);
+          }
+          setTimeout(() => {
+            if (guestConn.listeners['open']) {
+              console.log(`[MockPeer] Triggering open event on guest connection: ${this.id}`);
+              guestConn.listeners['open']();
+            }
+            if (hostConn.listeners['open']) {
+              console.log(`[MockPeer] Triggering open event on host connection for guest: ${this.id}`);
+              hostConn.listeners['open']();
+            } else {
+              console.log(`[MockPeer] WARNING: host connection for guest ${this.id} has no open listener registered yet!`);
+            }
+          }, 10);
+        }, 20);
+        return guestConn;
+      }
+    }
+    window.MockPeer = MockPeer;
+
     window.onerror = function(msg, url, line, col, error) {
       const errorDetails = `BROWSER EXCEPTION: ${msg} at ${url}:${line}:${col}\n${error ? error.stack : ''}`;
       fetch('/save_report', {
@@ -774,6 +860,167 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       writeToLog("* Verified that all Table Upgrade dialog controls are clickable and interactable.");
       writeToLog("* Verified that all Character Details employee upgrading buttons are clickable.");
       writeToLog("* Verified that all Minigame modal window header controls are clickable.");
+    });
+
+    await runTestCase("Multiplayer Lobby Sync & Concurrent Interactions", async () => {
+      // Create Host iframe
+      const iframeHost = document.createElement('iframe');
+      iframeHost.src = './index.html?v=host_' + Date.now();
+      iframeHost.width = '1200';
+      iframeHost.height = '800';
+      iframeHost.style.position = 'absolute';
+      iframeHost.style.visibility = 'hidden';
+      iframeHost.style.top = '-9999px';
+      iframeHost.style.left = '-9999px';
+      document.body.appendChild(iframeHost);
+
+      // Create Guest iframe
+      const iframeGuest = document.createElement('iframe');
+      iframeGuest.src = './index.html?v=guest_' + Date.now();
+      iframeGuest.width = '1200';
+      iframeGuest.height = '800';
+      iframeGuest.style.position = 'absolute';
+      iframeGuest.style.visibility = 'hidden';
+      iframeGuest.style.top = '-9999px';
+      iframeGuest.style.left = '-9999px';
+      document.body.appendChild(iframeGuest);
+
+      // Wait for both load
+      await Promise.all([
+        new Promise(resolve => iframeHost.onload = resolve),
+        new Promise(resolve => iframeGuest.onload = resolve)
+      ]);
+
+      const winHost = iframeHost.contentWindow;
+      const winGuest = iframeGuest.contentWindow;
+
+      const docHost = iframeHost.contentDocument;
+      const docGuest = iframeGuest.contentDocument;
+
+      // Inject parent MockPeer class so they share the static map!
+      winHost.Peer = window.MockPeer;
+      winGuest.Peer = window.MockPeer;
+
+      // Wait for ClientGame initialization in both windows
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const hostGame = winHost.Casino.clientInstance;
+      const guestGame = winGuest.Casino.clientInstance;
+
+      if (!hostGame || !guestGame) {
+        throw new Error("Multiplayer host/guest ClientGame instances not initialized");
+      }
+
+      // 1. Host clicks host button and Easy mode
+      docHost.getElementById('mode-host-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      docHost.getElementById('difficulty-easy-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const lobbyId = hostGame.peer.id;
+      if (!lobbyId) throw new Error("Host failed to get PeerJS ID");
+      writeToLog(`* Host peer ID opened: ${lobbyId}`);
+
+      // 2. Guest connects to Host lobby
+      docGuest.getElementById('mode-join-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      docGuest.getElementById('join-room-input').value = lobbyId;
+      docGuest.getElementById('join-room-submit-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 800)); // wait for connect handshake
+
+      // Verify connection success
+      if (!guestGame.isMultiplayerGuest) throw new Error("Guest failed to join multiplayer lobby");
+      writeToLog("* Guest successfully connected to host lobby via WebRTC simulation.");
+
+      // Verify player records exist in host simulator
+      const guestPeerId = guestGame.peer.id;
+      const hostPlayers = Array.from(hostGame.sim.players.keys());
+      writeToLog(`* Guest Peer ID: ${guestPeerId}, Host Simulator Players: ${JSON.stringify(hostPlayers)}`);
+      if (!hostGame.sim.players.has(guestPeerId)) {
+        throw new Error(`Host simulator has no record of the guest player ID: ${guestPeerId}. Existing: ${JSON.stringify(hostPlayers)}`);
+      }
+      writeToLog("* Verified that host simulator registered guest player ID.");
+
+      // 3. Test Concurrent Player Movements
+      // Host moves player to (12, 9)
+      hostGame.sendAction(winHost.Casino.Protocol.Commands.MOVE_PLAYER, { x: 12, y: 9 });
+      // Guest moves player to (13, 8)
+      guestGame.sendAction(winGuest.Casino.Protocol.Commands.MOVE_PLAYER, { x: 13, y: 8 });
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Verify position sync in Host state
+      const syncedHostPlayer = hostGame.state.players[hostGame.playerId];
+      const syncedGuestPlayerOnHost = hostGame.state.players[guestPeerId];
+      if (syncedHostPlayer.gridX !== 12 || syncedHostPlayer.gridY !== 9) {
+        throw new Error(`Expected host player at (12,9), got (${syncedHostPlayer.gridX}, ${syncedHostPlayer.gridY})`);
+      }
+      if (syncedGuestPlayerOnHost.gridX !== 13 || syncedGuestPlayerOnHost.gridY !== 8) {
+        throw new Error(`Expected guest player on host at (13,8), got (${syncedGuestPlayerOnHost.gridX}, ${syncedGuestPlayerOnHost.gridY})`);
+      }
+      writeToLog("* Verified concurrent movements synced correctly on the host.");
+
+      // Verify position sync in Guest state
+      const syncedHostPlayerOnGuest = guestGame.state.players[hostGame.playerId];
+      const syncedGuestPlayer = guestGame.state.players[guestPeerId];
+      if (syncedHostPlayerOnGuest.gridX !== 12 || syncedHostPlayerOnGuest.gridY !== 9) {
+        throw new Error(`Expected host player on guest state at (12,9), got (${syncedHostPlayerOnGuest.gridX}, ${syncedHostPlayerOnGuest.gridY})`);
+      }
+      if (syncedGuestPlayer.gridX !== 13 || syncedGuestPlayer.gridY !== 8) {
+        throw new Error(`Expected guest player on guest state at (13,8), got (${syncedGuestPlayer.gridX}, ${syncedGuestPlayer.gridY})`);
+      }
+      writeToLog("* Verified concurrent movements synced correctly on the guest.");
+
+      // 4. Test Concurrent Placements Collision
+      // Host places soda machine at (10, 10)
+      hostGame.sendAction(winHost.Casino.Protocol.Commands.PLACE_OBJECT, { type: 'soda_machine', gridX: 10, gridY: 10 });
+      // Guest attempts to place vending machine at same coordinate (10, 10) concurrently
+      guestGame.sendAction(winGuest.Casino.Protocol.Commands.PLACE_OBJECT, { type: 'vending_machine', gridX: 10, gridY: 10 });
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Retrieve placed objects at (10, 10) on Host
+      const objsAtHost = hostGame.state.grid.objects.filter(o => o.gridX === 10 && o.gridY === 10);
+      if (objsAtHost.length !== 1) {
+        throw new Error(`Expected exactly 1 object at collision grid (10,10), found ${objsAtHost.length}`);
+      }
+      if (objsAtHost[0].type !== 'soda_machine') {
+        throw new Error(`Expected soda_machine at (10,10) to win collision, found: ${objsAtHost[0].type}`);
+      }
+      writeToLog("* Verified placement collision: first placement succeeded, concurrent colliding placement rejected.");
+
+      // 5. Test Concurrent Upgrades Race Conditions
+      const targetObj = objsAtHost[0];
+      // Both host and guest upgrade the same soda machine's capacity concurrently
+      hostGame.sendAction(winHost.Casino.Protocol.Commands.UPGRADE_OBJECT, { objectId: targetObj.id, upgradeType: 'capacity' });
+      guestGame.sendAction(winGuest.Casino.Protocol.Commands.UPGRADE_OBJECT, { objectId: targetObj.id, upgradeType: 'capacity' });
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Verify upgrade capacity resolved correctly without errors
+      const upgradedObj = hostGame.state.grid.objects.find(o => o.id === targetObj.id);
+      if (upgradedObj.guestCapacity !== 3) {
+        throw new Error(`Expected soda machine capacity to increment twice (from 1 to 3), got: ${upgradedObj.guestCapacity}`);
+      }
+      writeToLog("* Verified concurrent upgrades resolved correctly in sync on Host & Guest.");
+
+      // 6. Test Guest Disconnection graceful continuation
+      guestGame.peerConn.close(); // trigger close
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Host should register guest removal
+      if (hostGame.sim.players.has(guestPeerId)) {
+        throw new Error("Host simulator still contains guest player after disconnect event");
+      }
+      writeToLog("* Verified guest disconnection handled gracefully on host.");
+
+      // Cleanup
+      document.body.removeChild(iframeHost);
+      document.body.removeChild(iframeGuest);
+
+      writeToLog("### Test Case: Multiplayer Lobby Sync & Concurrent Interactions");
+      writeToLog("* Verified WebRTC simulated client hosting and lobby joining.");
+      writeToLog("* Verified synchronized real-time WASD player coordinates between Host and Guest.");
+      writeToLog("* Verified placement collision prevention (only 1 object is placed on collision).");
+      writeToLog("* Verified concurrent upgrade execution handled correctly by simulator.");
+      writeToLog("* Verified guest player cleanup upon connection termination.");
     });
 
     // Write final report markdown file
