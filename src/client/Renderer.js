@@ -339,6 +339,7 @@
           this.ctx.fill();
 
           // Body
+          this.ctx.save();
           this.ctx.beginPath();
           this.ctx.arc(xPx, yPx, 10, 0, Math.PI * 2);
           
@@ -372,6 +373,18 @@
           
           this.ctx.fillStyle = bodyColor;
           this.ctx.fill();
+
+          if (emp.role === 'pickpocket') {
+            this.ctx.clip();
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(xPx - 12, yPx - 7, 24, 3);
+            this.ctx.fillRect(xPx - 12, yPx - 1, 24, 3);
+            this.ctx.fillRect(xPx - 12, yPx + 5, 24, 3);
+          }
+          this.ctx.restore();
+
+          this.ctx.beginPath();
+          this.ctx.arc(xPx, yPx, 10, 0, Math.PI * 2);
           this.ctx.strokeStyle = '#fff';
           this.ctx.stroke();
 
@@ -383,6 +396,18 @@
           this.ctx.fill();
           this.ctx.strokeStyle = '#000';
           this.ctx.stroke();
+
+          // Draw dealer hat on bobbing head
+          if (emp.role === 'dealer') {
+            this.ctx.fillStyle = '#111';
+            // Brim
+            this.ctx.fillRect(xPx - 8, yPx - 12 + bob, 16, 2);
+            // Crown
+            this.ctx.fillRect(xPx - 5, yPx - 18 + bob, 10, 6);
+            // Hat band
+            this.ctx.fillStyle = '#ff007f'; // neon pink
+            this.ctx.fillRect(xPx - 5, yPx - 14 + bob, 10, 2);
+          }
 
           // Role icon label
           this.ctx.fillStyle = '#fff';

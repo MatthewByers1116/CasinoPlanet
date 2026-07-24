@@ -283,6 +283,7 @@
       this.currentBets.clear();
       this.selectedChipValue = 5;
       this.sessionProfit = 0; // Initialize session profit on open
+      this.otherPlayersHands = new Map();
       
       this.overlayEl.classList.remove('hidden');
       this.updateBalance();
@@ -359,6 +360,7 @@
       }
 
       this.updateDealerStatus();
+      this.updateOtherPlayers(this.clientGame.state);
 
       // Tell client player state is locked in minigame
       this.clientGame.isInMinigame = true;
@@ -1767,34 +1769,12 @@
       }
 
       // Render other players at the table in the sidebar
-      const listEl = document.getElementById('bj-other-players-list');
-      if (listEl) {
-        if (payload.otherPlayers && payload.otherPlayers.length > 0) {
-          listEl.innerHTML = payload.otherPlayers.map(p => {
-            const shortId = p.playerId.substring(0, 5);
-            let handHTML = "";
-            if (p.isSplit) {
-              handHTML = `
-                <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Hand 1 (${this.getHandScore(p.playerHand1)}) | Hand 2 (${this.getHandScore(p.playerHand2)})</div>
-              `;
-            } else {
-              const score = this.getHandScore(p.playerHand);
-              handHTML = `
-                <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Hand (${score})</div>
-              `;
-            }
-            return `
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 6px; border-radius: 6px; text-align: left;">
-                <div style="color: var(--accent-blue); font-weight: bold;">Manager ${shortId}</div>
-                ${handHTML}
-                <div style="font-size: 8px; color: ${p.state === 'resolved' ? '#ff4d4d' : '#39ff14'}; text-transform: uppercase; margin-top: 2px;">${p.state}</div>
-              </div>
-            `;
-          }).join('');
-        } else {
-          listEl.innerHTML = `<div style="padding: 12px 0; font-size:10px;">No other players playing at this table</div>`;
-        }
+      if (payload.otherPlayers) {
+        payload.otherPlayers.forEach(p => {
+          this.otherPlayersHands.set(p.playerId, p);
+        });
       }
+      this.updateOtherPlayers(this.clientGame.state);
 
       this.updateBalance();
     }
@@ -1832,37 +1812,45 @@
       this.rtbState = 'betting';
 
       this.modalBody.innerHTML = `
-        <div class="card-game-container" style="display:flex; flex-direction:column; gap:16px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:16px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
-          <div style="font-size: 16px; font-weight: 800; color: var(--accent-blue);" id="rtb-step-title">
-            Step 1: Red or Black?
-          </div>
-          <div style="text-align:center; width:100%;">
-            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">BUS CARDS</div>
-            <div id="rtb-cards" style="display:flex; gap:10px; justify-content:center; min-height:80px; align-items:center;">
-              <div style="color:rgba(255,255,255,0.2); font-size:12px;">Bus will start on Deal</div>
+        <div class="card-game-container" style="display:flex; gap:16px; width:100%; max-width:700px; margin:0 auto; font-family:'Outfit', sans-serif;">
+          <div style="flex:2; display:flex; flex-direction:column; gap:16px; align-items:center; padding:16px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08); box-sizing:border-box;">
+            <div style="font-size: 16px; font-weight: 800; color: var(--accent-blue);" id="rtb-step-title">
+              Step 1: Red or Black?
+            </div>
+            <div style="text-align:center; width:100%;">
+              <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">BUS CARDS</div>
+              <div id="rtb-cards" style="display:flex; gap:10px; justify-content:center; min-height:80px; align-items:center;">
+                <div style="color:rgba(255,255,255,0.2); font-size:12px;">Bus will start on Deal</div>
+              </div>
+            </div>
+            <div id="rtb-status-text" style="font-size:14px; font-weight:800; text-align:center; height:24px; color:#fff;">
+              Place your bet to start the bus!
+            </div>
+            <div style="display:flex; justify-content:space-between; width:100%; background:rgba(0,0,0,0.3); padding:8px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); font-size:11px;">
+              <div>Bet: <span id="rtb-bet-val" style="color:var(--accent-gold); font-weight:800;">10</span> Chips</div>
+              <div>Session Profit: <span id="rtb-profit-val" style="font-weight:800; color:#fff;">0</span> Chips</div>
+            </div>
+            <div class="controls-wrapper" style="width:100%;">
+              <div class="chip-selector" id="rtb-chip-selector" style="justify-content:center; gap:8px; margin-bottom:12px;">
+                <div class="picker-chip active" data-value="10">10</div>
+                <div class="picker-chip" data-value="25">25</div>
+                <div class="picker-chip" data-value="100">100</div>
+              </div>
+              
+              <div id="rtb-guess-buttons" style="display:none; justify-content:center; gap:12px; margin-bottom:12px;">
+                <!-- Dynamic guess buttons -->
+              </div>
+              
+              <div class="action-buttons" style="justify-content:center; gap:12px;">
+                <button id="rtb-deal-btn" class="action-btn primary" style="min-width:100px;">START BUS</button>
+                <button id="rtb-cashout-btn" class="action-btn secondary" style="min-width:100px; display:none;">CASHOUT</button>
+              </div>
             </div>
           </div>
-          <div id="rtb-status-text" style="font-size:14px; font-weight:800; text-align:center; height:24px; color:#fff;">
-            Place your bet to start the bus!
-          </div>
-          <div style="display:flex; justify-content:space-between; width:100%; background:rgba(0,0,0,0.3); padding:8px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); font-size:11px;">
-            <div>Bet: <span id="rtb-bet-val" style="color:var(--accent-gold); font-weight:800;">10</span> Chips</div>
-            <div>Session Profit: <span id="rtb-profit-val" style="font-weight:800; color:#fff;">0</span> Chips</div>
-          </div>
-          <div class="controls-wrapper" style="width:100%;">
-            <div class="chip-selector" id="rtb-chip-selector" style="justify-content:center; gap:8px; margin-bottom:12px;">
-              <div class="picker-chip active" data-value="10">10</div>
-              <div class="picker-chip" data-value="25">25</div>
-              <div class="picker-chip" data-value="100">100</div>
-            </div>
-            
-            <div id="rtb-guess-buttons" style="display:none; justify-content:center; gap:12px; margin-bottom:12px;">
-              <!-- Dynamic guess buttons -->
-            </div>
-            
-            <div class="action-buttons" style="justify-content:center; gap:12px;">
-              <button id="rtb-deal-btn" class="action-btn primary" style="min-width:100px;">START BUS</button>
-              <button id="rtb-cashout-btn" class="action-btn secondary" style="min-width:100px; display:none;">CASHOUT</button>
+          <div id="rtb-other-players-panel" style="display:flex; flex-direction:column; gap:10px; flex: 1.1; padding:16px; background:rgba(0,0,0,0.5); border-radius:12px; border:1px solid rgba(255,255,255,0.08); font-size:11px; max-height:420px; overflow-y:auto; box-sizing:border-box;">
+            <div style="font-weight:bold; color:var(--accent-gold); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px; text-align:center;">👥 PLAYERS AT TABLE</div>
+            <div id="rtb-other-players-list" style="display:flex; flex-direction:column; gap:12px; margin-top:6px; color:#aaa; text-align:center;">
+              No other players at this table
             </div>
           </div>
         </div>
@@ -2002,6 +1990,13 @@
           profitEl.style.color = this.sessionProfit > 0 ? 'var(--accent-green)' : (this.sessionProfit < 0 ? 'var(--accent-pink)' : '#fff');
         }
       }
+      if (payload.otherPlayers) {
+        payload.otherPlayers.forEach(p => {
+          this.otherPlayersHands.set(p.playerId, p);
+        });
+      }
+      this.updateOtherPlayers(this.clientGame.state);
+
       this.updateBalance();
     }
 
@@ -4048,7 +4043,94 @@
         }, 150);
       }
     }
+
+    updateOtherPlayers(state) {
+      if (!state || !state.players) return;
+      const tableId = this.activeTableId;
+      const gameType = this.activeGameType;
+      if (!tableId || !gameType) return;
+
+      const otherPlayers = [];
+      for (const [pId, p] of Object.entries(state.players)) {
+        if (pId !== this.clientGame.playerId && p.interactingObjectId === tableId) {
+          // Merge hand info from this.otherPlayersHands if present
+          const handData = this.otherPlayersHands.get(pId) || {};
+          otherPlayers.push({
+            playerId: pId,
+            ...handData
+          });
+        }
+      }
+
+      if (gameType === 'blackjack' || gameType === 'elec_blackjack') {
+        const listEl = document.getElementById('bj-other-players-list');
+        if (listEl) {
+          if (otherPlayers.length > 0) {
+            listEl.innerHTML = otherPlayers.map(p => {
+              const shortId = p.playerId.substring(0, 5);
+              let handHTML = "";
+              if (p.isSplit) {
+                handHTML = `
+                  <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Hand 1 (${this.getHandScore(p.playerHand1 || [])}) | Hand 2 (${this.getHandScore(p.playerHand2 || [])})</div>
+                `;
+              } else if (p.playerHand) {
+                const score = this.getHandScore(p.playerHand);
+                handHTML = `
+                  <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Hand (${score})</div>
+                `;
+              } else {
+                handHTML = `
+                  <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Joined (Waiting for deal)</div>
+                `;
+              }
+              const pState = p.state || 'betting';
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 6px; border-radius: 6px; text-align: left;">
+                  <div style="color: var(--accent-blue); font-weight: bold;">Manager ${shortId}</div>
+                  ${handHTML}
+                  <div style="font-size: 8px; color: ${pState === 'resolved' ? '#ff4d4d' : '#39ff14'}; text-transform: uppercase; margin-top: 2px;">${pState}</div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            listEl.innerHTML = `<div style="padding: 12px 0; font-size:10px;">No other players playing at this table</div>`;
+          }
+        }
+      } else if (gameType === 'ride_the_bus') {
+        const listEl = document.getElementById('rtb-other-players-list');
+        if (listEl) {
+          if (otherPlayers.length > 0) {
+            listEl.innerHTML = otherPlayers.map(p => {
+              const shortId = p.playerId.substring(0, 5);
+              let stepHTML = "";
+              if (p.step) {
+                stepHTML = `
+                  <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Step ${p.step}</div>
+                `;
+              } else {
+                stepHTML = `
+                  <div style="font-size: 9px; color: #aaa; margin-top: 2px;">Joined (Waiting for deal)</div>
+                `;
+              }
+              const pState = p.state || 'betting';
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 6px; border-radius: 6px; text-align: left;">
+                  <div style="color: var(--accent-blue); font-weight: bold;">Manager ${shortId}</div>
+                  ${stepHTML}
+                  <div style="font-size: 8px; color: ${pState === 'resolved' ? '#ff4d4d' : '#39ff14'}; text-transform: uppercase; margin-top: 2px;">${pState}</div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            listEl.innerHTML = `<div style="padding: 12px 0; font-size:10px;">No other players playing at this table</div>`;
+          }
+        }
+      }
+    }
   }
 
   window.Casino.MinigameUI = MinigameUI;
+  window.Casino.MinigameUI = MinigameUI; // standard expose
+  // window.Casino.MinigameUI = MinigameUI;
+  // window.Casino.MinigameUI = MinigameUI;
 })();

@@ -700,6 +700,9 @@
           } else {
             this.state.players[payload.id] = payload;
           }
+          if (this.minigameUI && this.isInMinigame) {
+            this.minigameUI.updateOtherPlayers(this.state);
+          }
           break;
 
         case Protocol.Events.OBJECT_PLACED:
@@ -742,6 +745,13 @@
                 }
               }
             });
+          }
+
+          if (payload.players) {
+            this.state.players = payload.players;
+          }
+          if (this.minigameUI && this.isInMinigame) {
+            this.minigameUI.updateOtherPlayers(this.state);
           }
 
           this.updateHUD();
@@ -863,6 +873,10 @@
             if (centerHud) centerHud.style.display = 'none';
           }
           
+          if (this.minigameUI && this.isInMinigame) {
+            this.minigameUI.updateOtherPlayers(this.state);
+          }
+
           // Refresh canvas centering ratios
           this.resizeCanvas();
           this.updateHUD();
@@ -934,6 +948,12 @@
       if (dayNumEl) dayNumEl.innerText = day;
       if (revEl) revEl.innerText = `+${revenue.toLocaleString()} Chips`;
       if (expEl) expEl.innerText = `-${expenses.toLocaleString()} Chips`;
+
+      const playerLossesEl = document.getElementById('report-player-losses');
+      const playerLosses = payload.playerGamblingLosses || 0;
+      if (playerLossesEl) {
+        playerLossesEl.innerText = `${playerLosses.toLocaleString()} Chips`;
+      }
       
       if (netEl) {
         netEl.innerText = (netProfit >= 0 ? '+' : '') + netProfit.toLocaleString() + ' Chips';

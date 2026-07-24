@@ -1001,6 +1001,98 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified concurrent upgrades resolved correctly in sync on Host & Guest.");
 
+      // 5.5 Visual Character Distinctions, End of Day Stats, and Co-Play sidebars verification
+      // Verify visual rendering executes cleanly
+      const testCanvas = document.createElement('canvas');
+      testCanvas.width = 200;
+      testCanvas.height = 150;
+      const testCtx = testCanvas.getContext('2d');
+      const testRenderer = new winHost.Casino.Renderer(testCanvas);
+      const dummyState = {
+        grid: { cols: 24, rows: 16, objects: [] },
+        economy: { chips: 5000 },
+        players: {},
+        guests: {},
+        employees: {
+          "dealer_test": { id: "dealer_test", role: "dealer", renderX: 5, renderY: 5, gridX: 5, gridY: 5, state: "WORKING" },
+          "pickpocket_test": { id: "pickpocket_test", role: "pickpocket", renderX: 6, renderY: 6, gridX: 6, gridY: 6, state: "WANDER" }
+        }
+      };
+      testRenderer.draw(dummyState);
+      writeToLog("* Verified that visual rendering of dealer hats and pickpocket stripes executes without error.");
+
+      // Verify daily losses tracking and report dialog data binding
+      hostGame.sim.playerGamblingLosses = 0;
+      const hostPlayerObj = hostGame.sim.players.get(hostGame.playerId);
+      if (hostPlayerObj) {
+        hostGame.sim.sendPayout(hostPlayerObj, 'blackjack', -250, 0);
+        if (hostGame.sim.playerGamblingLosses !== 250) {
+          throw new Error(`Expected playerGamblingLosses to be 250, got: ${hostGame.sim.playerGamblingLosses}`);
+        }
+      }
+      const endDaySpyReport = { called: false, payload: null };
+      const originalShowDayReport = hostGame.showDayReportDialog;
+      hostGame.showDayReportDialog = (payload) => {
+        endDaySpyReport.called = true;
+        endDaySpyReport.payload = payload;
+        originalShowDayReport.call(hostGame, payload);
+      };
+      hostGame.sim.endCurrentDay();
+      if (!endDaySpyReport.called) {
+        throw new Error("Day report dialog not shown upon endCurrentDay");
+      }
+      if (endDaySpyReport.payload.playerGamblingLosses !== 250) {
+        throw new Error(`Expected day report playerGamblingLosses to be 250, got: ${endDaySpyReport.payload.playerGamblingLosses}`);
+      }
+      writeToLog("* Verified that player gambling losses are tracked and compiled in the Day Report payload.");
+      hostGame.showDayReportDialog = originalShowDayReport; // Restore
+
+      // Verify multiplayer co-play sidebar update
+      const tableId = "bj_multi_test";
+      hostGame.sim.gridManager.placedObjects.set(tableId, {
+        id: tableId,
+        type: 'blackjack',
+        gridX: 12,
+        gridY: 10,
+        width: 3,
+        height: 2,
+        dealerSeat: { rx: 1, ry: -1 }
+      });
+      // Move guest player closer to interaction range of (12, 10)
+      guestGame.sendAction(winGuest.Casino.Protocol.Commands.MOVE_PLAYER, { x: 13, y: 9 });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      hostGame.sendAction(winHost.Casino.Protocol.Commands.INTERACT, { objectId: tableId });
+      guestGame.sendAction(winGuest.Casino.Protocol.Commands.INTERACT, { objectId: tableId });
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      hostGame.minigameUI.open('blackjack', tableId);
+      guestGame.minigameUI.open('blackjack', tableId);
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const hostOtherList = docHost.getElementById('bj-other-players-list');
+      const guestOtherList = docGuest.getElementById('bj-other-players-list');
+      if (!hostOtherList || !hostOtherList.innerHTML.includes("Manager")) {
+        throw new Error("Host blackjack other players list did not show guest player");
+      }
+      if (!guestOtherList || !guestOtherList.innerHTML.includes("Manager")) {
+        throw new Error("Guest blackjack other players list did not show host player");
+      }
+      writeToLog("* Verified that multiplayer co-play sidebar updates players lists on Blackjack tables.");
+
+      hostGame.minigameUI.open('ride_the_bus', tableId);
+      guestGame.minigameUI.open('ride_the_bus', tableId);
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const hostRtbList = docHost.getElementById('rtb-other-players-list');
+      const guestRtbList = docGuest.getElementById('rtb-other-players-list');
+      if (!hostRtbList || !hostRtbList.innerHTML.includes("Manager")) {
+        throw new Error("Host ride_the_bus other players list did not show guest player");
+      }
+      if (!guestRtbList || !guestRtbList.innerHTML.includes("Manager")) {
+        throw new Error("Guest ride_the_bus other players list did not show host player");
+      }
+      writeToLog("* Verified that multiplayer co-play sidebar updates players lists on Ride The Bus tables.");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));

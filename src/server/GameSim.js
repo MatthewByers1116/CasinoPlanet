@@ -23,6 +23,7 @@
       // Card game minigame sessions
       this.blackjackSessions = new Map();
       this.rideTheBusSessions = new Map();
+      this.playerGamblingLosses = 0;
       this.threeCardPokerSessions = new Map();
       this.baccaratSessions = new Map();
       this.texasHoldemSessions = new Map();
@@ -311,6 +312,7 @@
 
         case Protocol.Commands.LEAVE_INTERACTION:
           player.clearInteraction();
+          this.broadcast(window.Casino.Protocol.Events.PLAYER_MOVED, player.serialize());
           break;
 
         case Protocol.Commands.PLAY_MINIGAME:
@@ -580,8 +582,9 @@
                 console.log(`[Server:GameSim] Dealing boost ended for "${obj.name}".`);
               }
             }, 60000);
-          }
         }
+      }
+      this.broadcast(window.Casino.Protocol.Events.PLAYER_MOVED, player.serialize());
       }
     }
 
@@ -1268,7 +1271,8 @@
         day: this.currentDay,
         revenue: this.dayRevenue,
         expenses: this.dayExpenses,
-        stats: this.dayStats
+        stats: this.dayStats,
+        playerGamblingLosses: this.playerGamblingLosses
       };
 
       // Reset all guests (people-wise reset)
@@ -1304,6 +1308,7 @@
       this.dayRevenue = 0;
       this.dayExpenses = 0;
       this.dayStats = {};
+      this.playerGamblingLosses = 0;
 
       // Broadcast full state
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
@@ -1420,6 +1425,44 @@
             playerHand1: sess.playerHand1,
             playerHand2: sess.playerHand2,
             state: sess.state
+          });
+        }
+      }
+      return otherPlayers;
+    }
+
+    getOtherPlayersAtTable(playerId, tableId) {
+      const otherPlayers = [];
+      for (const [pId, p] of this.players.entries()) {
+        if (pId !== playerId && p.interactingObjectId === tableId) {
+          let handInfo = {};
+          
+          const bjSess = this.blackjackSessions.get(pId);
+          if (bjSess && bjSess.tableId === tableId) {
+            handInfo = {
+              gameType: 'blackjack',
+              state: bjSess.state,
+              isSplit: bjSess.isSplit,
+              playerHand: bjSess.playerHand,
+              playerHand1: bjSess.playerHand1,
+              playerHand2: bjSess.playerHand2,
+              betAmount: bjSess.betAmount
+            };
+          }
+          
+          const rtbSess = this.rideTheBusSessions.get(pId);
+          if (rtbSess && rtbSess.tableId === tableId) {
+            handInfo = {
+              gameType: 'ride_the_bus',
+              state: rtbSess.state,
+              step: rtbSess.step,
+              betAmount: rtbSess.betAmount
+            };
+          }
+
+          otherPlayers.push({
+            playerId: pId,
+            ...handInfo
           });
         }
       }
@@ -1790,7 +1833,7 @@
             dealerHand,
             outcome: net === 0 ? 'push' : 'blackjack',
             state: 'resolved',
-            otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+            otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
           });
           return;
         }
@@ -1800,7 +1843,7 @@
           playerHand,
           dealerHand: [dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
           state: 'playing',
-          otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
         });
         return;
       }
@@ -1828,7 +1871,7 @@
           playerHand: session.playerHand1,
           dealerHand: [session.dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
           state: 'playing',
-          otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
         });
         return;
       }
@@ -1849,7 +1892,7 @@
               playerHand: session.activeHandIndex === 0 ? session.playerHand1 : session.playerHand2,
               dealerHand: [session.dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
               state: 'playing',
-              otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+              otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
             });
           } else {
             session.playerHand2.push(session.deck.pop());
@@ -1867,7 +1910,7 @@
                   dealerHand: session.dealerHand,
                   outcome: 'bust',
                   state: 'resolved',
-                  otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+                  otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
                 });
               } else {
                 this.resolveDealerBlackjack(player, session, isElectronic);
@@ -1881,7 +1924,7 @@
                 playerHand: session.playerHand2,
                 dealerHand: [session.dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
                 state: 'playing',
-                otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+                otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
               });
             }
           }
@@ -1903,7 +1946,7 @@
               playerHand: session.playerHand2,
               dealerHand: [session.dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
               state: 'playing',
-              otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+              otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
             });
           } else {
             session.playerHand2.push(session.deck.pop());
@@ -1920,7 +1963,7 @@
                 dealerHand: session.dealerHand,
                 outcome: 'bust',
                 state: 'resolved',
-                otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+                otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
               });
             } else {
               this.resolveDealerBlackjack(player, session, isElectronic);
@@ -1937,7 +1980,7 @@
               playerHand: session.playerHand2,
               dealerHand: [session.dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
               state: 'playing',
-              otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+              otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
             });
           } else {
             this.resolveDealerBlackjack(player, session, isElectronic);
@@ -1958,14 +2001,14 @@
             dealerHand: session.dealerHand,
             outcome: 'bust',
             state: 'resolved',
-            otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+            otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
           });
         } else {
           this.sendPayout(player, isElectronic ? 'elec_blackjack' : 'blackjack', 0, 0, {
             playerHand: session.playerHand,
             dealerHand: [session.dealerHand[0], { name: '?', val: '?', suit: '?', score: 0 }],
             state: 'playing',
-            otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+            otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
           });
         }
       } else if (action === 'double') {
@@ -1987,7 +2030,7 @@
             dealerHand: session.dealerHand,
             outcome: 'bust',
             state: 'resolved',
-            otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+            otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
           });
         } else {
           this.resolveDealerBlackjack(player, session, isElectronic);
@@ -2049,7 +2092,7 @@
           dealerHand: session.dealerHand,
           outcome: netWin > 0 ? 'win' : netWin === 0 ? 'push' : 'lose',
           state: 'resolved',
-          otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
         });
         return;
       }
@@ -2078,7 +2121,7 @@
         dealerHand: session.dealerHand,
         outcome,
         state: 'resolved',
-        otherPlayers: this.getOtherBlackjackPlayers(player.id, session.tableId)
+        otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
       });
     }
 
@@ -2100,6 +2143,8 @@
           history: session.history,
           outcome: 'cashout',
           state: 'resolved'
+        ,
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
         });
         return;
       }
@@ -2123,6 +2168,8 @@
           currentCard: card,
           history: session.history,
           state: 'playing'
+        ,
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
         });
         return;
       }
@@ -2178,7 +2225,9 @@
             history: session.history,
             outcome: 'win_bus',
             state: 'resolved'
-          });
+          ,
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
+        });
         } else {
           session.step++;
           this.sendPayout(player, 'ride_the_bus', 0, 0, {
@@ -2186,7 +2235,9 @@
             currentCard: nextCard,
             history: session.history,
             state: 'playing'
-          });
+          ,
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
+        });
         }
       } else {
         session.state = 'resolved';
@@ -2196,6 +2247,8 @@
           history: session.history,
           outcome: 'lose',
           state: 'resolved'
+        ,
+          otherPlayers: this.getOtherPlayersAtTable(player.id, session.tableId)
         });
       }
     }
@@ -3292,6 +3345,10 @@
       }
 
       this.recordDayStat(gameType, -netPayout);
+
+      if (netPayout < 0) {
+        this.playerGamblingLosses += Math.abs(netPayout);
+      }
 
       // Player wins award Research Points equal to 1/4 of net profits (min 1 RP on any win!)
       let rpAwarded = 0;
