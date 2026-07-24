@@ -1,0 +1,17 @@
+{
+  "name": "casino-planet",
+  "version": "1.0.0",
+  "description": "Grid-Based Casino Manager & Interactive Arcade",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}

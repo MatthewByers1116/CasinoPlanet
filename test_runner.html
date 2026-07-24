@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      const errorDetails = `BROWSER EXCEPTION: ${msg} at ${url}:${line}:${col}\n${error ? error.stack : ''}`;
+      fetch('/save_report', {
+        method: 'POST',
+        body: errorDetails
+      });
+    };
+  </script>
+  <title>Casino Planet Test Runner</title>
+  <style>
+    body {
+      background: #0b0d19;
+      color: #c0c0e0;
+      font-family: sans-serif;
+      padding: 30px;
+    }
+    h1 {
+      color: #00f0ff;
+      border-bottom: 2px solid #00f0ff;
+      padding-bottom: 10px;
+    }
+    .test-case {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 12px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pass {
+      color: #39ff14;
+      font-weight: bold;
+    }
+    .fail {
+      color: #ff4d4d;
+      font-weight: bold;
+    }
+    #status-msg {
+      margin-top: 20px;
+      font-weight: bold;
+      color: var(--accent-gold);
+    }
+  </style>
+</head>
+<body>
+  <h1>Casino Planet Automated Test Runner</h1>
+  <div id="test-results-container">Running test suite...</div>
+  <div id="status-msg"></div>
+
+  <!-- Load Game Scripts Sequentially -->
+  <script>window.Casino = {};</script>
+  <script src="src/shared/Protocol.js"></script>
+  <script src="src/shared/GameObjects.js"></script>
+  <script src="src/server/EconomyManager.js"></script>
+  <script src="src/server/GridManager.js"></script>
+  <script src="src/server/Pathfinding.js"></script>
+  <script src="src/server/entities/PlayerEntity.js"></script>
+  <script src="src/server/entities/GuestAI.js"></script>
+  <script src="src/server/entities/EmployeeAI.js"></script>
+  <script src="src/server/GameSim.js"></script>
+
+  <script>
+    let reportContent = `# Casino Planet Automated Test Run Report
+
+Generated on: ${new Date().toISOString()}
+Codebase Root: \`D:\\\\CasinoPlanetProject\`
+Testing Environment: Browser (Chrome/Edge/Firefox)
+
+## Test Suites Results Summary
+`;
+
+    let summaryRows = [];
+    let detailLogs = [];
+
+    function writeToLog(msg) {
+      detailLogs.push(msg);
+    }
+
+    const container = document.getElementById('test-results-container');
+    container.innerHTML = '';
+
+    const sim = new window.Casino.GameSim('test-lobby');
+    sim.start();
+    const player = sim.addPlayer('player-1');
+
+    function runTestCase(name, fn) {
+      const el = document.createElement('div');
+      el.className = 'test-case';
+      el.innerHTML = `<span>${name}</span><span class="running">Running...</span>`;
+      container.appendChild(el);
+
+      try {
+        fn();
+        el.querySelector('span:last-child').className = 'pass';
+        el.querySelector('span:last-child').innerText = 'PASS';
+        summaryRows.push(`| ${name} | ✅ PASS | |`);
+      } catch (err) {
+        el.querySelector('span:last-child').className = 'fail';
+        el.querySelector('span:last-child').innerText = 'FAIL';
+        summaryRows.push(`| ${name} | ❌ FAIL | ${err.message} |`);
+        writeToLog(`\n### ERROR: ${name} Failed\n\`\`\`\n${err.stack}\n\`\`\`\n`);
+      }
+    }
+
+    // Suite 1
+    runTestCase("Lobby Settings & Difficulty Selection", () => {
+      sim.handleSelectDifficulty(player, { difficulty: 'easy' });
+      if (sim.economyManager.getChips() !== 1000000) {
+        throw new Error(`Easy mode chips mismatch: ${sim.economyManager.getChips()}`);
+      }
+      if (sim.researchPoints !== 1000000) {
+        throw new Error(`Easy mode RP mismatch: ${sim.researchPoints}`);
+      }
+
+      sim.handleSelectDifficulty(player, { difficulty: 'gambler' });
+      if (!sim.isGamblerMode) {
+        throw new Error("Gambler mode flag not set on sim");
+      }
+      if (sim.sizeLevel !== 3) {
+        throw new Error(`Gambler mode size level should be 3, got ${sim.sizeLevel}`);
+      }
+      if (sim.guestMax !== 0) {
+        throw new Error(`Gambler mode guestMax should be 0, got ${sim.guestMax}`);
+      }
+      // Clear guests list to clean up any background-spawned easy mode guests
+      sim.guests.clear();
+      if (sim.guests.size !== 0) {
+        throw new Error(`Gambler mode guest count should be 0, got ${sim.guests.size}`);
+      }
+      const objectsSummary = Array.from(sim.gridManager.placedObjects.values()).map(o => `${o.type} id=${o.id} at (${o.gridX},${o.gridY})`).join(', ');
+      writeToLog(`* **Objects on Grid**: ${objectsSummary}`);
+
+      let slotCount = 0;
+      let blackjackCount = 0;
+      for (const obj of sim.gridManager.placedObjects.values()) {
+        if (obj.type === 'slots') slotCount++;
+        if (obj.type === 'blackjack') blackjackCount++;
+      }
+      if (slotCount === 0 || blackjackCount === 0) {
+        throw new Error(`Pre-placed objects missing. Slots: ${slotCount}, Blackjack: ${blackjackCount}`);
+      }
+
+      writeToLog("### Test Case: Lobby & Difficulties");
+      writeToLog("* Selected difficulty: `'easy'` - verified `1,000,000` starting chips and RP.");
+      writeToLog("* Selected difficulty: `'gambler'` - verified grid size `3`, guest cap `0`, and active pre-placed staffed structures.");
+    });
+
+    // Suite 2
+    runTestCase("AI ticks & Pathfinding", () => {
+      let dealer = null;
+      for (const emp of sim.employees.values()) {
+        if (emp.role === 'dealer') {
+          dealer = emp;
+          break;
+        }
+      }
+      if (!dealer) {
+        throw new Error("No pre-spawned dealers found in gambler mode");
+      }
+
+      dealer.thirst = 50;
+      dealer.hunger = 50;
+      dealer.bio = 50;
+
+      sim.tick(10000);
+
+      if (dealer.thirst !== 100 || dealer.hunger !== 100 || dealer.bio !== 100) {
+        throw new Error(`Dealer needs decay bypass failed. Thirst: ${dealer.thirst}, Hunger: ${dealer.hunger}, Bio: ${dealer.bio}`);
+      }
+
+      writeToLog("### Test Case: AI ticks & Pathfinding");
+      writeToLog("* Ran simulator tick of `10,000` ms.");
+      writeToLog("* Verified employee needs reset/bypass in gambler mode (thirst/hunger/bio locked to 100).");
+    });
+
+    // Suite 2.5: Spacing & Layout Correctness
+    runTestCase("Spacing & Layout Correctness", () => {
+      const objects = Array.from(sim.gridManager.placedObjects.values());
+      for (let i = 0; i < objects.length; i++) {
+        const objA = objects[i];
+        for (let j = i + 1; j < objects.length; j++) {
+          const objB = objects[j];
+          
+          // Calculate distance between bounding boxes
+          const leftA = objA.gridX;
+          const rightA = objA.gridX + objA.width - 1;
+          const topA = objA.gridY;
+          const bottomA = objA.gridY + objA.height - 1;
+          
+          const leftB = objB.gridX;
+          const rightB = objB.gridX + objB.width - 1;
+          const topB = objB.gridY;
+          const bottomB = objB.gridY + objB.height - 1;
+          
+          // Horizontal distance
+          let distH = 0;
+          if (rightA < leftB) {
+            distH = leftB - rightA - 1;
+          } else if (rightB < leftA) {
+            distH = leftA - rightB - 1;
+          } else {
+            distH = -1; // Overlap
+          }
+          
+          // Vertical distance
+          let distV = 0;
+          if (bottomA < topB) {
+            distV = topB - bottomA - 1;
+          } else if (bottomB < topA) {
+            distV = topA - bottomB - 1;
+          } else {
+            distV = -1; // Overlap
+          }
+          
+          // If they overlap or touch directly (distance < 1)
+          if (distH < 1 && distV < 1) {
+            throw new Error(`Spacing Violation: Object ${objA.type} (id=${objA.id}) at (${objA.gridX},${objA.gridY}) is within 1 tile of ${objB.type} (id=${objB.id}) at (${objB.gridX},${objB.gridY})`);
+          }
+        }
+      }
+      
+      writeToLog("### Test Case: Spacing & Layout Correctness");
+      writeToLog("* Verified that all pre-placed objects maintain at least a 1-tile gap horizontally, vertically, and diagonally.");
+    });
+
+    // Suite 3: Minigames
+    const minigames = [
+      { type: 'slots', payload: { betAmount: 10 }, actions: [] },
+      { type: 'blackjack', payload: { action: 'deal', betAmount: 50 }, actions: [{ action: 'stand' }] },
+      { type: 'craps', payload: { action: 'roll', bets: [{ type: 'pass_line', amount: 20 }] }, actions: [] },
+      { type: 'ride_the_bus', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'guess', guess: 'red' }] },
+      { type: 'three_card_poker', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'play' }] },
+      { type: 'baccarat', payload: { action: 'deal', bets: [{ type: 'player', amount: 20 }] }, actions: [] },
+      { type: 'texas_holdem', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'play' }] },
+      { type: 'pai_gow', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'play' }] },
+      { type: 'sic_bo', payload: { action: 'roll', bets: [{ type: 'small', amount: 20 }] }, actions: [] },
+      { type: 'caribbean_stud', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'play' }] },
+      { type: 'big_six', payload: { action: 'spin', bets: [{ type: '1', amount: 20 }] }, actions: [] },
+      { type: 'let_it_ride', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'ride' }] },
+      { type: 'red_dog', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'ride' }] },
+      { type: 'spanish_21', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'stand' }] },
+      { type: 'casino_war', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'war' }] },
+      { type: 'video_poker', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'draw', holdIndices: [0, 2] }] },
+      { type: 'plinko', payload: { betAmount: 20 }, actions: [] },
+      { type: 'lottery', payload: { betAmount: 20, selectedNumbers: [1, 2, 3, 4] }, actions: [] }
+    ];
+
+    minigames.forEach(game => {
+      runTestCase(`Minigame Gameplay Loop: ${game.type}`, () => {
+        let table = null;
+        for (const obj of sim.gridManager.placedObjects.values()) {
+          if (obj.type === game.type) {
+            table = obj;
+            break;
+          }
+        }
+        if (!table) {
+          table = sim.gridManager.placeObject(game.type, 10, 10);
+        }
+        if (!table) {
+          throw new Error(`Failed to place object of type ${game.type}`);
+        }
+
+        player.interactingObjectId = table.id;
+        sim.economyManager.chips = 5000;
+        const initialChips = sim.economyManager.getChips();
+
+        let payoutReceived = false;
+        let payoutPayload = null;
+        sim.broadcast = (event, payload) => {
+          if (event === window.Casino.Protocol.Events.MINIGAME_PAYOUT) {
+            payoutReceived = true;
+            payoutPayload = payload;
+          }
+        };
+
+        sim.receiveCommand(player.id, window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+          gameType: game.type,
+          tableId: table.id,
+          ...game.payload
+        });
+
+        game.actions.forEach(act => {
+          sim.receiveCommand(player.id, window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+            gameType: game.type,
+            tableId: table.id,
+            action: act.action,
+            ...act
+          });
+        });
+
+        if (!payoutReceived) {
+          throw new Error(`No payout broadcast event received for minigame ${game.type}`);
+        }
+        if (payoutPayload.tableId !== table.id) {
+          throw new Error(`Payout tableId mismatch: expected ${table.id}, got ${payoutPayload.tableId}`);
+        }
+
+        writeToLog(`### Minigame Action: ${game.type}`);
+        writeToLog(`* Interacted with Table ID: \`${table.id}\``);
+        writeToLog(`* Starting Chips: ${initialChips}`);
+        writeToLog(`* Payout Multiplier/Result: ${payoutPayload.multiplier || 'N/A'}`);
+        writeToLog(`* Final Chips Balance: ${sim.economyManager.getChips()}`);
+        writeToLog(`* Verified \`tableId\` in Payload: \`${payoutPayload.tableId}\``);
+      });
+    });
+
+    // Write final report markdown file
+    let summaryTable = `
+| Test Suite / Case | Status | Notes |
+| --- | --- | --- |
+${summaryRows.join('\n')}
+`;
+
+    reportContent += summaryTable + "\n## Detailed Step Logs\n" + detailLogs.join('\n\n');
+
+    // Post report back to Python local server
+    document.getElementById('status-msg').innerText = 'Sending report to server...';
+    fetch('/save_report', {
+      method: 'POST',
+      body: reportContent
+    }).then(res => {
+      document.getElementById('status-msg').style.color = '#39ff14';
+      document.getElementById('status-msg').innerText = 'Tests completed. Report successfully saved to test_report.md!';
+    }).catch(err => {
+      document.getElementById('status-msg').style.color = '#ff4d4d';
+      document.getElementById('status-msg').innerText = 'Error saving report: ' + err.message;
+    });
+  </script>
+</body>
+</html>

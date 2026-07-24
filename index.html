@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Casino Planet: Manager & Arcade</title>
+  <link rel="stylesheet" href="src/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <!-- PeerJS WebRTC Library -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <!-- Multiplayer Mode Selection Overlay -->
+  <div id="mode-selection-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 21000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); padding: 40px; border-radius: 16px; text-align: center; max-width: 440px; color: #fff;">
+      <h1 style="margin: 0 0 10px 0; font-size: 32px; background: linear-gradient(135deg, #00f0ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: 1px;">CASINO PLANET</h1>
+      <p style="margin: 0 0 30px 0; font-size: 13px; color: var(--text-secondary);">Manage the ultimate casino empire solo or together with friends!</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+        <button id="mode-solo-btn" style="padding: 16px; border: 2px solid var(--accent-blue); background: rgba(0, 240, 255, 0.05); border-radius: 10px; color: var(--accent-blue); font-weight: bold; font-size: 15px; cursor: pointer; transition: all 0.2s ease; text-align: left; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">🎮</span>
+          <div style="flex-grow: 1;">
+            <span style="display: block; font-size: 14px;">PLAY SOLO (OFFLINE)</span>
+            <span style="font-weight: normal; color: #a0a0c0; font-size: 11px; display: block; margin-top: 2px;">Standard singleplayer career game mode.</span>
+          </div>
+        </button>
+        
+        <button id="mode-host-btn" style="padding: 16px; border: 2px solid #39ff14; background: rgba(57, 255, 20, 0.05); border-radius: 10px; color: #39ff14; font-weight: bold; font-size: 15px; cursor: pointer; transition: all 0.2s ease; text-align: left; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">👑</span>
+          <div style="flex-grow: 1;">
+            <span style="display: block; font-size: 14px;">HOST MULTIPLAYER LOBBY</span>
+            <span style="font-weight: normal; color: #a0a0c0; font-size: 11px; display: block; margin-top: 2px;">Host a game and share your Room ID for others to join.</span>
+          </div>
+        </button>
+        
+        <button id="mode-join-btn" style="padding: 16px; border: 2px solid #ff007f; background: rgba(255, 0, 127, 0.05); border-radius: 10px; color: #ff007f; font-weight: bold; font-size: 15px; cursor: pointer; transition: all 0.2s ease; text-align: left; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">🤝</span>
+          <div style="flex-grow: 1;">
+            <span style="display: block; font-size: 14px;">JOIN MULTIPLAYER LOBBY</span>
+            <span style="font-weight: normal; color: #a0a0c0; font-size: 11px; display: block; margin-top: 2px;">Enter a Room ID to connect to a friend's casino lobby.</span>
+          </div>
+        </button>
+
+        <button id="mode-load-btn" style="padding: 16px; border: 2px solid var(--accent-gold); background: rgba(255, 215, 0, 0.05); border-radius: 10px; color: var(--accent-gold); font-weight: bold; font-size: 15px; cursor: pointer; transition: all 0.2s ease; text-align: left; display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+          <span style="font-size: 24px;">💾</span>
+          <div style="flex-grow: 1;">
+            <span style="display: block; font-size: 14px;">LOAD GAME SAVE</span>
+            <span style="font-weight: normal; color: #a0a0c0; font-size: 11px; display: block; margin-top: 2px;">Paste a JSON save code to resume your career.</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Room Overlay -->
+  <div id="join-room-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid #ff007f; box-shadow: 0 0 30px rgba(255, 0, 127, 0.3); padding: 40px; border-radius: 16px; text-align: center; width: 340px; color: #fff;">
+      <h3 style="margin: 0 0 10px 0; font-size: 20px; color: #ff007f; font-weight: 800;">JOIN CASINO LOBBY</h3>
+      <p style="margin: 0 0 20px 0; font-size: 12px; color: var(--text-secondary);">Enter the Room ID of the host:</p>
+      
+      <input type="text" id="join-room-input" placeholder="e.g. casino-planet-1234" style="width: 100%; padding: 12px; border: 2px solid rgba(255, 0, 127, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 14px; text-align: center; margin-bottom: 20px; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+      
+      <div style="display: flex; gap: 12px;">
+        <button id="join-room-cancel-btn" style="flex: 1; padding: 12px; border: 1px solid #555; background: transparent; border-radius: 8px; color: #ccc; cursor: pointer;">CANCEL</button>
+        <button id="join-room-submit-btn" style="flex: 1; padding: 12px; border: none; background: #ff007f; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer;">JOIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Game Overlay -->
+  <div id="save-game-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-gold); box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); padding: 40px; border-radius: 16px; text-align: center; width: 400px; color: #fff;">
+      <h3 style="margin: 0 0 10px 0; font-size: 20px; color: var(--accent-gold); font-weight: 800;">SAVE YOUR CASINO</h3>
+      <p style="margin: 0 0 20px 0; font-size: 12px; color: var(--text-secondary);">Copy the code below to save your progress (all builds and upgrades are refunded at 100% value):</p>
+      
+      <textarea id="save-game-output" readonly style="width: 100%; height: 120px; padding: 12px; border: 2px solid rgba(255, 215, 0, 0.3); background: #111; color: #39ff14; border-radius: 8px; font-size: 11px; font-family: monospace; resize: none; box-sizing: border-box; margin-bottom: 20px; overflow-wrap: break-word;"></textarea>
+      
+      <div style="display: flex; gap: 12px;">
+        <button id="save-game-close-btn" style="flex: 1; padding: 12px; border: 1px solid #555; background: transparent; border-radius: 8px; color: #ccc; cursor: pointer;">CLOSE</button>
+        <button id="save-game-copy-btn" style="flex: 1; padding: 12px; border: none; background: var(--accent-gold); border-radius: 8px; color: #000; font-weight: bold; cursor: pointer;">COPY CODE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Game Overlay -->
+  <div id="load-game-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-gold); box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); padding: 40px; border-radius: 16px; text-align: center; width: 400px; color: #fff;">
+      <h3 style="margin: 0 0 10px 0; font-size: 20px; color: var(--accent-gold); font-weight: 800;">LOAD CASINO SAVE</h3>
+      <p style="margin: 0 0 20px 0; font-size: 12px; color: var(--text-secondary);">Paste your JSON save code below:</p>
+      
+      <textarea id="load-game-input" placeholder="Paste your save code here..." style="width: 100%; height: 120px; padding: 12px; border: 2px solid rgba(255, 215, 0, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 11px; font-family: monospace; resize: none; box-sizing: border-box; margin-bottom: 20px;"></textarea>
+      
+      <div style="display: flex; gap: 12px;">
+        <button id="load-game-cancel-btn" style="flex: 1; padding: 12px; border: 1px solid #555; background: transparent; border-radius: 8px; color: #ccc; cursor: pointer;">CANCEL</button>
+        <button id="load-game-submit-btn" style="flex: 1; padding: 12px; border: none; background: var(--accent-gold); border-radius: 8px; color: #000; font-weight: bold; cursor: pointer;">LOAD</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Choice Overlay -->
+  <div id="load-choice-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-gold); box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); padding: 40px; border-radius: 16px; text-align: center; width: 360px; color: #fff;">
+      <h3 style="margin: 0 0 10px 0; font-size: 20px; color: var(--accent-gold); font-weight: 800;">RESUME LOBBY MODE</h3>
+      <p style="margin: 0 0 24px 0; font-size: 12px; color: var(--text-secondary);">Do you want to host this loaded casino online for your friends or play solo?</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+        <button id="load-choice-solo-btn" style="padding: 14px; border: 2px solid var(--accent-blue); background: rgba(0, 240, 255, 0.05); border-radius: 8px; color: var(--accent-blue); font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
+          🎮 PLAY SOLO (OFFLINE)
+        </button>
+        <button id="load-choice-host-btn" style="padding: 14px; border: 2px solid #39ff14; background: rgba(57, 255, 20, 0.05); border-radius: 8px; color: #39ff14; font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
+          👑 HOST MULTIPLAYER LOBBY
+        </button>
+        <button id="load-choice-cancel-btn" style="padding: 10px; border: 1px solid #555; background: transparent; border-radius: 8px; color: #ccc; cursor: pointer;">
+          CANCEL
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Modal Overlay -->
+  <div id="tutorial-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); padding: 30px; border-radius: 16px; width: 500px; max-height: 80%; overflow-y: auto; color: #fff; box-sizing: border-box;">
+      <h3 style="margin: 0 0 16px 0; font-size: 22px; color: var(--accent-blue); font-weight: 800; text-align: center;">🎮 CASINO PLANET TUTORIAL</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px; font-size: 12px; line-height: 1.6; color: #ccc;">
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🏢 Managing Your Casino</strong>
+          <p style="margin: 4px 0 0 0;">Build games, decorations, and dining facilities from the lower toolbar to attract guests and earn passive chips. Click placed items to upgrade their capacity/income limits or sell them.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">👥 Hiring Employee Staff</strong>
+          <p style="margin: 4px 0 0 0;">Open the Staff tab to hire dealers (boost game income), waitresses (speed up food delivery), security (catch pickpockets), scientists (generate research points), managers, tech support (repair machines), and entertainers.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🧪 Scientists & Lab Upgrades</strong>
+          <p style="margin: 4px 0 0 0;">Build Research Labs and hire Scientists. They generate Research Points (RP) over time. You also gain RP whenever you win a minigame! Use RP to unlock high-stakes games in the upgrades menu.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">☀️ Day/Night & Daily Reports</strong>
+          <p style="margin: 4px 0 0 0;">Every 3 minutes, the "Day" ends. Guests are reset, and you get a financial report breaking down earnings/losses per table. Your progress is autosaved to browser storage at the end of each day!</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🤝 Multiplayer & Co-op</strong>
+          <p style="margin: 4px 0 0 0;">Host a multiplayer lobby to generate a Room ID. Send it to friends so they can join and help you build, hire staff, or sit down together to play Blackjack and Craps at the same tables!</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🏃 Fast Running</strong>
+          <p style="margin: 4px 0 0 0;">Hold down the <kbd style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">Shift</kbd> key while moving with WASD or arrow keys to run at double speed!</p>
+        </div>
+      </div>
+      
+      <button id="tutorial-close-btn" style="width: 100%; padding: 12px; border: none; background: var(--accent-blue); border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 24px;">GOT IT!</button>
+    </div>
+  </div>
+
+  <!-- Day Report Modal Overlay -->
+  <div id="day-report-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.4); backdrop-filter: blur(2px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif; pointer-events: none;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-gold); box-shadow: 0 0 35px rgba(255, 215, 0, 0.3); padding: 40px; border-radius: 16px; text-align: center; width: 440px; color: #fff; pointer-events: auto;">
+      <h3 style="margin: 0 0 10px 0; font-size: 24px; color: var(--accent-gold); font-weight: 800;">DAY <span id="report-day-num">1</span> COMPLETED</h3>
+      <p style="margin: 0 0 24px 0; font-size: 12px; color: var(--text-secondary);">Here is your financial report for the day:</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.3); padding: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px; font-size: 13px; text-align: left;">
+        <div style="display: flex; justify-content: space-between;">
+          <span>Daily Revenue:</span>
+          <span id="report-revenue" style="color: var(--accent-green); font-weight: 800;">+0 Chips</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span>Daily Expenses:</span>
+          <span id="report-expenses" style="color: var(--accent-pink); font-weight: 800;">-0 Chips</span>
+        </div>
+        <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.1); margin: 6px 0;"></div>
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 14px;">
+          <span>Net Profit/Loss:</span>
+          <span id="report-net-profit" style="color: #fff;">0 Chips</span>
+        </div>
+        
+        <div style="margin-top: 10px;">
+          <span style="font-weight: 700; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Breakdown by Activity:</span>
+          <div id="report-breakdown-list" style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #aaa; max-height: 120px; overflow-y: auto; padding-right: 4px;">
+            <!-- Items will be injected here -->
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size: 10px; color: #ffaa00; margin-bottom: 20px; background: rgba(255,170,0,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,170,0,0.2);">
+        💾 Auto-saved successfully to browser storage!
+      </div>
+
+      <button id="day-report-next-btn" style="width: 100%; padding: 14px; border: none; background: var(--accent-gold); border-radius: 8px; color: #000; font-weight: 900; font-size: 14px; cursor: pointer; letter-spacing: 0.5px;">START NEXT DAY</button>
+    </div>
+  </div>
+
+  <!-- Difficulty Selection Overlay -->
+  <div id="difficulty-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20000; font-family: 'Outfit', sans-serif;">
+    <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); padding: 40px; border-radius: 16px; text-align: center; max-width: 420px; color: #fff;">
+      <h1 style="margin: 0 0 10px 0; font-size: 28px; background: linear-gradient(135deg, #00f0ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800;">CASINO PLANET</h1>
+      <p style="margin: 0 0 30px 0; font-size: 13px; color: var(--text-secondary);">Select a starting difficulty for your management career:</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+        <button id="difficulty-easy-btn" style="padding: 14px; border: 2px solid #39ff14; background: rgba(57, 255, 20, 0.05); border-radius: 8px; color: #39ff14; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease;">
+          🟢 SANDBOX MODE <span style="font-weight: normal; color: #a0a0c0; display: block; font-size: 11px; margin-top: 4px;">Start with 1,000,000 Chips & 1,000,000 Research Points</span>
+        </button>
+        
+        <button id="difficulty-medium-btn" style="padding: 14px; border: 2px solid #ffd700; background: rgba(255, 215, 0, 0.05); border-radius: 8px; color: #ffd700; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease;">
+          🟡 MEDIUM MODE <span style="font-weight: normal; color: #a0a0c0; display: block; font-size: 11px; margin-top: 4px;">Start with 5,000 Chips (Standard Balance)</span>
+        </button>
+        
+        <button id="difficulty-hard-btn" style="padding: 14px; border: 2px solid #ff4d4d; background: rgba(255, 77, 77, 0.05); border-radius: 8px; color: #ff4d4d; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease;">
+          🔴 HARD MODE <span style="font-weight: normal; color: #a0a0c0; display: block; font-size: 11px; margin-top: 4px;">Start with 1,500 Chips (Extreme Grind)</span>
+        </button>
+        
+        <button id="difficulty-gambler-btn" style="padding: 14px; border: 2px solid #ff007f; background: rgba(255, 0, 127, 0.05); border-radius: 8px; color: #ff007f; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease;">
+          🎲 GAMBLER'S MODE <span style="font-weight: normal; color: #a0a0c0; display: block; font-size: 11px; margin-top: 4px;">Start as a guest! Play all games pre-placed and fully staffed. No management.</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Game Container -->
+  <div id="game-container">
+    <!-- 2D Canvas for Grid View -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- UI Overlay: HUD (Heads-Up Display) -->
+    <div id="hud-overlay" class="hud-container">
+      <div class="hud-left" style="display: flex; flex-direction: column; gap: 6px;">
+        <div class="casino-title">CASINO PLANET</div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <div class="chip-counter">
+            <span class="chip-icon">🪙</span>
+            <span id="chip-balance">1,000</span>
+            <span class="currency-label">CHIPS</span>
+          </div>
+          <div id="chip-rate" style="font-size: 11px; color: var(--accent-green); font-weight: 800; background: rgba(57, 255, 20, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(57, 255, 20, 0.2); align-self: center; text-shadow: 0 0 6px rgba(57, 255, 20, 0.4);">+0.0/s</div>
+          
+          <div class="research-counter" style="display: flex; align-items: center; gap: 6px; background: rgba(230, 77, 255, 0.1); border: 1px solid rgba(230, 77, 255, 0.3); border-radius: 8px; padding: 4px 10px; font-family: var(--font-ui); font-size: 12px; font-weight: 800; text-shadow: 0 0 6px rgba(230, 77, 255, 0.4);">
+            <span class="research-icon">🧪</span>
+            <span id="research-balance" style="color: #e64dff;">0</span>
+            <span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-left: 2px;">RP</span>
+          </div>
+
+          <div class="rating-counter" style="display: flex; align-items: center; gap: 6px; background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.3); border-radius: 8px; padding: 4px 10px; font-family: var(--font-ui); font-size: 12px; font-weight: 800; text-shadow: 0 0 6px rgba(255, 170, 0, 0.4);">
+            <span class="rating-icon">⭐</span>
+            <span id="rating-value" style="color: #ffaa00;">4.2</span>
+            <span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-left: 2px;">RATING</span>
+          </div>
+        </div>
+      </div>
+      <div class="hud-center">
+        <!-- Build Tool Panel -->
+        <div class="build-panel">
+          <button id="btn-select" class="build-btn active" title="Select / Move Mode">
+            <span class="btn-icon">🖱️</span>
+            <span class="btn-text">Select</span>
+          </button>
+          
+          <!-- Games Dropdown -->
+          <div class="dropdown">
+            <button class="build-btn dropdown-toggle" title="Build Arcade Games">
+              <span class="btn-icon">🎮</span>
+              <span class="btn-text">Games ▾</span>
+            </button>
+            <div class="dropdown-content">
+              <button id="btn-build-slots" class="dropdown-item" title="Build Slot Machine (Cost: 200 Chips)">
+                <span>🎰 Slot Machine</span> <span class="cost-tag">200</span>
+              </button>
+              <button id="btn-build-roulette" class="dropdown-item" title="Build Roulette Table (Cost: 500 Chips)">
+                <span>🎡 Roulette Table</span> <span class="cost-tag">500</span>
+              </button>
+              <button id="btn-build-craps" class="dropdown-item" title="Build Craps Table (Cost: 800 Chips)">
+                <span>🎲 Craps Table</span> <span class="cost-tag">800</span>
+              </button>
+              <button id="btn-build-blackjack" class="dropdown-item" title="Build Blackjack Table (Cost: 600 Chips)">
+                <span>🃏 Blackjack Table</span> <span class="cost-tag">600</span>
+              </button>
+              <button id="btn-build-ride-the-bus" class="dropdown-item" title="Build Ride The Bus Table (Cost: 400 Chips)">
+                <span>🚌 Ride The Bus</span> <span class="cost-tag">400</span>
+              </button>
+              <button id="btn-build-three-card-poker" class="dropdown-item" title="Build 3 Card Poker Table (Cost: 700 Chips)">
+                <span>👑 3 Card Poker</span> <span class="cost-tag">700</span>
+              </button>
+              <button id="btn-build-elec-roulette" class="dropdown-item" title="Build Electronic Roulette (Cost: 350 Chips)">
+                <span>🎡 Elec Roulette</span> <span class="cost-tag">350</span>
+              </button>
+              <button id="btn-build-elec-blackjack" class="dropdown-item" title="Build Electronic Blackjack (Cost: 380 Chips)">
+                <span>🃏 Elec Blackjack</span> <span class="cost-tag">380</span>
+              </button>
+              <button id="btn-build-bubble-craps" class="dropdown-item" title="Build Bubble Craps (Cost: 450 Chips)">
+                <span>🎲 Bubble Craps</span> <span class="cost-tag">450</span>
+              </button>
+              <button id="btn-build-video-poker" class="dropdown-item" title="Build Video Poker Console (Cost: 400 Chips)">
+                <span>🕹️ Video Poker</span> <span class="cost-tag">400</span>
+              </button>
+              <button id="btn-build-elec-sic-bo" class="dropdown-item" title="Build Electronic Sic Bo (Cost: 500 Chips)">
+                <span>🕹️ Elec Sic Bo</span> <span class="cost-tag">500</span>
+              </button>
+              <button id="btn-build-elec-baccarat" class="dropdown-item" title="Build Electronic Baccarat (Cost: 600 Chips)">
+                <span>🕹️ Elec Baccarat</span> <span class="cost-tag">600</span>
+              </button>
+              <button id="btn-build-plinko" class="dropdown-item" title="Build Plinko pegs Machine (Cost: 800 Chips)">
+                <span>🕹️ Plinko pegs</span> <span class="cost-tag">800</span>
+              </button>
+              <button id="btn-build-lottery" class="dropdown-item" title="Build Kiosk Lottery (Cost: 1,000 Chips)">
+                <span>🕹️ Kiosk Lottery</span> <span class="cost-tag">1,000</span>
+              </button>
+              <button id="btn-build-baccarat" class="dropdown-item" title="Build Baccarat Table (Cost: 900 Chips)">
+                <span>🃏 Baccarat</span> <span class="cost-tag">900</span>
+              </button>
+              <button id="btn-build-texas-holdem" class="dropdown-item" title="Build Texas Holdem Table (Cost: 1,100 Chips)">
+                <span>🃏 Texas Hold'em</span> <span class="cost-tag">1,100</span>
+              </button>
+              <button id="btn-build-pai-gow" class="dropdown-item" title="Build Pai Gow Poker Table (Cost: 1,300 Chips)">
+                <span>🃏 Pai Gow Poker</span> <span class="cost-tag">1,300</span>
+              </button>
+              <button id="btn-build-sic-bo" class="dropdown-item" title="Build Sic Bo Table (Cost: 1,500 Chips)">
+                <span>🎲 Sic Bo Table</span> <span class="cost-tag">1,500</span>
+              </button>
+              <button id="btn-build-caribbean-stud" class="dropdown-item" title="Build Caribbean Stud Table (Cost: 1,800 Chips)">
+                <span>🃏 Caribbean Stud</span> <span class="cost-tag">1,800</span>
+              </button>
+              <button id="btn-build-big-six" class="dropdown-item" title="Build Big Six Wheel (Cost: 2,000 Chips)">
+                <span>🎡 Big Six Wheel</span> <span class="cost-tag">2,000</span>
+              </button>
+              <button id="btn-build-let-it-ride" class="dropdown-item" title="Build Let It Ride Table (Cost: 2,200 Chips)">
+                <span>🃏 Let It Ride</span> <span class="cost-tag">2,200</span>
+              </button>
+              <button id="btn-build-red-dog" class="dropdown-item" title="Build Red Dog Table (Cost: 2,500 Chips)">
+                <span>🃏 Red Dog Table</span> <span class="cost-tag">2,500</span>
+              </button>
+              <button id="btn-build-spanish-21" class="dropdown-item" title="Build Spanish 21 Table (Cost: 2,800 Chips)">
+                <span>🃏 Spanish 21</span> <span class="cost-tag">2,800</span>
+              </button>
+              <button id="btn-build-casino-war" class="dropdown-item" title="Build Casino War Table (Cost: 3,200 Chips)">
+                <span>🃏 Casino War</span> <span class="cost-tag">3,200</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Amenities Dropdown -->
+          <div class="dropdown">
+            <button class="build-btn dropdown-toggle" title="Casino Amenities & Services">
+              <span class="btn-icon">🚻</span>
+              <span class="btn-text">Amenities ▾</span>
+            </button>
+            <div class="dropdown-content">
+              <button id="btn-build-soda-machine" class="dropdown-item" title="Build Soda Machine (Cost: 100 Chips)">
+                <span>🥤 Soda Machine</span> <span class="cost-tag">100</span>
+              </button>
+              <button id="btn-build-vending-machine" class="dropdown-item" title="Build Vending Machine (Cost: 120 Chips)">
+                <span>🍫 Vending Machine</span> <span class="cost-tag">120</span>
+              </button>
+              <button id="btn-build-candy-dispenser" class="dropdown-item" title="Build Candy Dispenser (Cost: 100 Chips)">
+                <span>🍬 Candy Dispenser</span> <span class="cost-tag">100</span>
+              </button>
+              <button id="btn-build-coffee-maker" class="dropdown-item" title="Build Coffee Maker (Cost: 250 Chips)">
+                <span>☕ Coffee Maker</span> <span class="cost-tag">250</span>
+              </button>
+              <button id="btn-build-bathroom-stall" class="dropdown-item" title="Build Bathroom Stall (Cost: 150 Chips)">
+                <span>🚽 Bathroom Stall</span> <span class="cost-tag">150</span>
+              </button>
+              <button id="btn-build-bathroom" class="dropdown-item" title="Build Luxury Bathroom (Cost: 400 Chips)">
+                <span>🚻 Luxury Bathroom</span> <span class="cost-tag">400</span>
+              </button>
+              <button id="btn-build-massage-chair" class="dropdown-item" title="Build Massage Chair (Cost: 600 Chips)">
+                <span>💺 Massage Chair</span> <span class="cost-tag">600</span>
+              </button>
+              <button id="btn-build-atm" class="dropdown-item" title="Build ATM Machine (Cost: 500 Chips)">
+                <span>🏧 ATM Machine</span> <span class="cost-tag">500</span>
+              </button>
+              <button id="btn-upgrade-size" class="dropdown-item upgrade-btn" title="Expand Grid Space (Cost: 1,500+ Chips)">
+                <span>🚀 Expand Floor</span> <span id="upgrade-cost-text" class="cost-tag">1,500</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dining Dropdown -->
+          <div class="dropdown dropdown-right">
+            <button class="build-btn dropdown-toggle" title="Food and Beverage options">
+              <span class="btn-icon">🍔</span>
+              <span class="btn-text">Dining ▾</span>
+            </button>
+            <div class="dropdown-content">
+              <button id="btn-build-bar" class="dropdown-item" title="Build Drink Bar (Cost: 300 Chips)">
+                <span>🍺 Cocktail Bar</span> <span class="cost-tag">300</span>
+              </button>
+              <button id="btn-build-popcorn-cart" class="dropdown-item" title="Build Popcorn Cart (Cost: 150 Chips)">
+                <span>🍿 Popcorn Cart</span> <span class="cost-tag">150</span>
+              </button>
+              <button id="btn-build-ice-cream" class="dropdown-item" title="Build Cyber Ice Cream Bar (Cost: 450 Chips)">
+                <span>🍦 Ice Cream Bar</span> <span class="cost-tag">450</span>
+              </button>
+              <button id="btn-build-pizza-oven" class="dropdown-item" title="Build Gourmet Pizza Oven (Cost: 600 Chips)">
+                <span>🍕 Pizza Oven</span> <span class="cost-tag">600</span>
+              </button>
+              <button id="btn-build-bubble-tea" class="dropdown-item" title="Build Bubble Tea Kiosk (Cost: 700 Chips)">
+                <span>🧋 Bubble Tea Kiosk</span> <span class="cost-tag">700</span>
+              </button>
+              <button id="btn-build-restaurant" class="dropdown-item" title="Build Restaurant Square (Cost: 1,000 Chips)">
+                <span>🍔 Restaurant</span> <span class="cost-tag">1,000</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Decor Dropdown -->
+          <div class="dropdown dropdown-right">
+            <button class="build-btn dropdown-toggle" title="Entertainment Stage & Decorations">
+              <span class="btn-icon">✨</span>
+              <span class="btn-text">Decor ▾</span>
+            </button>
+            <div class="dropdown-content">
+              <button id="btn-build-palm-tree" class="dropdown-item" title="Build Neon Palm Tree (Cost: 200 Chips)">
+                <span>🌴 Neon Palm Tree</span> <span class="cost-tag">200</span>
+              </button>
+              <button id="btn-build-fountain" class="dropdown-item" title="Build Cyber Fountain (Cost: 800 Chips)">
+                <span>⛲ Cyber Fountain</span> <span class="cost-tag">800</span>
+              </button>
+              <button id="btn-build-glow-sofa" class="dropdown-item" title="Build Glow Sofa Lounge (Cost: 400 Chips)">
+                <span>🛋️ Glow Sofa Lounge</span> <span class="cost-tag">400</span>
+              </button>
+              <button id="btn-build-arcade-console" class="dropdown-item" title="Build Retro Arcade Console (Cost: 300 Chips)">
+                <span>👾 Retro Arcade</span> <span class="cost-tag">300</span>
+              </button>
+              <button id="btn-build-gold-statue" class="dropdown-item" title="Build Gold Statue (Cost: 1,200 Chips)">
+                <span>🗽 Gold Statue</span> <span class="cost-tag">1,200</span>
+              </button>
+              <button id="btn-build-vr-pod" class="dropdown-item" title="Build Virtual Reality Pod (Cost: 1,500 Chips)">
+                <span>🕶️ VR Pod Lounge</span> <span class="cost-tag">1,500</span>
+              </button>
+              <button id="btn-build-vip-lounge" class="dropdown-item" title="Build VIP Champagne Lounge (Cost: 2,500 Chips)">
+                <span>🥂 VIP Lounge</span> <span class="cost-tag">2,500</span>
+              </button>
+              <button id="btn-build-hologram" class="dropdown-item" title="Build Hologram Projector (Cost: 900 Chips)">
+                <span>🔮 Hologram Projector</span> <span class="cost-tag">900</span>
+              </button>
+              <button id="btn-build-jazz-band" class="dropdown-item" title="Build Jazz Band Stage (Cost: 500 Chips)">
+                <span>🎺 Jazz Band Stage</span> <span class="cost-tag">500</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Staff Dropdown -->
+          <div class="dropdown dropdown-right">
+            <button class="build-btn dropdown-toggle" title="Hire Casino Staff">
+              <span class="btn-icon">👔</span>
+              <span class="btn-text">Staff ▾</span>
+            </button>
+            <div class="dropdown-content">
+              <button id="btn-hire-dealer" class="dropdown-item" title="Hire Dealer (Cost: 300 Chips, Wage: 10/min)">
+                <span>🤵 Hire Dealer</span> <span class="cost-tag">300</span>
+              </button>
+              <button id="btn-hire-waitress" class="dropdown-item" title="Hire Waitress (Cost: 400 Chips, Wage: 15/min)">
+                <span>👩‍🍳 Hire Waitress</span> <span class="cost-tag">400</span>
+              </button>
+              <button id="btn-hire-chef" class="dropdown-item" title="Hire Chef / Food Runner (Cost: 400 Chips, Wage: 15/min, Requires 2.0★, Research: 8 RP)">
+                <span>🍳 Hire Chef</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">8 RP</span>
+              </button>
+              <button id="btn-hire-scientist" class="dropdown-item" title="Hire Research Scientist (Cost: 500 Chips, Wage: 20/min, Requires 3.0★, Research: 12 RP)">
+                <span>🧪 Hire Scientist</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">12 RP</span>
+              </button>
+              <button id="btn-hire-manager" class="dropdown-item" title="Hire Casino Manager (Cost: 600 Chips, Requires 3.5★, Research: 15 RP)">
+                <span>💼 Hire Manager</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">15 RP</span>
+              </button>
+              <button id="btn-hire-security" class="dropdown-item" title="Hire Security Guard (Cost: 500 Chips, Requires 2.0★, Research: 8 RP)">
+                <span>👮 Hire Security</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">8 RP</span>
+              </button>
+              <button id="btn-hire-tech_support" class="dropdown-item" title="Hire Tech Support (Cost: 400 Chips, Requires 2.5★, Research: 10 RP)">
+                <span>🔧 Hire Tech</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">10 RP</span>
+              </button>
+              <button id="btn-hire-entertainer" class="dropdown-item" title="Hire Stage Entertainer (Cost: 600 Chips, Requires 3.0★, Research: 12 RP)">
+                <span>🎭 Hire Entertainer</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">12 RP</span>
+              </button>
+              <div style="border-top:1px solid rgba(255,255,255,0.08); padding:6px 12px; font-size:10px; color:var(--text-secondary); text-align:left; line-height:1.4;">
+                Dlr: <span id="staff-dealers-count" style="color:var(--accent-blue);">0</span> | 
+                Wtr: <span id="staff-waitresses-count" style="color:var(--accent-green);">0</span> | 
+                Chf: <span id="staff-chefs-count" style="color:#ffaa00;">0</span> | 
+                Sci: <span id="staff-scientists-count" style="color:#e64dff;">0</span> | 
+                Mgr: <span id="staff-managers-count" style="color:#00f0ff;">0</span> | 
+                Sec: <span id="staff-securities-count" style="color:#ff4d4d;">0</span> | 
+                Tch: <span id="staff-tech_supports-count" style="color:#bf55ec;">0</span> | 
+                Ent: <span id="staff-entertainers-count" style="color:#ff007f;">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hud-right" style="display: flex; align-items: center; gap: 12px;">
+        <button id="btn-toggle-music" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 90px; border-color: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px;">🎵 Music: Off</button>
+        <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); height: 32px; box-sizing: border-box;">
+          <span style="font-size: 11px; color: var(--text-secondary);">🔊</span>
+          <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.5" style="width: 50px; cursor: pointer; accent-color: var(--accent-blue);">
+        </div>
+        <button id="btn-detail-mode" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 90px; border-color: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px;">📊 Detail: Off</button>
+        <button id="btn-save-game" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 70px; border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: var(--accent-gold);">💾 Save</button>
+        <button id="btn-tutorial" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 80px; border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: var(--accent-blue);">❓ Tutorial</button>
+        
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div class="connection-status offline" id="conn-status" style="height: 18px; line-height: 16px; padding: 0 8px; font-size: 9px; display: flex; align-items: center; gap: 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); margin: 0; box-sizing: border-box;">
+            <span class="status-dot"></span>
+            <span class="status-text">LOCAL SERVER</span>
+          </div>
+          <div id="room-id-container" class="hidden" style="font-size: 8px; font-family: monospace; color: #ff007f; display: flex; align-items: center; gap: 4px; cursor: pointer; background: rgba(255, 0, 127, 0.1); padding: 1px 4px; border: 1px solid rgba(255, 0, 127, 0.2); border-radius: 4px; height: 14px; box-sizing: border-box; justify-content: center;" title="Click to copy Room ID">
+            <span>ID:</span> <span id="hud-room-id">none</span>
+          </div>
+        </div>
+        <div class="happiness-container" style="min-width: 155px;">
+          <div class="happiness-label">Capacity: <span id="guest-ratio">0 / 10</span> 👥</div>
+          <div class="happiness-bar-bg">
+            <div id="happiness-bar" class="happiness-bar-fill" style="background:var(--accent-blue); box-shadow:0 0 8px var(--accent-blue);"></div>
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); height: 32px; display: flex; flex-direction: column; justify-content: center; font-size: 11px; min-width: 90px; text-align: center; box-sizing: border-box;">
+          <div style="font-size: 8px; color: var(--text-secondary); text-transform: uppercase;">Day <span id="hud-day-num">1</span></div>
+          <div style="color: var(--accent-gold); font-weight: bold; font-family: monospace;" id="hud-day-timer">03:00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interaction Prompt (Walk up and press E) -->
+    <div id="interaction-prompt" class="interaction-prompt hidden">
+      Press <kbd>E</kbd> to Play <span id="interact-target-name">Game</span>
+    </div>
+
+    <!-- UI Overlay: Minigame Modal Overlay Container -->
+    <div id="minigame-overlay" class="minigame-overlay hidden">
+      <div class="minigame-modal">
+        <div class="minigame-header">
+          <h2 id="minigame-title">Minigame</h2>
+          <div id="minigame-dealer-status" style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; background: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid rgba(255, 77, 77, 0.3);">No Dealer</div>
+          <div style="display:flex; align-items:center; gap:16px;">
+            <button id="minigame-help-btn" class="action-btn secondary" style="padding: 4px 10px; font-size: 11px; display: flex; align-items: center; gap: 4px; border-color: rgba(255,255,255,0.2);">ℹ️ Rules</button>
+            <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="minigame-debug-toggle" style="accent-color:var(--accent-blue);"> Debug Info
+            </label>
+            <div id="minigame-balance" class="minigame-balance-display">
+              🪙 <span id="minigame-chips-val">0</span> CHIPS
+            </div>
+            <button id="minigame-close-btn" class="close-btn">&times;</button>
+          </div>
+        </div>
+        <!-- Help/Rules Panel -->
+        <div id="minigame-help-pane" class="hidden" style="background:#0b0d1b; border-bottom:1px solid rgba(255,255,255,0.08); padding:12px 16px; font-size:12px; color:#c0c0e0; text-align:left; max-height:220px; overflow-y:auto; line-height:1.5;">
+          <h4 id="minigame-help-title" style="color:var(--accent-gold); margin-top:0; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:6px;">
+            <span>ℹ️ Game Rules & Payout Odds</span>
+            <button id="help-pane-close-btn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:16px; line-height:1; padding:0 4px;">&times;</button>
+          </h4>
+          <div id="minigame-help-content" style="font-size:11px; color:#a0a0c0; max-height:160px; overflow-y:auto;"></div>
+        </div>
+        <div id="minigame-content" class="minigame-body">
+          <!-- Minigame markup will be dynamically inserted here -->
+        </div>
+        <!-- Debug Console Pane -->
+        <div id="minigame-debug-pane" class="hidden" style="background:#07070f; border-top:1px solid rgba(255,255,255,0.08); padding:10px 16px; font-family:monospace; font-size:11px; max-height:120px; overflow-y:auto; color:#a0a0c0; text-align:left;">
+          <div style="color:var(--accent-blue); font-weight:800; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px; margin-bottom:6px;">🕵️ Real-time Game Debug Feed</div>
+          <div id="minigame-debug-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QTE Mini-Game Modal -->
+    <div id="qte-container" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 20px var(--accent-blue); padding: 20px; border-radius: 12px; z-index: 10000; width: 320px; text-align: center; color: #fff; font-family: 'Outfit', sans-serif;">
+      <h3 id="qte-title" style="margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase; color: var(--accent-blue);">🔧 QUICK TIMING EVENT</h3>
+      <p id="qte-instructions" style="margin: 0 0 16px 0; font-size: 11px; color: var(--text-secondary);">Press SPACE when the bar is in the GREEN zone!</p>
+      
+      <!-- Slider/Timing Mode -->
+      <div id="qte-slider-wrap" style="position: relative; width: 100%; height: 24px; background: #222; border-radius: 6px; overflow: hidden; margin-bottom: 16px;">
+        <div id="qte-target-zone" style="position: absolute; top: 0; left: 40%; width: 20%; height: 100%; background: #39ff14; box-shadow: 0 0 10px #39ff14;"></div>
+        <div id="qte-pointer" style="position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: #ff007f; box-shadow: 0 0 8px #ff007f;"></div>
+      </div>
+      
+      <!-- Sequence/Key-Mash Mode -->
+      <div id="qte-sequence-wrap" class="hidden" style="margin-bottom: 16px;">
+        <div id="qte-keys-list" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 12px;"></div>
+        <div style="position: relative; width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden;">
+          <div id="qte-sequence-timer" style="position: absolute; top: 0; left: 0; height: 100%; width: 100%; background: #ff007f;"></div>
+        </div>
+      </div>
+
+      <div id="qte-footer-tip" style="font-size: 9px; color: var(--text-secondary);">PRESS [SPACE] OR [E] TO TRIGGER!</div>
+    </div>
+
+    <!-- Custom Confirmation Modal (replacing confirm()) -->
+    <div id="confirm-dialog" class="custom-dialog-overlay hidden">
+      <div class="custom-dialog-card glass-panel">
+        <h3 id="confirm-title">Confirm Action</h3>
+        <p id="confirm-message">Are you sure you want to do this?</p>
+        <div class="confirm-dialog-buttons">
+          <button id="confirm-cancel-btn" class="action-btn secondary">Cancel</button>
+          <button id="confirm-yes-btn" class="action-btn primary">Yes, Proceed</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Upgrade Manager Modal -->
+    <div id="table-upgrade-dialog" class="custom-dialog-overlay hidden">
+      <div class="custom-dialog-card glass-panel" style="max-width: 380px;">
+        <h3 id="upgrade-dialog-title">🎰 Table Upgrades</h3>
+        <p id="upgrade-dialog-desc" style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; text-align: center;"></p>
+        
+        <div class="upgrade-options-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; width: 100%;">
+          <!-- Seat Capacity Upgrade -->
+          <div id="upgrade-seat-row" class="upgrade-row" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); width: 100%; box-sizing: border-box;">
+            <div style="text-align: left;">
+              <div style="font-weight: 700; font-size: 13px;">🪑 Add Seats (Chairs)</div>
+              <div style="font-size: 10px; color: var(--text-secondary);">Capacity: <span id="upgrade-seat-count" style="color:var(--accent-blue); font-weight:800;">4</span></div>
+            </div>
+            <button id="upgrade-seat-btn" class="action-btn primary" style="padding: 6px 12px; font-size: 11px; min-width: 120px;">Buy Seat (<span id="upgrade-seat-cost">300</span>)</button>
+          </div>
+
+          <!-- Min Bet / Profit Upgrade -->
+          <div id="upgrade-income-row" class="upgrade-row" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); width: 100%; box-sizing: border-box;">
+            <div style="text-align: left;">
+              <div style="font-weight: 700; font-size: 13px;">📈 Raise Table Limits</div>
+              <div style="font-size: 10px; color: var(--text-secondary);">Min Bet Income: <span id="upgrade-income-val" style="color:var(--accent-gold); font-weight:800;">15</span></div>
+            </div>
+            <button id="upgrade-income-btn" class="action-btn primary" style="padding: 6px 12px; font-size: 11px; min-width: 120px;">Upgrade Limit (<span id="upgrade-income-cost">200</span>)</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; width: 100%;">
+          <button id="upgrade-close-btn" class="action-btn secondary" style="flex: 1;">Close</button>
+          <button id="upgrade-move-btn" class="action-btn secondary" style="border-color: var(--accent-blue); color: var(--accent-blue); flex: 1;">Move</button>
+          <button id="upgrade-sell-btn" class="action-btn secondary" style="border-color: var(--accent-pink); color: var(--accent-pink); flex: 1;">Sell Table</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Character Details Modal -->
+    <div id="character-details-modal" class="custom-dialog-overlay hidden">
+      <div class="custom-dialog-card" style="max-width: 320px; padding: 20px; gap: 10px;">
+        <div class="modal-header" style="margin-bottom: 12px;">
+          <h2 id="char-name" style="margin: 0; font-size: 16px;">Character Name</h2>
+          <button id="btn-close-char-modal" class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px; text-align: left;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px;">
+            <span style="color: var(--text-secondary);">Role:</span>
+            <span id="char-role" style="font-weight: 700;">Guest</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px;">
+            <span style="color: var(--text-secondary);">State:</span>
+            <span id="char-state" style="font-weight: 700; color: var(--accent-gold);">WANDERING</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px;">
+            <span id="char-budget-label" style="color: var(--text-secondary);">Budget:</span>
+            <span id="char-budget" style="font-weight: 700; color: #00ff66;">150 Chips</span>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 0;" />
+          
+          <h3 style="margin: 0 0 8px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Needs Indicators</h3>
+          <div class="need-meter-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="need-row" style="display: flex; align-items: center; gap: 8px;">
+              <span class="need-name" style="width: 100px; font-size: 11px; color: #a0a0c0;">🥤 Thirst:</span>
+              <div class="need-bar-bg" style="flex-grow: 1; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                <div id="need-bar-thirst" style="height: 100%; border-radius: 3px; background: #00f0ff; width: 100%;"></div>
+              </div>
+              <span id="need-val-thirst" style="width: 35px; font-size: 11px; color: #fff; text-align: right;">100%</span>
+            </div>
+            <div class="need-row" style="display: flex; align-items: center; gap: 8px;">
+              <span class="need-name" style="width: 100px; font-size: 11px; color: #a0a0c0;">🍫 Hunger:</span>
+              <div class="need-bar-bg" style="flex-grow: 1; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                <div id="need-bar-hunger" style="height: 100%; border-radius: 3px; background: #ffaa00; width: 100%;"></div>
+              </div>
+              <span id="need-val-hunger" style="width: 35px; font-size: 11px; color: #fff; text-align: right;">100%</span>
+            </div>
+            <div class="need-row" style="display: flex; align-items: center; gap: 8px;">
+              <span class="need-name" style="width: 100px; font-size: 11px; color: #a0a0c0;">🚽 Bladder:</span>
+              <div class="need-bar-bg" style="flex-grow: 1; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                <div id="need-bar-bio" style="height: 100%; border-radius: 3px; background: #39ff14; width: 100%;"></div>
+              </div>
+              <span id="need-val-bio" style="width: 35px; font-size: 11px; color: #fff; text-align: right;">100%</span>
+            </div>
+            <div id="char-entertainment-row" class="need-row" style="display: flex; align-items: center; gap: 8px;">
+              <span class="need-name" style="width: 100px; font-size: 11px; color: #a0a0c0;">🎵 Fun:</span>
+              <div class="need-bar-bg" style="flex-grow: 1; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                <div id="need-bar-entertainment" style="height: 100%; border-radius: 3px; background: #e64dff; width: 100%;"></div>
+              </div>
+              <span id="need-val-entertainment" style="width: 35px; font-size: 11px; color: #fff; text-align: right;">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Alerts Feed (Bottom Left) -->
+    <div id="complaints-log" class="glass-panel" style="position: absolute; bottom: 20px; left: 20px; width: 280px; max-height: 150px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: auto; font-size: 11px; border-color: rgba(255, 77, 77, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+      <div style="font-weight: 800; color: #ff4d4d; border-bottom: 1px solid rgba(255, 77, 77, 0.2); padding-bottom: 4px; margin-bottom: 2px;">⚠️ CASINO ALERTS</div>
+      <div id="complaints-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow: hidden;">
+        <!-- Alert lines will slide in here -->
+      </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <!-- Load Game Scripts Sequentially (Namespaced under window.Casino) -->
+  <script>
+    // Initialize our namespace
+    window.Casino = {};
+  </script>
+  <script src="src/shared/Protocol.js"></script>
+  <script src="src/shared/GameObjects.js"></script>
+  <script src="src/server/EconomyManager.js"></script>
+  <script src="src/server/GridManager.js"></script>
+  <script src="src/server/Pathfinding.js"></script>
+  <script src="src/server/entities/PlayerEntity.js"></script>
+  <script src="src/server/entities/GuestAI.js"></script>
+  <script src="src/server/entities/EmployeeAI.js"></script>
+  <script src="src/server/GameSim.js"></script>
+  <script src="src/client/InputHandler.js"></script>
+  <script src="src/client/Renderer.js"></script>
+  <script src="src/client/MinigameUI.js"></script>
+  <script src="src/client/SoundManager.js"></script>
+  <script src="src/client/ClientGame.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
