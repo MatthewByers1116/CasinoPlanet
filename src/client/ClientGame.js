@@ -1318,7 +1318,7 @@
               this.showNotification(`${isWheel ? '🎰 Wheel spinning' : '🤵 Dealing'} boosted! Modifiers doubled to +40% for 60 seconds!`, "success");
             },
             null,
-            isWheel ? 'wheel' : null // Wheel spinning QTE is always a circular wheel QTE
+            null // Select QTE mode randomly
           );
           return;
         }
