@@ -1318,7 +1318,7 @@
               this.showNotification(`${isWheel ? '🎰 Wheel spinning' : '🤵 Dealing'} boosted! Modifiers doubled to +40% for 60 seconds!`, "success");
             },
             null,
-            isWheel ? 'slider' : null // Wheel spinning QTE is always a timing slider
+            isWheel ? 'wheel' : null // Wheel spinning QTE is always a circular wheel QTE
           );
           return;
         }
@@ -1356,12 +1356,14 @@
       sequenceWrap.classList.add('hidden');
       const oldPuzzleWrap = document.getElementById('qte-puzzle-wrap');
       if (oldPuzzleWrap) oldPuzzleWrap.classList.add('hidden');
+      const oldWheelWrap = document.getElementById('qte-wheel-wrap');
+      if (oldWheelWrap) oldWheelWrap.classList.add('hidden');
 
-      // Randomly select mode: slider (Timing zone), sequence (Key matching), or puzzle (Wiring)
+      // Randomly select mode: slider, sequence, puzzle, or wheel
       let mode = preferredMode;
       if (!mode) {
         const modeChoice = Math.random();
-        mode = modeChoice < 0.33 ? 'slider' : (modeChoice < 0.66 ? 'sequence' : 'puzzle');
+        mode = modeChoice < 0.25 ? 'slider' : (modeChoice < 0.50 ? 'sequence' : (modeChoice < 0.75 ? 'puzzle' : 'wheel'));
       }
 
       let cleanUp = null;
@@ -1749,6 +1751,155 @@
           puzzleWrap.classList.add('hidden');
           this.isInQTE = false;
         };
+      } else if (mode === 'wheel') {
+        // Dead by Daylight Circular Skill Check Wheel Mode
+        sliderWrap.classList.add('hidden');
+        sequenceWrap.classList.add('hidden');
+        instrEl.innerText = "Hit the target zone! Press SPACE, E, or Click when needle is in the zone!";
+        if (footerTip) footerTip.innerText = "PRESS [SPACE], [E], OR CLICK THE WHEEL!";
+
+        // Get or create wheel wrapper
+        let wheelWrap = document.getElementById('qte-wheel-wrap');
+        if (!wheelWrap) {
+          wheelWrap = document.createElement('div');
+          wheelWrap.id = 'qte-wheel-wrap';
+          wheelWrap.style.marginTop = '12px';
+          wheelWrap.style.marginBottom = '16px';
+          wheelWrap.style.display = 'flex';
+          wheelWrap.style.justifyContent = 'center';
+          wheelWrap.style.width = '100%';
+          container.insertBefore(wheelWrap, footerTip);
+        }
+        wheelWrap.classList.remove('hidden');
+        wheelWrap.innerHTML = '';
+
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 120;
+        canvas.style.cursor = 'pointer';
+        wheelWrap.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        const cx = 60;
+        const cy = 60;
+        const radius = 45;
+
+        // Generate target zone angle (in radians)
+        const targetWidth = 0.45 + Math.random() * 0.15; // approx 25-35 degrees
+        const targetStart = 0.5 * Math.PI + Math.random() * 0.8 * Math.PI;
+        const targetEnd = targetStart + targetWidth;
+        
+        this.qteTargetStart = targetStart;
+        this.qteTargetEnd = targetEnd;
+        
+        // Great check zone is the first 22% of target zone
+        const greatWidth = targetWidth * 0.22;
+        const greatStart = targetStart;
+        const greatEnd = targetStart + greatWidth;
+
+        let currentAngle = 0;
+        this.qteAngle = currentAngle;
+        const speed = 0.045 + Math.random() * 0.015;
+        let animId = null;
+
+        const tick = () => {
+          if (!active) return;
+          ctx.clearRect(0, 0, 120, 120);
+
+          // 1. Draw background circular track
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = '#222';
+          ctx.stroke();
+
+          // 2. Draw Good target sector
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, targetStart, targetEnd);
+          ctx.lineWidth = 10;
+          ctx.strokeStyle = 'rgba(57, 255, 20, 0.4)';
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, targetStart, targetEnd);
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#39ff14';
+          ctx.stroke();
+
+          // 3. Draw Great target sector
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, greatStart, greatEnd);
+          ctx.lineWidth = 10;
+          ctx.strokeStyle = '#fff';
+          ctx.stroke();
+
+          // 4. Draw needle
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(currentAngle);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(radius + 8, 0);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#ff007f';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#ff007f';
+          ctx.stroke();
+          ctx.restore();
+
+          currentAngle = (currentAngle + speed) % (2 * Math.PI);
+          this.qteAngle = currentAngle;
+          animId = requestAnimationFrame(tick);
+        };
+        animId = requestAnimationFrame(tick);
+
+        cleanUp = () => {
+          active = false;
+          cancelAnimationFrame(animId);
+          container.classList.add('hidden');
+          wheelWrap.classList.add('hidden');
+          window.removeEventListener('keydown', handleInput);
+          canvas.removeEventListener('click', triggerClick);
+          this.isInQTE = false;
+        };
+
+        const resolveQTE = () => {
+          cleanUp();
+          const normAngle = currentAngle % (2 * Math.PI);
+          
+          if (normAngle >= targetStart && normAngle <= targetEnd) {
+            window.Casino.SoundManager.playWin();
+            if (normAngle >= greatStart && normAngle <= greatEnd) {
+              this.showNotification("🎯 GREAT SKILL CHECK! Boost duration doubled!", "success");
+              successCallback(true);
+            } else {
+              successCallback(false);
+            }
+          } else {
+            window.Casino.SoundManager.playLose();
+            if (failureCallback) {
+              failureCallback();
+            } else {
+              this.showNotification("QTE Failed! Missed target zone.", "error");
+            }
+          }
+        };
+
+        const handleInput = (e) => {
+          const key = e.key.toLowerCase();
+          if (key === ' ' || key === 'e') {
+            e.preventDefault();
+            resolveQTE();
+          }
+        };
+        const triggerClick = (e) => {
+          e.preventDefault();
+          resolveQTE();
+        };
+
+        window.addEventListener('keydown', handleInput);
+        canvas.addEventListener('click', triggerClick);
       }
     }
 

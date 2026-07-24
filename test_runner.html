@@ -1160,6 +1160,45 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that new QTE puzzle mode processes interactive clicks correctly and resolves upon completion.");
 
+      // Verify DBD Skill Check Wheel QTE Mode:
+      let wheelResolved = false;
+      hostGame.startQTEMinigame(
+        "🎰 WHEEL QTE TEST",
+        "Test wheel mode",
+        () => { wheelResolved = true; },
+        null,
+        'wheel'
+      );
+      const wheelWrap = docHost.getElementById('qte-wheel-wrap');
+      if (!wheelWrap || wheelWrap.classList.contains('hidden')) {
+        throw new Error("QTE wheel wrap element not created or not visible");
+      }
+      const wheelCanvas = wheelWrap.querySelector('canvas');
+      if (!wheelCanvas) {
+        throw new Error("QTE wheel canvas element not found");
+      }
+      await new Promise((resolve, reject) => {
+        let attempts = 0;
+        const checkNeedle = () => {
+          attempts++;
+          if (attempts > 500) {
+            reject(new Error("Timeout waiting for wheel QTE needle to reach target zone"));
+            return;
+          }
+          if (hostGame.qteAngle >= hostGame.qteTargetStart && hostGame.qteAngle <= hostGame.qteTargetEnd) {
+            wheelCanvas.click();
+            resolve();
+          } else {
+            requestAnimationFrame(checkNeedle);
+          }
+        };
+        checkNeedle();
+      });
+      if (!wheelResolved) {
+        throw new Error("DBD Skill Check Wheel QTE failed to resolve after click inside target zone");
+      }
+      writeToLog("* Verified that new DBD Skill Check Wheel QTE correctly tracks rotating needle and triggers success upon click in target zone.");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));
