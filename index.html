@@ -245,8 +245,9 @@
             <span class="rating-icon">⭐</span>
             <span id="rating-value" style="color: #ffaa00;">4.2</span>
             <span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-left: 2px;">RATING</span>
-          </div>
         </div>
+        <!-- Active Buffs Indicator Bar -->
+        <div id="hud-buffs-list" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;"></div>
       </div>
       <div class="hud-center">
         <!-- Build Tool Panel -->
@@ -679,6 +680,41 @@
               </div>
               <span id="need-val-entertainment" style="width: 35px; font-size: 11px; color: #fff; text-align: right;">100%</span>
             </div>
+          </div>
+          
+          <!-- Employee Upgrades Section (hidden for guests) -->
+          <div id="char-upgrades-section" style="display: none; flex-direction: column; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+            <h3 style="margin: 0 0 6px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-gold);">Employee Upgrades</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <button id="btn-upgrade-speed" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #00f0ff; background: rgba(0, 240, 255, 0.05);">
+                <span>⚡ Speed (Lvl <span id="char-lvl-speed">1</span>)</span>
+                <span style="color: #ffd700; font-weight: bold;" id="char-cost-speed">200c</span>
+              </button>
+              <button id="btn-upgrade-capacity" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #39ff14; background: rgba(57, 255, 20, 0.05);">
+                <span>🎒 Carry/Efficiency (Lvl <span id="char-lvl-capacity">1</span>)</span>
+                <span style="color: #ffd700; font-weight: bold;" id="char-cost-capacity">300c</span>
+              </button>
+              <button id="btn-upgrade-needs" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #e64dff; background: rgba(230, 77, 255, 0.05);">
+                <span>🍕 Needs Resist (Lvl <span id="char-lvl-needs">1</span>)</span>
+                <span style="color: #ffd700; font-weight: bold;" id="char-cost-needs">150c</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Amenity Buff Shop Modal -->
+    <div id="amenity-shop-modal" class="custom-dialog-overlay hidden">
+      <div class="custom-dialog-card" style="max-width: 340px; padding: 20px; gap: 10px;">
+        <div class="modal-header" style="margin-bottom: 8px;">
+          <h2 id="amenity-shop-title" style="margin: 0; font-size: 16px;">🥤 Buff Shop</h2>
+          <button id="btn-close-amenity-shop" class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px; text-align: left;">
+          <p id="amenity-shop-desc" style="font-size: 11px; color: var(--text-secondary); margin: 0;">Buy custom items to get temporary power buffs!</p>
+          <div id="amenity-shop-items" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Shop items will be generated programmatically here -->
           </div>
         </div>
       </div>

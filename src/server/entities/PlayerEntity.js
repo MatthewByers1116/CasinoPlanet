@@ -8,6 +8,7 @@
       this.targetX = startX; // Used for smooth transition interpolation
       this.targetY = startY;
       this.interactingObjectId = null;
+      this.buffs = {}; // Active temporary buffs
     }
 
     move(gridX, gridY, gridManager) {
@@ -28,12 +29,23 @@
       this.interactingObjectId = null;
     }
 
+    tickBuffs(dt) {
+      if (!this.buffs) this.buffs = {};
+      for (const key in this.buffs) {
+        this.buffs[key] = Math.max(0, this.buffs[key] - dt);
+        if (this.buffs[key] <= 0) {
+          delete this.buffs[key];
+        }
+      }
+    }
+
     serialize() {
       return {
         id: this.id,
         gridX: this.gridX,
         gridY: this.gridY,
-        interactingObjectId: this.interactingObjectId
+        interactingObjectId: this.interactingObjectId,
+        buffs: this.buffs
       };
     }
 
@@ -43,6 +55,7 @@
       this.gridX = data.gridX !== undefined ? data.gridX : this.gridX;
       this.gridY = data.gridY !== undefined ? data.gridY : this.gridY;
       this.interactingObjectId = data.interactingObjectId !== undefined ? data.interactingObjectId : this.interactingObjectId;
+      this.buffs = data.buffs || this.buffs || {};
     }
   }
 

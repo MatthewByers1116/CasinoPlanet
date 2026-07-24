@@ -724,7 +724,7 @@
 
         // Dispatch Play minigame command to GameSim
         this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
-          gameType: 'roulette',
+          gameType: this.activeGameType,
           tableId: this.activeTableId,
           bets: betsArray
         });
@@ -1159,7 +1159,7 @@
         this.currentBets.clear();
 
         this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
-          gameType: 'craps',
+          gameType: this.activeGameType,
           tableId: this.activeTableId,
           action: 'roll',
           bets: betsArray
@@ -2186,17 +2186,17 @@
             Place bets on PLAYER, BANKER, or TIE!
           </div>
           <div style="display:flex; gap:12px; width:100%; justify-content:center; margin:8px 0;">
-            <button id="btn-bac-bet-player" class="action-btn primary" style="flex:1; border:2px solid #00f0ff; background:rgba(0,240,255,0.05); color:#00f0ff; font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">PLAYER Bet (<span id="bac-p-bet">0</span>)</button>
-            <button id="btn-bac-bet-tie" class="action-btn secondary" style="flex:1; border:2px solid var(--accent-gold); background:rgba(255,215,0,0.05); color:var(--accent-gold); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">TIE Bet (<span id="bac-t-bet">0</span>)</button>
-            <button id="btn-bac-bet-banker" class="action-btn danger" style="flex:1; border:2px solid var(--accent-pink); background:rgba(255,0,127,0.05); color:var(--accent-pink); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">BANKER Bet (<span id="bac-b-bet">0</span>)</button>
+            <button id="btn-bac-bet-player" class="minigame-btn action" style="flex:1; border:2px solid #00f0ff; background:rgba(0,240,255,0.05); color:#00f0ff; font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">PLAYER Bet (<span id="bac-p-bet">0</span>)</button>
+            <button id="btn-bac-bet-tie" class="minigame-btn" style="flex:1; border:2px solid var(--accent-gold); background:rgba(255,215,0,0.05); color:var(--accent-gold); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">TIE Bet (<span id="bac-t-bet">0</span>)</button>
+            <button id="btn-bac-bet-banker" class="minigame-btn action" style="flex:1; border:2px solid var(--accent-pink); background:rgba(255,0,127,0.05); color:var(--accent-pink); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">BANKER Bet (<span id="bac-b-bet">0</span>)</button>
           </div>
           <div style="display:flex; justify-content:space-between; width:100%; background:rgba(0,0,0,0.3); padding:6px 12px; border-radius:8px; font-size:11px;">
             <div>Session Profit: <span id="bac-profit-val" style="font-weight:bold;">0</span> Chips</div>
             <div id="bac-chip-val" style="color:var(--accent-gold);">Chip: 5</div>
           </div>
           <div class="controls-wrapper" style="width:100%; display:flex; gap:12px; justify-content:center;">
-            <button id="btn-bac-clear" class="action-btn secondary" style="flex:1; padding:10px; cursor:pointer;">Clear Bets</button>
-            <button id="btn-bac-deal" class="action-btn primary" style="flex:2; padding:10px; cursor:pointer;">Deal Cards</button>
+            <button id="btn-bac-clear" class="minigame-btn reset" style="flex:1; padding:10px; cursor:pointer;">Clear Bets</button>
+            <button id="btn-bac-deal" class="minigame-btn action" style="flex:2; padding:10px; cursor:pointer;">Deal Cards</button>
           </div>
         </div>
       `;
@@ -2828,11 +2828,81 @@
     /* ==========================================================================
        BIG SIX WHEEL CLIENT
        ========================================================================== */
+    drawBigSixWheel(angle) {
+      const canvas = document.getElementById('bs-wheel-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const r = cx - 6;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const segments = [
+        { label: '$1', color: '#1a1a2e', textColor: '#ffffff' },
+        { label: '$2', color: '#00f0ff', textColor: '#000000' },
+        { label: '$5', color: '#39ff14', textColor: '#000000' },
+        { label: '$10', color: '#ffaa00', textColor: '#000000' },
+        { label: '$20', color: '#ff007f', textColor: '#ffffff' },
+        { label: 'JOKER', color: '#e64dff', textColor: '#ffffff' },
+        { label: 'LOGO', color: '#ffd700', textColor: '#000000' }
+      ];
+      
+      const numSlices = 24; 
+      const sliceAngle = (Math.PI * 2) / numSlices;
+      
+      for (let i = 0; i < numSlices; i++) {
+        const seg = segments[i % segments.length];
+        const start = angle + i * sliceAngle;
+        const end = start + sliceAngle;
+        
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#222';
+        ctx.stroke();
+        
+        // Draw label text
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = seg.textColor;
+        ctx.font = 'bold 8px "Outfit", sans-serif';
+        ctx.fillText(seg.label, r - 6, 0);
+        ctx.restore();
+      }
+      
+      // Center hub
+      ctx.beginPath();
+      ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Top pointer needle pointing down
+      ctx.beginPath();
+      ctx.moveTo(cx, 1);
+      ctx.lineTo(cx - 5, 10);
+      ctx.lineTo(cx + 5, 10);
+      ctx.closePath();
+      ctx.fillStyle = '#ff0000';
+      ctx.fill();
+    }
+
     renderBigSix() {
       this.bigSixBets = {};
       this.modalBody.innerHTML = `
-        <div class="card-game-container" style="display:flex; flex-direction:column; gap:12px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:12px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
-          <div style="font-size:18px; font-weight:bold; color:var(--accent-gold); margin-bottom:4px;" id="bs-wheel-display">🎡 WHEEL</div>
+        <div class="card-game-container" style="display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:12px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+          <div style="font-size:16px; font-weight:bold; color:var(--accent-gold); margin-bottom:2px;" id="bs-wheel-display">🎡 WHEEL OF FORTUNE</div>
+          <canvas id="bs-wheel-canvas" width="150" height="150" style="margin:2px 0; border: 4px solid var(--accent-gold); border-radius: 50%; box-shadow: 0 0 15px rgba(255,215,0,0.3); background:#111;"></canvas>
           <div id="bs-status-text" style="font-size:13px; font-weight:bold; text-align:center; color:#fff; height:18px;">
             Place bets on $1, $2, $5, $10, $20, JOKER, or LOGO!
           </div>
@@ -2855,6 +2925,9 @@
           </div>
         </div>
       `;
+
+      this.wheelRotation = 0;
+      setTimeout(() => this.drawBigSixWheel(0), 50);
 
       const b1 = document.getElementById('bs-1-bet');
       const b2 = document.getElementById('bs-2-bet');
@@ -2922,33 +2995,43 @@
     }
 
     handleBigSixPayout(payload) {
-      const wheelDisplay = document.getElementById('bs-wheel-display');
       const statusText = document.getElementById('bs-status-text');
       const spinBtn = document.getElementById('btn-bs-spin');
       const clearBtn = document.getElementById('btn-bs-clear');
       
-      if (wheelDisplay && statusText) {
+      if (statusText) {
         if (spinBtn) spinBtn.disabled = true;
         if (clearBtn) clearBtn.disabled = true;
         statusText.innerText = "Spinning wheel...";
         statusText.style.color = '#fff';
 
-        const segments = ['$1', '$2', '$5', '$10', '$20', 'joker', 'logo'];
-        let cycles = 0;
-        
-        const interval = setInterval(() => {
-          const randSeg = segments[Math.floor(Math.random() * segments.length)];
-          wheelDisplay.innerText = `🔄 [${randSeg.toUpperCase()}]`;
-          window.Casino.SoundManager.playBeep();
-          cycles++;
-          
-          if (cycles >= 12) {
-            clearInterval(interval);
+        const startAngle = this.wheelRotation || 0;
+        const spinDuration = 3000;
+        let startTime = null;
+
+        // Force a nice random rotation that lands smoothly
+        const totalRotation = Math.PI * 2 * 3 + (Math.random() * Math.PI * 2);
+        const targetRotation = startAngle + totalRotation;
+
+        const animate = (timestamp) => {
+          if (!startTime) startTime = timestamp;
+          const elapsed = timestamp - startTime;
+          const progress = Math.min(elapsed / spinDuration, 1);
+
+          // easeOutQuad
+          const ease = 1 - (1 - progress) * (1 - progress);
+          this.wheelRotation = startAngle + (targetRotation - startAngle) * ease;
+          this.drawBigSixWheel(this.wheelRotation);
+
+          if (progress < 1) {
+            if (Math.floor(this.wheelRotation * 10) % 2 === 0) {
+              window.Casino.SoundManager.playBeep();
+            }
+            requestAnimationFrame(animate);
+          } else {
             if (spinBtn) spinBtn.disabled = false;
             if (clearBtn) clearBtn.disabled = false;
-            
-            wheelDisplay.innerText = `✨ [${payload.winSegment.toUpperCase()}]`;
-            
+
             const outcomeText = `Wheel landed on: ${payload.winSegment.toUpperCase()}.`;
             if (payload.netPayout > 0) {
               statusText.innerText = `${outcomeText} You Won +${payload.netPayout} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
@@ -2959,7 +3042,7 @@
               statusText.style.color = '#ff4d4d';
               window.Casino.SoundManager.playLose();
             }
-            
+
             this.sessionProfit += payload.netPayout;
             const profitEl = document.getElementById('bs-profit-val');
             if (profitEl) {
@@ -2971,7 +3054,8 @@
             if (payload.chips !== undefined) this.clientGame.chips = payload.chips;
             this.updateBalance();
           }
-        }, 150);
+        };
+        requestAnimationFrame(animate);
       }
     }
 
@@ -3685,7 +3769,7 @@
               </div>
             </div>
             <!-- Dynamic ball overlay -->
-            <div id="pk-ball" style="display:none; position:absolute; width:8px; height:8px; border-radius:50%; background:#ffd700; left:96px; top:4px; box-shadow:0 0 8px #ffd700;"></div>
+            <div id="pk-ball" style="display:none; position:absolute; width:8px; height:8px; border-radius:50%; background:#ffd700; left:96px; top:4px; box-shadow:0 0 8px #ffd700; z-index: 5;"></div>
           </div>
           <div id="pk-status-text" style="font-size:13px; font-weight:bold; text-align:center; color:#fff; height:18px;">
             Place bet and click DROP BALL!
@@ -3700,7 +3784,7 @@
               <div class="picker-chip" data-value="25">25</div>
               <div class="picker-chip" data-value="100">100</div>
             </div>
-              <button id="btn-pk-drop" class="action-btn primary" style="flex:2; padding:12px; font-weight:bold; font-size:14px; cursor:pointer;">DROP BALL</button>
+            <button id="btn-pk-drop" class="minigame-btn action" style="width:100%; font-weight:bold; font-size:14px; cursor:pointer;">DROP BALL</button>
           </div>
         </div>
       `;
@@ -3760,12 +3844,13 @@
             clearInterval(interval);
             dropBtn.disabled = false;
 
-            if (payload.multiplier > 0) {
-              statusText.innerText = `Landed on ${payload.multiplier}x slot! You Won +${payload.netPayout} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
+            const netVal = payload.netPayout;
+            if (netVal >= 0) {
+              statusText.innerText = `Landed on ${payload.multiplier}x slot! Won +${netVal} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
               statusText.style.color = '#39ff14';
               window.Casino.SoundManager.playWin();
             } else {
-              statusText.innerText = "Landed on 0x slot. Lost bet.";
+              statusText.innerText = `Landed on ${payload.multiplier}x slot! Net Loss: ${Math.abs(netVal)} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
               statusText.style.color = '#ff4d4d';
               window.Casino.SoundManager.playLose();
             }
@@ -3793,6 +3878,14 @@
       this.selectedNumbers = [];
       this.modalBody.innerHTML = `
         <div class="card-game-container" style="display:flex; flex-direction:column; gap:12px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:12px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+          <!-- Bouncing ball lottery drum -->
+          <div id="lt-drum" style="position:relative; width:80px; height:80px; border-radius:50%; border:3px dashed var(--accent-gold); margin:4px 0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; overflow:hidden; transition: transform 0.1s linear;">
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#ffd700; left:20%; top:30%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#00f0ff; left:40%; top:60%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#ff007f; left:60%; top:20%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#39ff14; left:70%; top:50%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#e64dff; left:30%; top:25%;"></div>
+          </div>
           <div style="font-size:11px; color:#aaa; margin-bottom:4px;">SELECT 5 NUMBERS (1-20)</div>
           <div id="lt-board" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; width:100%;">
             <!-- 1 to 20 buttons -->
@@ -3888,6 +3981,7 @@
       const resultsEl = document.getElementById('lt-results');
       const statusText = document.getElementById('lt-status-text');
       const buyBtn = document.getElementById('btn-lt-buy');
+      const drum = document.getElementById('lt-drum');
 
       if (resultsEl && statusText) {
         if (buyBtn) buyBtn.disabled = true;
@@ -3901,6 +3995,15 @@
           while (randNums.length < 5) {
             const r = Math.floor(Math.random() * 20) + 1;
             if (!randNums.includes(r)) randNums.push(r);
+          }
+
+          if (drum) {
+            drum.style.transform = `rotate(${cycles * 30}deg)`;
+            const balls = drum.querySelectorAll('.drum-ball');
+            balls.forEach(b => {
+              b.style.left = `${15 + Math.random() * 60}%`;
+              b.style.top = `${15 + Math.random() * 60}%`;
+            });
           }
 
           resultsEl.innerHTML = randNums.map(n => {

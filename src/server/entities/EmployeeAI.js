@@ -35,13 +35,18 @@
       this.bio = 100;
 
       // Waitress & Chef specific state
-      this.drinks = 0; // Starts at 0, restocks to 5 at Bar
-      this.meals = 0; // Starts at 0, restocks to 5 at Restaurant/Vending Machine
+      this.drinks = 0; // Starts at 0, restocks to capacity
+      this.meals = 0; // Starts at 0, restocks to capacity
       this.restockTimer = 0;
 
       // Need satisfaction timer
       this.consumeTimer = 0;
       this.currentNeedBeingSatisfied = null;
+
+      // Employee Stats Levels (Range 1-5)
+      this.speedLvl = 1;
+      this.capacityLvl = 1;
+      this.needsLvl = 1;
     }
 
     update(dt, gridManager, economyManager, sim) {
@@ -53,10 +58,14 @@
         this.hunger = 100;
         this.bio = 100;
       } else {
-        this.thirst = Math.max(0, this.thirst - 0.4 * dtSeconds); // thirst decays in ~250s
-        this.hunger = Math.max(0, this.hunger - 0.25 * dtSeconds); // hunger decays in 400s
-        this.bio = Math.max(0, this.bio - 0.3 * dtSeconds); // bio decays in ~333s
+        const decayMult = 1 / (this.needsLvl || 1);
+        this.thirst = Math.max(0, this.thirst - 0.4 * dtSeconds * decayMult); // thirst decays slower
+        this.hunger = Math.max(0, this.hunger - 0.25 * dtSeconds * decayMult); // hunger decays slower
+        this.bio = Math.max(0, this.bio - 0.3 * dtSeconds * decayMult); // bio decays slower
       }
+
+      // Update speed dynamically based on level
+      this.speed = 3.0 * (1 + ((this.speedLvl || 1) - 1) * 0.2);
 
       // 2. State Machine
       switch (this.state) {
@@ -161,14 +170,32 @@
               this.wanderTimer = 500;
               break;
             }
-            
-            // Check if needs are critical (< 25)
-            if (this.thirst < 25 || this.hunger < 25 || this.bio < 25) {
-              // Leave post to satisfy need
-              obj.dealerSeat.employeeId = null;
+            // Just stand still at post!
+            this.gridX = obj.gridX + obj.dealerSeat.rx;
+            this.gridY = obj.gridY + obj.dealerSeat.ry;
+            this.renderX = this.gridX;
+            this.renderY = this.gridY;
+          } else if (this.role === 'tech_support') {
+            const obj = gridManager.placedObjects.get(this.targetObjectId);
+            if (!obj || !obj.isBroken) {
               this.targetObjectId = null;
               this.state = States.WANDERING;
-              this.wanderTimer = 100;
+              this.wanderTimer = 500;
+              break;
+            }
+            
+            // Repair timer
+            this.repairTimer += dt;
+            if (this.repairTimer >= 3000) { // 3 seconds to repair
+              obj.isBroken = false;
+              obj.repairTimer = 0;
+              obj.needsRepairSoon = false;
+              this.targetObjectId = null;
+              this.state = States.WANDERING;
+              this.wanderTimer = 1000;
+              
+              const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+              if (ui) ui.logDebug(`Mechanic ${this.id} successfully repaired "${obj.name}"!`, 'success');
             }
           }
           break;
@@ -176,8 +203,9 @@
         case States.RESTOCKING:
           this.restockTimer -= dt;
           if (this.restockTimer <= 0) {
-            if (this.role === 'waitress') this.drinks = 5;
-            if (this.role === 'chef') this.meals = 5;
+            const cap = 5 + ((this.capacityLvl || 1) - 1) * 2;
+            if (this.role === 'waitress') this.drinks = cap;
+            if (this.role === 'chef') this.meals = cap;
             this.targetObjectId = null;
             this.state = States.WANDERING;
             this.wanderTimer = 2000 + Math.random() * 2000;
@@ -256,6 +284,9 @@
                   this.targetGuestId = null;
                   this.path = null;
                   this.findJobOrWander(gridManager, sim);
+                } else {
+                  this.state = States.WANDERING;
+                  this.wanderTimer = 500;
                 }
                 break;
               }
@@ -264,7 +295,7 @@
         }
       }
 
-      // Chef serving scan: check if target guest is close enough
+      // Chef food serving scan
       if (this.role === 'chef' && this.meals > 0) {
         if (this.targetGuestId) {
           const guest = sim.guests.get(this.targetGuestId);
@@ -273,10 +304,10 @@
             if (dist <= 1.5) {
               guest.hunger = 100;
               this.meals--;
-              economyManager.addChips(30); // Charge 30 Chips for delivery!
+              economyManager.addChips(40); // Charge 40 Chips for meal delivery!
               
               const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
-              if (ui) ui.logDebug(`Chef ${this.id} delivered food to ${guest.name} for 30 Chips.`, 'success');
+              if (ui) ui.logDebug(`Chef ${this.id} delivered meal to ${guest.name} for 40 Chips.`, 'success');
               
               this.targetGuestId = null;
               this.path = null;
@@ -294,22 +325,23 @@
             this.wanderTimer = 500;
           }
         } else {
-          // Proximity scan for any nearby hungry guest
+          // Proximity scan for hungry guests
           for (const guest of sim.guests.values()) {
             if (guest.hunger < 60 && guest.state !== 'LEAVING') {
               const dist = Math.sqrt((this.gridX - guest.gridX)**2 + (this.gridY - guest.gridY)**2);
               if (dist <= 1.5) {
                 guest.hunger = 100;
                 this.meals--;
-                economyManager.addChips(30); // Charge 30 Chips
+                economyManager.addChips(40); // Charge 40 Chips
                 
                 const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
-                if (ui) ui.logDebug(`Chef ${this.id} served nearby guest ${guest.name} for 30 Chips.`, 'success');
+                if (ui) ui.logDebug(`Chef ${this.id} served nearby guest ${guest.name} for 40 Chips.`, 'success');
                 
                 if (this.meals <= 0) {
-                  this.targetGuestId = null;
-                  this.path = null;
                   this.findJobOrWander(gridManager, sim);
+                } else {
+                  this.state = States.WANDERING;
+                  this.wanderTimer = 500;
                 }
                 break;
               }
@@ -339,37 +371,6 @@
               break;
             }
           }
-        }
-      }
-
-      // Tech Support behavior
-      if (this.role === 'tech_support' && this.state === 'WORKING' && this.targetObjectId) {
-        const obj = gridManager.placedObjects.get(this.targetObjectId);
-        if (obj && obj.isBroken) {
-          const dist = Math.sqrt((obj.gridX - this.gridX)**2 + (obj.gridY - this.gridY)**2);
-          if (dist <= 2.0) {
-            this.repairTimer = (this.repairTimer || 0) + dt;
-            if (this.repairTimer >= 3000) {
-              this.repairTimer = 0;
-              obj.isBroken = false;
-              console.log(`[Server:EmployeeAI] Tech Support "${this.id}" repaired machine "${obj.id}"`);
-              
-              sim.broadcast(sim.Protocol?.Events?.GUEST_LEFT_REASON || 'GUEST_LEFT_REASON', {
-                name: obj.name,
-                reason: 'machine_repaired'
-              });
-              
-              this.state = States.WANDERING;
-              this.wanderTimer = 1000;
-              this.targetObjectId = null;
-              this.path = null;
-            }
-          }
-        } else {
-          this.state = States.WANDERING;
-          this.wanderTimer = 500;
-          this.targetObjectId = null;
-          this.path = null;
         }
       }
 
@@ -508,22 +509,22 @@
             let closestBar = null;
             let minDist = Infinity;
             bars.forEach(b => {
-              const d = Math.sqrt((this.gridX - b.gridX)**2 + (this.gridY - b.gridY)**2);
-              if (d < minDist) {
-                minDist = d;
+              const dist = Math.sqrt((this.gridX - b.gridX)**2 + (this.gridY - b.gridY)**2);
+              if (dist < minDist) {
+                minDist = dist;
                 closestBar = b;
               }
             });
-
+            
             if (closestBar) {
               this.targetObjectId = closestBar.id;
               const path = window.Casino.Pathfinding.findPath(
-                gridManager, 
-                this.gridX, 
-                this.gridY, 
-                closestBar.gridX, 
-                closestBar.gridY, 
-                true
+                gridManager,
+                this.gridX,
+                this.gridY,
+                closestBar.gridX,
+                closestBar.gridY,
+                false
               );
               if (path && path.length > 0) {
                 this.path = path;
@@ -531,42 +532,32 @@
                 this.moveProgress = 0;
                 this.state = States.WALKING;
                 return;
+              } else {
+                this.targetObjectId = null;
               }
             }
           }
-          this.state = States.WANDERING;
-          this.wanderTimer = 1000;
-          return;
-        }
-
-        // Active delivery: seek guests with thirst < 60
-        const thirstyGuests = Array.from(sim.guests.values()).filter(g => g.thirst < 60 && g.state !== 'LEAVING');
-        if (thirstyGuests.length > 0) {
-          let closestGuest = null;
-          let minDist = Infinity;
-          thirstyGuests.forEach(g => {
-            const d = Math.sqrt((this.gridX - g.gridX)**2 + (this.gridY - g.gridY)**2);
-            if (d < minDist) {
-              minDist = d;
-              closestGuest = g;
-            }
-          });
-
-          if (closestGuest) {
-            this.targetGuestId = closestGuest.id;
-            this.state = States.WALKING;
+        } else {
+          // Find thirsty guests to serve
+          const thirstyGuests = Array.from(sim.guests.values()).filter(g => g.thirst < 50 && g.state !== 'LEAVING');
+          if (thirstyGuests.length > 0) {
+            // Pick random thirsty guest
+            const target = thirstyGuests[Math.floor(Math.random() * thirstyGuests.length)];
+            this.targetGuestId = target.id;
+            
             const path = window.Casino.Pathfinding.findPath(
               gridManager,
               this.gridX,
               this.gridY,
-              closestGuest.gridX,
-              closestGuest.gridY,
+              target.gridX,
+              target.gridY,
               false
             );
             if (path && path.length > 0) {
               this.path = path;
               this.pathIndex = 0;
               this.moveProgress = 0;
+              this.state = States.WALKING;
               return;
             } else {
               this.targetGuestId = null;
@@ -574,34 +565,33 @@
           }
         }
 
-        // Just wander around delivering
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
+        this.wanderTimer = 1000 + Math.random() * 1000;
       } else if (this.role === 'chef') {
         // If out of meals, must go to Restaurant or Vending Machine to restock
         if (this.meals <= 0) {
-          const restockers = objects.filter(obj => obj.type === 'restaurant' || obj.type === 'vending_machine');
-          if (restockers.length > 0) {
-            // Find closest food station
-            let closest = null;
+          const kitchens = objects.filter(obj => obj.type === 'restaurant' || obj.type === 'vending_machine');
+          if (kitchens.length > 0) {
+            // Find closest kitchen
+            let closestKitchen = null;
             let minDist = Infinity;
-            restockers.forEach(b => {
-              const d = Math.sqrt((this.gridX - b.gridX)**2 + (this.gridY - b.gridY)**2);
-              if (d < minDist) {
-                minDist = d;
-                closest = b;
+            kitchens.forEach(k => {
+              const dist = Math.sqrt((this.gridX - k.gridX)**2 + (this.gridY - k.gridY)**2);
+              if (dist < minDist) {
+                minDist = dist;
+                closestKitchen = k;
               }
             });
-
-            if (closest) {
-              this.targetObjectId = closest.id;
+            
+            if (closestKitchen) {
+              this.targetObjectId = closestKitchen.id;
               const path = window.Casino.Pathfinding.findPath(
-                gridManager, 
-                this.gridX, 
-                this.gridY, 
-                closest.gridX, 
-                closest.gridY, 
-                true
+                gridManager,
+                this.gridX,
+                this.gridY,
+                closestKitchen.gridX,
+                closestKitchen.gridY,
+                false
               );
               if (path && path.length > 0) {
                 this.path = path;
@@ -609,42 +599,31 @@
                 this.moveProgress = 0;
                 this.state = States.WALKING;
                 return;
+              } else {
+                this.targetObjectId = null;
               }
             }
           }
-          this.state = States.WANDERING;
-          this.wanderTimer = 1000;
-          return;
-        }
-
-        // Active delivery: seek guests with hunger < 60
-        const hungryGuests = Array.from(sim.guests.values()).filter(g => g.hunger < 60 && g.state !== 'LEAVING');
-        if (hungryGuests.length > 0) {
-          let closestGuest = null;
-          let minDist = Infinity;
-          hungryGuests.forEach(g => {
-            const d = Math.sqrt((this.gridX - g.gridX)**2 + (this.gridY - g.gridY)**2);
-            if (d < minDist) {
-              minDist = d;
-              closestGuest = g;
-            }
-          });
-
-          if (closestGuest) {
-            this.targetGuestId = closestGuest.id;
-            this.state = States.WALKING;
+        } else {
+          // Find hungry guests to serve
+          const hungryGuests = Array.from(sim.guests.values()).filter(g => g.hunger < 50 && g.state !== 'LEAVING');
+          if (hungryGuests.length > 0) {
+            const target = hungryGuests[Math.floor(Math.random() * hungryGuests.length)];
+            this.targetGuestId = target.id;
+            
             const path = window.Casino.Pathfinding.findPath(
               gridManager,
               this.gridX,
               this.gridY,
-              closestGuest.gridX,
-              closestGuest.gridY,
+              target.gridX,
+              target.gridY,
               false
             );
             if (path && path.length > 0) {
               this.path = path;
               this.pathIndex = 0;
               this.moveProgress = 0;
+              this.state = States.WALKING;
               return;
             } else {
               this.targetGuestId = null;
@@ -652,36 +631,39 @@
           }
         }
 
-        // Just wander around delivering
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
+        this.wanderTimer = 1000 + Math.random() * 1000;
       } else if (this.role === 'tech_support') {
-        const brokenMachine = objects.find(obj => obj.isBroken);
-        if (brokenMachine) {
-          this.targetObjectId = brokenMachine.id;
-          this.state = States.WALKING;
+        // Find broken machines
+        const brokenObjs = objects.filter(obj => obj.isBroken);
+        if (brokenObjs.length > 0) {
+          const chosen = brokenObjs[Math.floor(Math.random() * brokenObjs.length)];
+          this.targetObjectId = chosen.id;
+          
           const path = window.Casino.Pathfinding.findPath(
             gridManager,
             this.gridX,
             this.gridY,
-            brokenMachine.gridX,
-            brokenMachine.gridY,
-            true
+            chosen.gridX,
+            chosen.gridY,
+            false
           );
           if (path && path.length > 0) {
             this.path = path;
             this.pathIndex = 0;
             this.moveProgress = 0;
+            this.state = States.WALKING;
             return;
           } else {
             this.targetObjectId = null;
           }
         }
+        
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
-      } else if (['scientist', 'manager', 'security', 'entertainer', 'pickpocket'].includes(this.role)) {
+        this.wanderTimer = 1000 + Math.random() * 1000;
+      } else {
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
+        this.wanderTimer = 1000 + Math.random() * 1000;
       }
     }
 
@@ -747,7 +729,10 @@
         drinks: this.drinks,
         meals: this.meals,
         needs: { thirst: this.thirst, hunger: this.hunger, bio: this.bio },
-        targetObjectId: this.targetObjectId
+        targetObjectId: this.targetObjectId,
+        speedLvl: this.speedLvl || 1,
+        capacityLvl: this.capacityLvl || 1,
+        needsLvl: this.needsLvl || 1
       };
     }
   }

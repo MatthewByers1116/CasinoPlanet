@@ -18,7 +18,9 @@
       CLEAN_DIRT: 'CLEAN_DIRT',            // { x, y }
       CAPTURE_PICKPOCKET: 'CAPTURE_PICKPOCKET', // { id }
       REPAIR_MACHINE: 'REPAIR_MACHINE',     // { objectId }
-      SELECT_DIFFICULTY: 'SELECT_DIFFICULTY' // { difficulty }
+      SELECT_DIFFICULTY: 'SELECT_DIFFICULTY', // { difficulty }
+      UPGRADE_EMPLOYEE: 'UPGRADE_EMPLOYEE', // { employeeId, upgradeType }
+      BUY_BUFF: 'BUY_BUFF'                 // { buffType, cost, duration }
     },
 
     // Events broadcast from Simulator (Server) -> Client

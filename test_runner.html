@@ -54,15 +54,15 @@
 
   <!-- Load Game Scripts Sequentially -->
   <script>window.Casino = {};</script>
-  <script src="src/shared/Protocol.js"></script>
-  <script src="src/shared/GameObjects.js"></script>
-  <script src="src/server/EconomyManager.js"></script>
-  <script src="src/server/GridManager.js"></script>
-  <script src="src/server/Pathfinding.js"></script>
-  <script src="src/server/entities/PlayerEntity.js"></script>
-  <script src="src/server/entities/GuestAI.js"></script>
-  <script src="src/server/entities/EmployeeAI.js"></script>
-  <script src="src/server/GameSim.js"></script>
+  <script src="src/shared/Protocol.js?v=123"></script>
+  <script src="src/shared/GameObjects.js?v=123"></script>
+  <script src="src/server/EconomyManager.js?v=123"></script>
+  <script src="src/server/GridManager.js?v=123"></script>
+  <script src="src/server/Pathfinding.js?v=123"></script>
+  <script src="src/server/entities/PlayerEntity.js?v=123"></script>
+  <script src="src/server/entities/GuestAI.js?v=123"></script>
+  <script src="src/server/entities/EmployeeAI.js?v=123"></script>
+  <script src="src/server/GameSim.js?v=123"></script>
 
   <script>
     let reportContent = `# Casino Planet Automated Test Run Report
@@ -80,6 +80,22 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
     function writeToLog(msg) {
       detailLogs.push(msg);
     }
+
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    console.log = (...args) => {
+      writeToLog(`* **[LOG]**: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`);
+      originalLog.apply(console, args);
+    };
+    console.warn = (...args) => {
+      writeToLog(`* **[WARN]**: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`);
+      originalWarn.apply(console, args);
+    };
+    console.error = (...args) => {
+      writeToLog(`* **[ERROR]**: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`);
+      originalError.apply(console, args);
+    };
 
     const container = document.getElementById('test-results-container');
     container.innerHTML = '';
@@ -247,7 +263,9 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       { type: 'casino_war', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'war' }] },
       { type: 'video_poker', payload: { action: 'deal', betAmount: 20 }, actions: [{ action: 'draw', holdIndices: [0, 2] }] },
       { type: 'plinko', payload: { betAmount: 20 }, actions: [] },
-      { type: 'lottery', payload: { betAmount: 20, selectedNumbers: [1, 2, 3, 4] }, actions: [] }
+      { type: 'lottery', payload: { betAmount: 20, selectedNumbers: [1, 2, 3, 4, 5] }, actions: [] },
+      { type: 'elec_roulette', payload: { bets: [{ type: 'red', amount: 20 }] }, actions: [] },
+      { type: 'bubble_craps', payload: { action: 'roll', bets: [{ type: 'pass_line', amount: 20 }] }, actions: [] }
     ];
 
     minigames.forEach(game => {
@@ -308,6 +326,114 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
         writeToLog(`* Final Chips Balance: ${sim.economyManager.getChips()}`);
         writeToLog(`* Verified \`tableId\` in Payload: \`${payoutPayload.tableId}\``);
       });
+    });
+
+    // Suite 4: Player Buff Shop Test
+    runTestCase("Player Buff Shop Purchase & Multipliers", () => {
+      sim.economyManager.chips = 5000;
+      
+      // Buy speed buff
+      sim.receiveCommand(player.id, window.Casino.Protocol.Commands.BUY_BUFF, {
+        buffType: 'speed',
+        cost: 50,
+        duration: 60000
+      });
+      
+      if (sim.economyManager.getChips() !== 4950) {
+        throw new Error(`Expected chips balance 4950, got ${sim.economyManager.getChips()}`);
+      }
+      
+      const serverPlayer = sim.players.get(player.id);
+      if (!serverPlayer || !serverPlayer.buffs || serverPlayer.buffs.speed !== 60000) {
+        throw new Error(`Expected speed buff duration 60000ms, got ${serverPlayer ? JSON.stringify(serverPlayer.buffs) : 'null'}`);
+      }
+      
+      // Buy double RP buff
+      sim.receiveCommand(player.id, window.Casino.Protocol.Commands.BUY_BUFF, {
+        buffType: 'rp',
+        cost: 100,
+        duration: 60000
+      });
+      
+      if (sim.economyManager.getChips() !== 4850) {
+        throw new Error(`Expected chips balance 4850 after double RP buff, got ${sim.economyManager.getChips()}`);
+      }
+      
+      // Validate Double RP Payout modifier
+      const initialRP = sim.researchPoints;
+      sim.sendPayout(serverPlayer, 'slots', 100, 100, {});
+      const rpDiff = sim.researchPoints - initialRP;
+      
+      // 100 profit * 0.25 = 25 base RP. Double RP buff should make it 50!
+      if (rpDiff !== 50) {
+        throw new Error(`Expected 50 RP awarded with Double RP buff, got ${rpDiff}`);
+      }
+      
+      writeToLog("### Test Case: Player Buff Shop");
+      writeToLog("* Verified that purchasing a buff deducts the correct amount of chips.");
+      writeToLog("* Verified that the buff duration is correctly added to the player entity.");
+      writeToLog("* Verified that Double RP buff successfully doubles Research Point awards on game wins.");
+    });
+
+    // Suite 5: Employee Upgrades leveling and stats test
+    runTestCase("Employee Upgrades & Leveling Stats", () => {
+      sim.economyManager.chips = 1000;
+      
+      const empId = 'employee_test_waitress';
+      const waitress = new window.Casino.EmployeeAI(empId, 'waitress', 5, 5);
+      sim.employees.set(empId, waitress);
+      
+      // Upgrade speed level
+      sim.receiveCommand(player.id, window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+        employeeId: empId,
+        upgradeType: 'speed'
+      });
+      
+      if (sim.economyManager.getChips() !== 800) { // 200 cost
+        throw new Error(`Expected chips balance 800, got ${sim.economyManager.getChips()}`);
+      }
+      
+      if (waitress.speedLvl !== 2) {
+        throw new Error(`Expected speedLvl 2, got ${waitress.speedLvl}`);
+      }
+      
+      const expectedSpeed = 3.0 * (1 + (2 - 1) * 0.2); // 3.6
+      if (Math.abs(waitress.speed - expectedSpeed) > 0.01) {
+        throw new Error(`Expected speed ${expectedSpeed}, got ${waitress.speed}`);
+      }
+      
+      // Upgrade needs resist level
+      sim.receiveCommand(player.id, window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+        employeeId: empId,
+        upgradeType: 'needs'
+      });
+      
+      if (sim.economyManager.getChips() !== 650) { // 150 cost
+        throw new Error(`Expected chips balance 650, got ${sim.economyManager.getChips()}`);
+      }
+      
+      if (waitress.needsLvl !== 2) {
+        throw new Error(`Expected needsLvl 2, got ${waitress.needsLvl}`);
+      }
+      
+      // Upgrade capacity level
+      sim.receiveCommand(player.id, window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+        employeeId: empId,
+        upgradeType: 'capacity'
+      });
+      
+      if (sim.economyManager.getChips() !== 350) { // 300 cost
+        throw new Error(`Expected chips balance 350, got ${sim.economyManager.getChips()}`);
+      }
+      
+      if (waitress.capacityLvl !== 2) {
+        throw new Error(`Expected capacityLvl 2, got ${waitress.capacityLvl}`);
+      }
+      
+      writeToLog("### Test Case: Employee Upgrades & Leveling");
+      writeToLog("* Verified that upgrading employee speed, capacity, and needs deducts correct chips.");
+      writeToLog("* Verified employee attributes levels increment successfully.");
+      writeToLog("* Verified employee movement speed multiplier boosts correctly.");
     });
 
     // Write final report markdown file

@@ -203,6 +203,11 @@
         }
       }
 
+      // Update player buffs
+      for (const player of this.players.values()) {
+        if (player.tickBuffs) player.tickBuffs(dt);
+      }
+
       // Update employee AI entities
       for (const employee of this.employees.values()) {
         employee.update(dt, this.gridManager, this.economyManager, this);
@@ -355,6 +360,14 @@
         case Protocol.Commands.MOVE_OBJECT:
           this.handleMoveObject(player, payload);
           break;
+
+        case Protocol.Commands.BUY_BUFF:
+          this.handleBuyBuff(player, payload);
+          break;
+
+        case Protocol.Commands.UPGRADE_EMPLOYEE:
+          this.handleUpgradeEmployee(player, payload);
+          break;
       }
     }
 
@@ -461,6 +474,61 @@
       console.log(`[Server:GameSim] Tech "${techType}" unlocked for ${researchCost} Research Points. Remaining: ${this.researchPoints}`);
 
       // Broadcast full state
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleBuyBuff(player, payload) {
+      const { buffType, cost, duration } = payload;
+      if (!this.economyManager.canAfford(cost)) {
+        console.warn(`[Server:GameSim] Player cannot afford buff: ${cost}`);
+        return;
+      }
+      this.economyManager.deductChips(cost);
+      this.recordDayStat('buffs', -cost);
+
+      if (!player.buffs) player.buffs = {};
+      player.buffs[buffType] = (player.buffs[buffType] || 0) + duration;
+      
+      console.log(`[Server:GameSim] Player purchased buff "${buffType}" for ${cost} Chips. New duration: ${player.buffs[buffType]}ms`);
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleUpgradeEmployee(player, payload) {
+      const { employeeId, upgradeType } = payload;
+      const employee = this.employees.get(employeeId);
+      if (!employee) {
+        console.warn(`[Server:GameSim] Upgrade rejected: Employee "${employeeId}" not found.`);
+        return;
+      }
+
+      const currentLvl = employee[upgradeType + 'Lvl'] || 1;
+      if (currentLvl >= 5) {
+        console.warn(`[Server:GameSim] Upgrade rejected: Employee "${employeeId}" ${upgradeType} already max level 5.`);
+        return;
+      }
+
+      let cost = 0;
+      if (upgradeType === 'speed') cost = 200 * currentLvl;
+      else if (upgradeType === 'capacity') cost = 300 * currentLvl;
+      else if (upgradeType === 'needs') cost = 150 * currentLvl;
+      else return;
+
+      if (!this.economyManager.canAfford(cost)) {
+        console.warn(`[Server:GameSim] Player cannot afford employee upgrade: ${cost}`);
+        return;
+      }
+
+      this.economyManager.deductChips(cost);
+      this.recordDayStat('upgrades', -cost);
+
+      employee[upgradeType + 'Lvl'] = currentLvl + 1;
+      
+      // Update employee stats dynamically
+      if (upgradeType === 'speed') {
+        employee.speed = 3.0 * (1 + (employee.speedLvl - 1) * 0.2);
+      }
+      
+      console.log(`[Server:GameSim] Upgraded Employee "${employeeId}" ${upgradeType} to Level ${employee[upgradeType + 'Lvl']} for ${cost} Chips.`);
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
     }
 
@@ -3212,12 +3280,30 @@
     sendPayout(player, gameType, netPayout, totalWin, extraData) {
       if (isNaN(netPayout)) netPayout = 0;
       if (isNaN(totalWin)) totalWin = 0;
+
+      // Apply Double Chips payout buff!
+      const hasPayoutBuff = player.buffs && (player.buffs.payout > 0 || player.buffs.restaurant_buff > 0 || player.buffs.music_buff > 0);
+      if (hasPayoutBuff && netPayout > 0) {
+        const bonusChips = netPayout;
+        this.economyManager.addChips(bonusChips);
+        totalWin += bonusChips;
+        netPayout += bonusChips;
+        console.log(`[Server:GameSim] Double Chips Payout active! Added bonus of +${bonusChips} Chips!`);
+      }
+
       this.recordDayStat(gameType, -netPayout);
 
       // Player wins award Research Points equal to 1/4 of net profits (min 1 RP on any win!)
       let rpAwarded = 0;
       if (netPayout > 0) {
         rpAwarded = Math.max(1, Math.floor(netPayout * 0.25));
+        
+        // Double RP buff modifier!
+        const hasRpBuff = player.buffs && (player.buffs.rp > 0 || player.buffs.coffee_buff > 0 || player.buffs.vip_buff > 0 || player.buffs.restaurant_buff > 0 || player.buffs.hologram > 0 || player.buffs.pizza_oven > 0);
+        if (hasRpBuff) {
+          rpAwarded *= 2;
+        }
+
         this.researchPoints += rpAwarded;
         console.log(`[Server:GameSim] Player won ${netPayout} Chips gambling! Awarded ${rpAwarded} Research Points. Total RP: ${this.researchPoints}`);
       }

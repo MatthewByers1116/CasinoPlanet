@@ -1008,6 +1008,7 @@
     }
 
     updateHUD() {
+      this.updateBuffsUI();
       document.getElementById('chip-balance').innerText = this.chips.toLocaleString();
       
       const researchEl = document.getElementById('research-balance');
@@ -1268,29 +1269,9 @@
           return;
         }
 
-        // QTE mini-games for Stages
-        if (['jazz_band', 'hologram', 'fountain'].includes(closestObj.type)) {
-          this.startQTEMinigame(
-            "🎭 STAGE PERFORMANCE",
-            "Rhythm performance! Hit the GREEN zone!",
-            () => {
-              this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: closestObj.id });
-              this.showNotification("🎭 Crowd cheered! Surrounding guest entertainment refilled!", "success");
-            }
-          );
-          return;
-        }
-
-        // QTE mini-games for Food/Bar service
-        if (['bar', 'restaurant'].includes(closestObj.type)) {
-          this.startQTEMinigame(
-            "🍻 SERVICE BOOST",
-            "Prepping wagers! Hit the GREEN zone!",
-            () => {
-              this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: closestObj.id });
-              this.showNotification("🍻 Station boosted! Payouts increased +50% for 60 seconds!", "success");
-            }
-          );
+        // Open Amenity Buff Shop if applicable (covers stages, food/bar service, and decor)
+        if (AmenityShopData[closestObj.type]) {
+          this.openAmenityShop(closestObj.id);
           return;
         }
 
@@ -1650,6 +1631,99 @@
         if (entRow) entRow.style.display = 'none';
       }
 
+      // Employee upgrades section
+      const upgradesSection = document.getElementById('char-upgrades-section');
+      if (upgradesSection) {
+        if (role !== 'guest' && role !== 'pickpocket') {
+          upgradesSection.style.display = 'flex';
+          
+          const speedLvl = char.speedLvl || 1;
+          const capacityLvl = char.capacityLvl || 1;
+          const needsLvl = char.needsLvl || 1;
+          
+          document.getElementById('char-lvl-speed').innerText = speedLvl;
+          document.getElementById('char-lvl-capacity').innerText = capacityLvl;
+          document.getElementById('char-lvl-needs').innerText = needsLvl;
+          
+          const speedCost = speedLvl >= 5 ? 'MAX' : (200 * speedLvl) + 'c';
+          const capacityCost = capacityLvl >= 5 ? 'MAX' : (300 * capacityLvl) + 'c';
+          const needsCost = needsLvl >= 5 ? 'MAX' : (150 * needsLvl) + 'c';
+          
+          document.getElementById('char-cost-speed').innerText = speedCost;
+          document.getElementById('char-cost-capacity').innerText = capacityCost;
+          document.getElementById('char-cost-needs').innerText = needsCost;
+          
+          // Re-bind click event handlers safely
+          const replaceBtn = (id) => {
+            const oldEl = document.getElementById(id);
+            if (!oldEl) return null;
+            const newEl = oldEl.cloneNode(true);
+            oldEl.parentNode.replaceChild(newEl, oldEl);
+            return newEl;
+          };
+          
+          const btnSpeed = replaceBtn('btn-upgrade-speed');
+          const btnCapacity = replaceBtn('btn-upgrade-capacity');
+          const btnNeeds = replaceBtn('btn-upgrade-needs');
+          
+          if (btnSpeed && speedLvl < 5) {
+            btnSpeed.disabled = false;
+            btnSpeed.onclick = () => {
+              const cost = 200 * speedLvl;
+              if (this.chips < cost) {
+                this.showNotification("Cannot afford speed upgrade!", "error");
+                return;
+              }
+              this.sendAction(window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+                employeeId: char.id,
+                upgradeType: 'speed'
+              });
+              modal.classList.add('hidden');
+            };
+          } else if (btnSpeed) {
+            btnSpeed.disabled = true;
+          }
+          
+          if (btnCapacity && capacityLvl < 5) {
+            btnCapacity.disabled = false;
+            btnCapacity.onclick = () => {
+              const cost = 300 * capacityLvl;
+              if (this.chips < cost) {
+                this.showNotification("Cannot afford carry upgrade!", "error");
+                return;
+              }
+              this.sendAction(window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+                employeeId: char.id,
+                upgradeType: 'capacity'
+              });
+              modal.classList.add('hidden');
+            };
+          } else if (btnCapacity) {
+            btnCapacity.disabled = true;
+          }
+          
+          if (btnNeeds && needsLvl < 5) {
+            btnNeeds.disabled = false;
+            btnNeeds.onclick = () => {
+              const cost = 150 * needsLvl;
+              if (this.chips < cost) {
+                this.showNotification("Cannot afford needs upgrade!", "error");
+                return;
+              }
+              this.sendAction(window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+                employeeId: char.id,
+                upgradeType: 'needs'
+              });
+              modal.classList.add('hidden');
+            };
+          } else if (btnNeeds) {
+            btnNeeds.disabled = true;
+          }
+        } else {
+          upgradesSection.style.display = 'none';
+        }
+      }
+
       modal.classList.remove('hidden');
     }
 
@@ -1778,12 +1852,28 @@
     }
 
     update(dt) {
+      // Tick local player buffs
+      const localPlayer = this.state.players[this.playerId];
+      if (localPlayer && localPlayer.buffs) {
+        for (const key in localPlayer.buffs) {
+          localPlayer.buffs[key] = Math.max(0, localPlayer.buffs[key] - dt);
+          if (localPlayer.buffs[key] <= 0) {
+            delete localPlayer.buffs[key];
+          }
+        }
+        this.updateBuffsUI();
+      }
+
       if (this.isInMinigame || this.isInQTE) return;
 
       // 1. Process player movement keyboard inputs
       const now = performance.now();
+      const hasSpeedBuff = localPlayer && localPlayer.buffs && (localPlayer.buffs.speed > 0 || localPlayer.buffs.coffee_buff > 0 || localPlayer.buffs.massage_buff > 0 || localPlayer.buffs.vip_buff > 0);
       const isShift = this.inputHandler.keys['Shift'];
-      const cooldown = isShift ? 90 : this.moveCooldown;
+      let cooldown = isShift ? 90 : this.moveCooldown;
+      if (hasSpeedBuff) {
+        cooldown = cooldown / 2; // Speed buff halves the cooldown!
+      }
       if (now - this.lastMoveTime > cooldown) {
         const { dx, dy } = this.inputHandler.getMovementDirection();
         if (dx !== 0 || dy !== 0) {
@@ -2216,9 +2306,288 @@
         }
       }
 
-      return true;
+    openAmenityShop(objectId) {
+      const obj = this.state.grid.objects.find(o => o.id === objectId);
+      if (!obj) return;
+      
+      const shopData = AmenityShopData[obj.type];
+      if (!shopData) return;
+      
+      const modal = document.getElementById('amenity-shop-modal');
+      if (!modal) return;
+      
+      document.getElementById('amenity-shop-title').innerText = shopData.title;
+      document.getElementById('amenity-shop-desc').innerText = shopData.desc;
+      
+      const itemsList = document.getElementById('amenity-shop-items');
+      itemsList.innerHTML = '';
+      
+      // Render buyable items
+      shopData.items.forEach(item => {
+        const itemEl = document.createElement('div');
+        itemEl.style.display = 'flex';
+        itemEl.style.flexDirection = 'column';
+        itemEl.style.gap = '4px';
+        itemEl.style.background = 'rgba(255,255,255,0.03)';
+        itemEl.style.padding = '8px';
+        itemEl.style.borderRadius = '6px';
+        itemEl.style.border = '1px solid rgba(255,255,255,0.05)';
+        
+        itemEl.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:bold; font-size:12px; color:#fff;">${item.name}</span>
+            <button class="minigame-btn action" style="padding:4px 8px; font-size:10px;">Buy (${item.cost}c)</button>
+          </div>
+          <div style="font-size:10px; color:var(--text-secondary);">${item.desc}</div>
+        `;
+        
+        const buyBtn = itemEl.querySelector('button');
+        buyBtn.onclick = () => {
+          if (this.chips < item.cost) {
+            this.showNotification("Insufficient chips!", "error");
+            return;
+          }
+          // Send BUY_BUFF command to server
+          this.sendAction(window.Casino.Protocol.Commands.BUY_BUFF, {
+            buffType: item.buff,
+            cost: item.cost,
+            duration: item.duration * 1000 // duration in ms
+          });
+          modal.classList.add('hidden');
+          window.Casino.SoundManager.playPlaceBet();
+        };
+        
+        itemsList.appendChild(itemEl);
+      });
+      
+      // Render QTE options if applicable
+      if (['jazz_band', 'hologram', 'fountain', 'bar', 'restaurant'].includes(obj.type)) {
+        const qteEl = document.createElement('div');
+        qteEl.style.marginTop = '8px';
+        qteEl.style.borderTop = '1px solid rgba(255,255,255,0.08)';
+        qteEl.style.paddingTop = '8px';
+        
+        let qteName = '';
+        let qteDesc = '';
+        let qteTitle = '';
+        if (['jazz_band', 'hologram', 'fountain'].includes(obj.type)) {
+          qteTitle = "🎭 STAGE PERFORMANCE";
+          qteDesc = "Rhythm performance! Hit the GREEN zone!";
+          qteName = "Perform Live";
+        } else {
+          qteTitle = "🍻 SERVICE BOOST";
+          qteDesc = "Prepping wagers! Hit the GREEN zone!";
+          qteName = "Boost Service";
+        }
+        
+        qteEl.innerHTML = `
+          <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">${qteDesc}</div>
+          <button class="minigame-btn action" style="width:100%; border-color:var(--accent-blue); background:rgba(0,240,255,0.05); color:var(--accent-blue); font-size:11px; padding:6px;">${qteName} (Free)</button>
+        `;
+        
+        const qteBtn = qteEl.querySelector('button');
+        qteBtn.onclick = () => {
+          modal.classList.add('hidden');
+          this.startQTEMinigame(
+            qteTitle,
+            qteDesc,
+            () => {
+              this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: obj.id });
+              this.showNotification(`${qteName} complete! Station boosted!`, "success");
+            }
+          );
+        };
+        
+        itemsList.appendChild(qteEl);
+      }
+      
+      // Close button wiring
+      document.getElementById('btn-close-amenity-shop').onclick = () => {
+        modal.classList.add('hidden');
+      };
+      
+      modal.classList.remove('hidden');
+    }
+
+    updateBuffsUI() {
+      const container = document.getElementById('hud-buffs-list');
+      if (!container) return;
+      
+      const player = this.state.players[this.playerId];
+      if (!player || !player.buffs || Object.keys(player.buffs).length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      
+      const buffNames = {
+        speed: { name: "⚡ Volt Soda", color: "#00f0ff" },
+        luck: { name: "🍀 Lucky Chips", color: "#39ff14" },
+        rp: { name: "🧪 Gummy Brain", color: "#e64dff" },
+        coffee_buff: { name: "☕ Espresso", color: "#ffaa00" },
+        massage_buff: { name: "☯️ Zen Massage", color: "#ff007f" },
+        vip_buff: { name: "👑 VIP Lounge", color: "#ffd700" },
+        payout: { name: "🍸 Royal Cocktail", color: "#39ff14" },
+        restaurant_buff: { name: "🍳 Ribeye Steak", color: "#ffd700" },
+        music_buff: { name: "🎵 Concert Ticket", color: "#e64dff" }
+      };
+      
+      container.innerHTML = Object.keys(player.buffs).map(key => {
+        const remainingSec = Math.ceil(player.buffs[key] / 1000);
+        if (remainingSec <= 0) return '';
+        const info = buffNames[key] || { name: key.toUpperCase(), color: "#fff" };
+        
+        return `
+          <div style="font-size:10px; font-weight:bold; color:#000; background:${info.color}; padding:2px 6px; border-radius:4px; box-shadow: 0 0 6px ${info.color}66; display:flex; align-items:center; gap:4px;">
+            <span>${info.name}</span>
+            <span style="opacity:0.8; font-family:monospace;">${remainingSec}s</span>
+          </div>
+        `;
+      }).join('');
     }
   }
+
+  const AmenityShopData = {
+    soda_machine: {
+      title: "🥤 Soda Machine Shop",
+      desc: "Buy refreshments to boost your energy!",
+      items: [
+        { name: "Volt Energy Drink", cost: 50, duration: 60, buff: "speed", desc: "⚡ Double Movement Speed for 60s" }
+      ]
+    },
+    vending_machine: {
+      title: "🍫 Vending Kiosk",
+      desc: "Salty snacks to get you in the zone!",
+      items: [
+        { name: "Lucky Chips", cost: 60, duration: 60, buff: "luck", desc: "🍀 +15% Minigame Win Luck for 60s" }
+      ]
+    },
+    candy_dispenser: {
+      title: "🍬 Candy Dispenser",
+      desc: "Sweet sugary treats for brain power!",
+      items: [
+        { name: "Gummy Brains", cost: 100, duration: 60, buff: "rp", desc: "🧪 2x Research Point (RP) rewards for 60s" }
+      ]
+    },
+    coffee_maker: {
+      title: "☕ Coffee Station",
+      desc: "Freshly brewed espresso shots!",
+      items: [
+        { name: "Double Espresso", cost: 150, duration: 60, buff: "coffee_buff", desc: "⚡ +100% Speed & 2x RP for 60s" }
+      ]
+    },
+    bathroom_stall: {
+      title: "🚽 Restroom Stall",
+      desc: "Clean up and freshen up!",
+      items: [
+        { name: "Splash of Cold Water", cost: 40, duration: 60, buff: "speed", desc: "⚡ Halves movement cooldown for 60s" }
+      ]
+    },
+    luxury_bathroom: {
+      title: "✨ Luxury Restroom",
+      desc: "Premium wash station for VIPs!",
+      items: [
+        { name: "VIP Cologne Splash", cost: 80, duration: 90, buff: "luck", desc: "🍀 +15% Luck & Speed Boost for 90s" }
+      ]
+    },
+    massage_chair: {
+      title: "💺 Massage Chair Kiosk",
+      desc: "Sit back and relax under vibration rollers!",
+      items: [
+        { name: "Zen Massage Session", cost: 120, duration: 60, buff: "massage_buff", desc: "☯️ Speed & Luck Boost for 60s" }
+      ]
+    },
+    vip_lounge: {
+      title: "🥂 VIP Lounge Bar",
+      desc: "Access the elite area for premium benefits!",
+      items: [
+        { name: "VIP Lounge Pass", cost: 300, duration: 90, buff: "vip_buff", desc: "👑 Double Guest Tips & 2x RP for 90s" }
+      ]
+    },
+    popcorn_cart: {
+      title: "🍿 Popcorn Cart",
+      desc: "Fresh buttered popcorn smell!",
+      items: [
+        { name: "Caramel Glazed Popcorn", cost: 80, duration: 60, buff: "luck", desc: "🍀 +10% Minigame Win Luck for 60s" }
+      ]
+    },
+    ice_cream: {
+      title: "🍦 Ice Cream Kiosk",
+      desc: "Delicious frozen sundaes!",
+      items: [
+        { name: "Double Cherry Sundae", cost: 90, duration: 60, buff: "massage_buff", desc: "⚡ Speed & Luck Boost for 60s" }
+      ]
+    },
+    bar: {
+      title: "🍸 Cocktail Bar Kiosk",
+      desc: "Premium mixology station!",
+      items: [
+        { name: "Royal Gin & Tonic", cost: 110, duration: 60, buff: "payout", desc: "🪙 Double all chip payouts in minigames for 60s" }
+      ]
+    },
+    restaurant: {
+      title: "🍳 Gourmet Restaurant",
+      desc: "Fine dining for management!",
+      items: [
+        { name: "Gourmet Ribeye Steak", cost: 200, duration: 60, buff: "restaurant_buff", desc: "👑 Double RP & Double Chip Payouts for 60s" }
+      ]
+    },
+    pizza_oven: {
+      title: "🍕 Stone Pizzeria",
+      desc: "Fresh hot pizza slices!",
+      items: [
+        { name: "Super Pepperoni Slice", cost: 130, duration: 90, buff: "rp", desc: "🧪 2x Research Point (RP) rewards for 90s" }
+      ]
+    },
+    jazz_band: {
+      title: "🎷 Music Stage Concert",
+      desc: "Buy concert tickets or perform live!",
+      items: [
+        { name: "Front Row VIP Concert Ticket", cost: 250, duration: 60, buff: "music_buff", desc: "🎵 Double Payouts & Luck Boost for 60s" }
+      ]
+    },
+    fountain: {
+      title: "⛲ Wishing Fountain",
+      desc: "Throw a coin and make a wish!",
+      items: [
+        { name: "Throw Lucky Golden Coin", cost: 50, duration: 60, buff: "luck", desc: "🍀 +15% Minigame Win Luck for 60s" }
+      ]
+    },
+    arcade_console: {
+      title: "🕹️ Retro Arcade Cabinet",
+      desc: "Insert coin to play!",
+      items: [
+        { name: "VIP Game Tokens", cost: 70, duration: 60, buff: "massage_buff", desc: "⚡ Speed & Luck Boost for 60s" }
+      ]
+    },
+    vr_pod: {
+      title: "🥽 Virtual Reality Pod",
+      desc: "Simulate a cyber world!",
+      items: [
+        { name: "Cyber Vibe Experience", cost: 140, duration: 60, buff: "coffee_buff", desc: "⚡ +100% Speed & 2x RP for 60s" }
+      ]
+    },
+    hologram: {
+      title: "💿 Hologram Projector",
+      desc: "Futuristic visual projections!",
+      items: [
+        { name: "Holo-Matrix Vibe", cost: 100, duration: 60, buff: "rp", desc: "🧪 2x Research Point (RP) rewards for 60s" }
+      ]
+    },
+    gold_statue: {
+      title: "👑 Golden Statue Shrine",
+      desc: "Rub the statue's hands for positive energy!",
+      items: [
+        { name: "Rub Golden Statue", cost: 120, duration: 60, buff: "luck", desc: "🍀 +15% Minigame Win Luck for 60s" }
+      ]
+    },
+    glow_sofa: {
+      title: "🛋️ Neon Glow Lounge",
+      desc: "Relax on neon leather!",
+      items: [
+        { name: "Relaxing Couch Nap", cost: 60, duration: 60, buff: "speed", desc: "⚡ Halves movement cooldown for 60s" }
+      ]
+    }
+  };
 
   window.Casino.ClientGame = ClientGame;
 })();

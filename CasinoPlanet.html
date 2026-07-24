@@ -1448,8 +1448,9 @@ kbd {
             <span class="rating-icon">⭐</span>
             <span id="rating-value" style="color: #ffaa00;">4.2</span>
             <span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-left: 2px;">RATING</span>
-          </div>
         </div>
+        <!-- Active Buffs Indicator Bar -->
+        <div id="hud-buffs-list" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;"></div>
       </div>
       <div class="hud-center">
         <!-- Build Tool Panel -->
@@ -1883,6 +1884,41 @@ kbd {
               <span id="need-val-entertainment" style="width: 35px; font-size: 11px; color: #fff; text-align: right;">100%</span>
             </div>
           </div>
+          
+          <!-- Employee Upgrades Section (hidden for guests) -->
+          <div id="char-upgrades-section" style="display: none; flex-direction: column; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+            <h3 style="margin: 0 0 6px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-gold);">Employee Upgrades</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <button id="btn-upgrade-speed" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #00f0ff; background: rgba(0, 240, 255, 0.05);">
+                <span>⚡ Speed (Lvl <span id="char-lvl-speed">1</span>)</span>
+                <span style="color: #ffd700; font-weight: bold;" id="char-cost-speed">200c</span>
+              </button>
+              <button id="btn-upgrade-capacity" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #39ff14; background: rgba(57, 255, 20, 0.05);">
+                <span>🎒 Carry/Efficiency (Lvl <span id="char-lvl-capacity">1</span>)</span>
+                <span style="color: #ffd700; font-weight: bold;" id="char-cost-capacity">300c</span>
+              </button>
+              <button id="btn-upgrade-needs" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #e64dff; background: rgba(230, 77, 255, 0.05);">
+                <span>🍕 Needs Resist (Lvl <span id="char-lvl-needs">1</span>)</span>
+                <span style="color: #ffd700; font-weight: bold;" id="char-cost-needs">150c</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Amenity Buff Shop Modal -->
+    <div id="amenity-shop-modal" class="custom-dialog-overlay hidden">
+      <div class="custom-dialog-card" style="max-width: 340px; padding: 20px; gap: 10px;">
+        <div class="modal-header" style="margin-bottom: 8px;">
+          <h2 id="amenity-shop-title" style="margin: 0; font-size: 16px;">🥤 Buff Shop</h2>
+          <button id="btn-close-amenity-shop" class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px; text-align: left;">
+          <p id="amenity-shop-desc" style="font-size: 11px; color: var(--text-secondary); margin: 0;">Buy custom items to get temporary power buffs!</p>
+          <div id="amenity-shop-items" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Shop items will be generated programmatically here -->
+          </div>
         </div>
       </div>
     </div>
@@ -1926,7 +1962,9 @@ kbd {
       CLEAN_DIRT: 'CLEAN_DIRT',            // { x, y }
       CAPTURE_PICKPOCKET: 'CAPTURE_PICKPOCKET', // { id }
       REPAIR_MACHINE: 'REPAIR_MACHINE',     // { objectId }
-      SELECT_DIFFICULTY: 'SELECT_DIFFICULTY' // { difficulty }
+      SELECT_DIFFICULTY: 'SELECT_DIFFICULTY', // { difficulty }
+      UPGRADE_EMPLOYEE: 'UPGRADE_EMPLOYEE', // { employeeId, upgradeType }
+      BUY_BUFF: 'BUY_BUFF'                 // { buffType, cost, duration }
     },
 
     // Events broadcast from Simulator (Server) -> Client
@@ -3257,6 +3295,7 @@ kbd {
       this.targetX = startX; // Used for smooth transition interpolation
       this.targetY = startY;
       this.interactingObjectId = null;
+      this.buffs = {}; // Active temporary buffs
     }
 
     move(gridX, gridY, gridManager) {
@@ -3277,12 +3316,23 @@ kbd {
       this.interactingObjectId = null;
     }
 
+    tickBuffs(dt) {
+      if (!this.buffs) this.buffs = {};
+      for (const key in this.buffs) {
+        this.buffs[key] = Math.max(0, this.buffs[key] - dt);
+        if (this.buffs[key] <= 0) {
+          delete this.buffs[key];
+        }
+      }
+    }
+
     serialize() {
       return {
         id: this.id,
         gridX: this.gridX,
         gridY: this.gridY,
-        interactingObjectId: this.interactingObjectId
+        interactingObjectId: this.interactingObjectId,
+        buffs: this.buffs
       };
     }
 
@@ -3292,6 +3342,7 @@ kbd {
       this.gridX = data.gridX !== undefined ? data.gridX : this.gridX;
       this.gridY = data.gridY !== undefined ? data.gridY : this.gridY;
       this.interactingObjectId = data.interactingObjectId !== undefined ? data.interactingObjectId : this.interactingObjectId;
+      this.buffs = data.buffs || this.buffs || {};
     }
   }
 
@@ -3960,13 +4011,18 @@ kbd {
       this.bio = 100;
 
       // Waitress & Chef specific state
-      this.drinks = 0; // Starts at 0, restocks to 5 at Bar
-      this.meals = 0; // Starts at 0, restocks to 5 at Restaurant/Vending Machine
+      this.drinks = 0; // Starts at 0, restocks to capacity
+      this.meals = 0; // Starts at 0, restocks to capacity
       this.restockTimer = 0;
 
       // Need satisfaction timer
       this.consumeTimer = 0;
       this.currentNeedBeingSatisfied = null;
+
+      // Employee Stats Levels (Range 1-5)
+      this.speedLvl = 1;
+      this.capacityLvl = 1;
+      this.needsLvl = 1;
     }
 
     update(dt, gridManager, economyManager, sim) {
@@ -3978,10 +4034,14 @@ kbd {
         this.hunger = 100;
         this.bio = 100;
       } else {
-        this.thirst = Math.max(0, this.thirst - 0.4 * dtSeconds); // thirst decays in ~250s
-        this.hunger = Math.max(0, this.hunger - 0.25 * dtSeconds); // hunger decays in 400s
-        this.bio = Math.max(0, this.bio - 0.3 * dtSeconds); // bio decays in ~333s
+        const decayMult = 1 / (this.needsLvl || 1);
+        this.thirst = Math.max(0, this.thirst - 0.4 * dtSeconds * decayMult); // thirst decays slower
+        this.hunger = Math.max(0, this.hunger - 0.25 * dtSeconds * decayMult); // hunger decays slower
+        this.bio = Math.max(0, this.bio - 0.3 * dtSeconds * decayMult); // bio decays slower
       }
+
+      // Update speed dynamically based on level
+      this.speed = 3.0 * (1 + ((this.speedLvl || 1) - 1) * 0.2);
 
       // 2. State Machine
       switch (this.state) {
@@ -4086,14 +4146,32 @@ kbd {
               this.wanderTimer = 500;
               break;
             }
-            
-            // Check if needs are critical (< 25)
-            if (this.thirst < 25 || this.hunger < 25 || this.bio < 25) {
-              // Leave post to satisfy need
-              obj.dealerSeat.employeeId = null;
+            // Just stand still at post!
+            this.gridX = obj.gridX + obj.dealerSeat.rx;
+            this.gridY = obj.gridY + obj.dealerSeat.ry;
+            this.renderX = this.gridX;
+            this.renderY = this.gridY;
+          } else if (this.role === 'tech_support') {
+            const obj = gridManager.placedObjects.get(this.targetObjectId);
+            if (!obj || !obj.isBroken) {
               this.targetObjectId = null;
               this.state = States.WANDERING;
-              this.wanderTimer = 100;
+              this.wanderTimer = 500;
+              break;
+            }
+            
+            // Repair timer
+            this.repairTimer += dt;
+            if (this.repairTimer >= 3000) { // 3 seconds to repair
+              obj.isBroken = false;
+              obj.repairTimer = 0;
+              obj.needsRepairSoon = false;
+              this.targetObjectId = null;
+              this.state = States.WANDERING;
+              this.wanderTimer = 1000;
+              
+              const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+              if (ui) ui.logDebug(`Mechanic ${this.id} successfully repaired "${obj.name}"!`, 'success');
             }
           }
           break;
@@ -4101,8 +4179,9 @@ kbd {
         case States.RESTOCKING:
           this.restockTimer -= dt;
           if (this.restockTimer <= 0) {
-            if (this.role === 'waitress') this.drinks = 5;
-            if (this.role === 'chef') this.meals = 5;
+            const cap = 5 + ((this.capacityLvl || 1) - 1) * 2;
+            if (this.role === 'waitress') this.drinks = cap;
+            if (this.role === 'chef') this.meals = cap;
             this.targetObjectId = null;
             this.state = States.WANDERING;
             this.wanderTimer = 2000 + Math.random() * 2000;
@@ -4181,6 +4260,9 @@ kbd {
                   this.targetGuestId = null;
                   this.path = null;
                   this.findJobOrWander(gridManager, sim);
+                } else {
+                  this.state = States.WANDERING;
+                  this.wanderTimer = 500;
                 }
                 break;
               }
@@ -4189,7 +4271,7 @@ kbd {
         }
       }
 
-      // Chef serving scan: check if target guest is close enough
+      // Chef food serving scan
       if (this.role === 'chef' && this.meals > 0) {
         if (this.targetGuestId) {
           const guest = sim.guests.get(this.targetGuestId);
@@ -4198,10 +4280,10 @@ kbd {
             if (dist <= 1.5) {
               guest.hunger = 100;
               this.meals--;
-              economyManager.addChips(30); // Charge 30 Chips for delivery!
+              economyManager.addChips(40); // Charge 40 Chips for meal delivery!
               
               const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
-              if (ui) ui.logDebug(`Chef ${this.id} delivered food to ${guest.name} for 30 Chips.`, 'success');
+              if (ui) ui.logDebug(`Chef ${this.id} delivered meal to ${guest.name} for 40 Chips.`, 'success');
               
               this.targetGuestId = null;
               this.path = null;
@@ -4219,22 +4301,23 @@ kbd {
             this.wanderTimer = 500;
           }
         } else {
-          // Proximity scan for any nearby hungry guest
+          // Proximity scan for hungry guests
           for (const guest of sim.guests.values()) {
             if (guest.hunger < 60 && guest.state !== 'LEAVING') {
               const dist = Math.sqrt((this.gridX - guest.gridX)**2 + (this.gridY - guest.gridY)**2);
               if (dist <= 1.5) {
                 guest.hunger = 100;
                 this.meals--;
-                economyManager.addChips(30); // Charge 30 Chips
+                economyManager.addChips(40); // Charge 40 Chips
                 
                 const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
-                if (ui) ui.logDebug(`Chef ${this.id} served nearby guest ${guest.name} for 30 Chips.`, 'success');
+                if (ui) ui.logDebug(`Chef ${this.id} served nearby guest ${guest.name} for 40 Chips.`, 'success');
                 
                 if (this.meals <= 0) {
-                  this.targetGuestId = null;
-                  this.path = null;
                   this.findJobOrWander(gridManager, sim);
+                } else {
+                  this.state = States.WANDERING;
+                  this.wanderTimer = 500;
                 }
                 break;
               }
@@ -4264,37 +4347,6 @@ kbd {
               break;
             }
           }
-        }
-      }
-
-      // Tech Support behavior
-      if (this.role === 'tech_support' && this.state === 'WORKING' && this.targetObjectId) {
-        const obj = gridManager.placedObjects.get(this.targetObjectId);
-        if (obj && obj.isBroken) {
-          const dist = Math.sqrt((obj.gridX - this.gridX)**2 + (obj.gridY - this.gridY)**2);
-          if (dist <= 2.0) {
-            this.repairTimer = (this.repairTimer || 0) + dt;
-            if (this.repairTimer >= 3000) {
-              this.repairTimer = 0;
-              obj.isBroken = false;
-              console.log(`[Server:EmployeeAI] Tech Support "${this.id}" repaired machine "${obj.id}"`);
-              
-              sim.broadcast(sim.Protocol?.Events?.GUEST_LEFT_REASON || 'GUEST_LEFT_REASON', {
-                name: obj.name,
-                reason: 'machine_repaired'
-              });
-              
-              this.state = States.WANDERING;
-              this.wanderTimer = 1000;
-              this.targetObjectId = null;
-              this.path = null;
-            }
-          }
-        } else {
-          this.state = States.WANDERING;
-          this.wanderTimer = 500;
-          this.targetObjectId = null;
-          this.path = null;
         }
       }
 
@@ -4433,22 +4485,22 @@ kbd {
             let closestBar = null;
             let minDist = Infinity;
             bars.forEach(b => {
-              const d = Math.sqrt((this.gridX - b.gridX)**2 + (this.gridY - b.gridY)**2);
-              if (d < minDist) {
-                minDist = d;
+              const dist = Math.sqrt((this.gridX - b.gridX)**2 + (this.gridY - b.gridY)**2);
+              if (dist < minDist) {
+                minDist = dist;
                 closestBar = b;
               }
             });
-
+            
             if (closestBar) {
               this.targetObjectId = closestBar.id;
               const path = window.Casino.Pathfinding.findPath(
-                gridManager, 
-                this.gridX, 
-                this.gridY, 
-                closestBar.gridX, 
-                closestBar.gridY, 
-                true
+                gridManager,
+                this.gridX,
+                this.gridY,
+                closestBar.gridX,
+                closestBar.gridY,
+                false
               );
               if (path && path.length > 0) {
                 this.path = path;
@@ -4456,42 +4508,32 @@ kbd {
                 this.moveProgress = 0;
                 this.state = States.WALKING;
                 return;
+              } else {
+                this.targetObjectId = null;
               }
             }
           }
-          this.state = States.WANDERING;
-          this.wanderTimer = 1000;
-          return;
-        }
-
-        // Active delivery: seek guests with thirst < 60
-        const thirstyGuests = Array.from(sim.guests.values()).filter(g => g.thirst < 60 && g.state !== 'LEAVING');
-        if (thirstyGuests.length > 0) {
-          let closestGuest = null;
-          let minDist = Infinity;
-          thirstyGuests.forEach(g => {
-            const d = Math.sqrt((this.gridX - g.gridX)**2 + (this.gridY - g.gridY)**2);
-            if (d < minDist) {
-              minDist = d;
-              closestGuest = g;
-            }
-          });
-
-          if (closestGuest) {
-            this.targetGuestId = closestGuest.id;
-            this.state = States.WALKING;
+        } else {
+          // Find thirsty guests to serve
+          const thirstyGuests = Array.from(sim.guests.values()).filter(g => g.thirst < 50 && g.state !== 'LEAVING');
+          if (thirstyGuests.length > 0) {
+            // Pick random thirsty guest
+            const target = thirstyGuests[Math.floor(Math.random() * thirstyGuests.length)];
+            this.targetGuestId = target.id;
+            
             const path = window.Casino.Pathfinding.findPath(
               gridManager,
               this.gridX,
               this.gridY,
-              closestGuest.gridX,
-              closestGuest.gridY,
+              target.gridX,
+              target.gridY,
               false
             );
             if (path && path.length > 0) {
               this.path = path;
               this.pathIndex = 0;
               this.moveProgress = 0;
+              this.state = States.WALKING;
               return;
             } else {
               this.targetGuestId = null;
@@ -4499,34 +4541,33 @@ kbd {
           }
         }
 
-        // Just wander around delivering
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
+        this.wanderTimer = 1000 + Math.random() * 1000;
       } else if (this.role === 'chef') {
         // If out of meals, must go to Restaurant or Vending Machine to restock
         if (this.meals <= 0) {
-          const restockers = objects.filter(obj => obj.type === 'restaurant' || obj.type === 'vending_machine');
-          if (restockers.length > 0) {
-            // Find closest food station
-            let closest = null;
+          const kitchens = objects.filter(obj => obj.type === 'restaurant' || obj.type === 'vending_machine');
+          if (kitchens.length > 0) {
+            // Find closest kitchen
+            let closestKitchen = null;
             let minDist = Infinity;
-            restockers.forEach(b => {
-              const d = Math.sqrt((this.gridX - b.gridX)**2 + (this.gridY - b.gridY)**2);
-              if (d < minDist) {
-                minDist = d;
-                closest = b;
+            kitchens.forEach(k => {
+              const dist = Math.sqrt((this.gridX - k.gridX)**2 + (this.gridY - k.gridY)**2);
+              if (dist < minDist) {
+                minDist = dist;
+                closestKitchen = k;
               }
             });
-
-            if (closest) {
-              this.targetObjectId = closest.id;
+            
+            if (closestKitchen) {
+              this.targetObjectId = closestKitchen.id;
               const path = window.Casino.Pathfinding.findPath(
-                gridManager, 
-                this.gridX, 
-                this.gridY, 
-                closest.gridX, 
-                closest.gridY, 
-                true
+                gridManager,
+                this.gridX,
+                this.gridY,
+                closestKitchen.gridX,
+                closestKitchen.gridY,
+                false
               );
               if (path && path.length > 0) {
                 this.path = path;
@@ -4534,42 +4575,31 @@ kbd {
                 this.moveProgress = 0;
                 this.state = States.WALKING;
                 return;
+              } else {
+                this.targetObjectId = null;
               }
             }
           }
-          this.state = States.WANDERING;
-          this.wanderTimer = 1000;
-          return;
-        }
-
-        // Active delivery: seek guests with hunger < 60
-        const hungryGuests = Array.from(sim.guests.values()).filter(g => g.hunger < 60 && g.state !== 'LEAVING');
-        if (hungryGuests.length > 0) {
-          let closestGuest = null;
-          let minDist = Infinity;
-          hungryGuests.forEach(g => {
-            const d = Math.sqrt((this.gridX - g.gridX)**2 + (this.gridY - g.gridY)**2);
-            if (d < minDist) {
-              minDist = d;
-              closestGuest = g;
-            }
-          });
-
-          if (closestGuest) {
-            this.targetGuestId = closestGuest.id;
-            this.state = States.WALKING;
+        } else {
+          // Find hungry guests to serve
+          const hungryGuests = Array.from(sim.guests.values()).filter(g => g.hunger < 50 && g.state !== 'LEAVING');
+          if (hungryGuests.length > 0) {
+            const target = hungryGuests[Math.floor(Math.random() * hungryGuests.length)];
+            this.targetGuestId = target.id;
+            
             const path = window.Casino.Pathfinding.findPath(
               gridManager,
               this.gridX,
               this.gridY,
-              closestGuest.gridX,
-              closestGuest.gridY,
+              target.gridX,
+              target.gridY,
               false
             );
             if (path && path.length > 0) {
               this.path = path;
               this.pathIndex = 0;
               this.moveProgress = 0;
+              this.state = States.WALKING;
               return;
             } else {
               this.targetGuestId = null;
@@ -4577,36 +4607,39 @@ kbd {
           }
         }
 
-        // Just wander around delivering
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
+        this.wanderTimer = 1000 + Math.random() * 1000;
       } else if (this.role === 'tech_support') {
-        const brokenMachine = objects.find(obj => obj.isBroken);
-        if (brokenMachine) {
-          this.targetObjectId = brokenMachine.id;
-          this.state = States.WALKING;
+        // Find broken machines
+        const brokenObjs = objects.filter(obj => obj.isBroken);
+        if (brokenObjs.length > 0) {
+          const chosen = brokenObjs[Math.floor(Math.random() * brokenObjs.length)];
+          this.targetObjectId = chosen.id;
+          
           const path = window.Casino.Pathfinding.findPath(
             gridManager,
             this.gridX,
             this.gridY,
-            brokenMachine.gridX,
-            brokenMachine.gridY,
-            true
+            chosen.gridX,
+            chosen.gridY,
+            false
           );
           if (path && path.length > 0) {
             this.path = path;
             this.pathIndex = 0;
             this.moveProgress = 0;
+            this.state = States.WALKING;
             return;
           } else {
             this.targetObjectId = null;
           }
         }
+        
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
-      } else if (['scientist', 'manager', 'security', 'entertainer', 'pickpocket'].includes(this.role)) {
+        this.wanderTimer = 1000 + Math.random() * 1000;
+      } else {
         this.state = States.WANDERING;
-        this.wanderTimer = 1500 + Math.random() * 1500;
+        this.wanderTimer = 1000 + Math.random() * 1000;
       }
     }
 
@@ -4672,7 +4705,10 @@ kbd {
         drinks: this.drinks,
         meals: this.meals,
         needs: { thirst: this.thirst, hunger: this.hunger, bio: this.bio },
-        targetObjectId: this.targetObjectId
+        targetObjectId: this.targetObjectId,
+        speedLvl: this.speedLvl || 1,
+        capacityLvl: this.capacityLvl || 1,
+        needsLvl: this.needsLvl || 1
       };
     }
   }
@@ -4888,6 +4924,11 @@ kbd {
         }
       }
 
+      // Update player buffs
+      for (const player of this.players.values()) {
+        if (player.tickBuffs) player.tickBuffs(dt);
+      }
+
       // Update employee AI entities
       for (const employee of this.employees.values()) {
         employee.update(dt, this.gridManager, this.economyManager, this);
@@ -5040,6 +5081,14 @@ kbd {
         case Protocol.Commands.MOVE_OBJECT:
           this.handleMoveObject(player, payload);
           break;
+
+        case Protocol.Commands.BUY_BUFF:
+          this.handleBuyBuff(player, payload);
+          break;
+
+        case Protocol.Commands.UPGRADE_EMPLOYEE:
+          this.handleUpgradeEmployee(player, payload);
+          break;
       }
     }
 
@@ -5146,6 +5195,61 @@ kbd {
       console.log(`[Server:GameSim] Tech "${techType}" unlocked for ${researchCost} Research Points. Remaining: ${this.researchPoints}`);
 
       // Broadcast full state
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleBuyBuff(player, payload) {
+      const { buffType, cost, duration } = payload;
+      if (!this.economyManager.canAfford(cost)) {
+        console.warn(`[Server:GameSim] Player cannot afford buff: ${cost}`);
+        return;
+      }
+      this.economyManager.deductChips(cost);
+      this.recordDayStat('buffs', -cost);
+
+      if (!player.buffs) player.buffs = {};
+      player.buffs[buffType] = (player.buffs[buffType] || 0) + duration;
+      
+      console.log(`[Server:GameSim] Player purchased buff "${buffType}" for ${cost} Chips. New duration: ${player.buffs[buffType]}ms`);
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleUpgradeEmployee(player, payload) {
+      const { employeeId, upgradeType } = payload;
+      const employee = this.employees.get(employeeId);
+      if (!employee) {
+        console.warn(`[Server:GameSim] Upgrade rejected: Employee "${employeeId}" not found.`);
+        return;
+      }
+
+      const currentLvl = employee[upgradeType + 'Lvl'] || 1;
+      if (currentLvl >= 5) {
+        console.warn(`[Server:GameSim] Upgrade rejected: Employee "${employeeId}" ${upgradeType} already max level 5.`);
+        return;
+      }
+
+      let cost = 0;
+      if (upgradeType === 'speed') cost = 200 * currentLvl;
+      else if (upgradeType === 'capacity') cost = 300 * currentLvl;
+      else if (upgradeType === 'needs') cost = 150 * currentLvl;
+      else return;
+
+      if (!this.economyManager.canAfford(cost)) {
+        console.warn(`[Server:GameSim] Player cannot afford employee upgrade: ${cost}`);
+        return;
+      }
+
+      this.economyManager.deductChips(cost);
+      this.recordDayStat('upgrades', -cost);
+
+      employee[upgradeType + 'Lvl'] = currentLvl + 1;
+      
+      // Update employee stats dynamically
+      if (upgradeType === 'speed') {
+        employee.speed = 3.0 * (1 + (employee.speedLvl - 1) * 0.2);
+      }
+      
+      console.log(`[Server:GameSim] Upgraded Employee "${employeeId}" ${upgradeType} to Level ${employee[upgradeType + 'Lvl']} for ${cost} Chips.`);
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
     }
 
@@ -7897,12 +8001,30 @@ kbd {
     sendPayout(player, gameType, netPayout, totalWin, extraData) {
       if (isNaN(netPayout)) netPayout = 0;
       if (isNaN(totalWin)) totalWin = 0;
+
+      // Apply Double Chips payout buff!
+      const hasPayoutBuff = player.buffs && (player.buffs.payout > 0 || player.buffs.restaurant_buff > 0 || player.buffs.music_buff > 0);
+      if (hasPayoutBuff && netPayout > 0) {
+        const bonusChips = netPayout;
+        this.economyManager.addChips(bonusChips);
+        totalWin += bonusChips;
+        netPayout += bonusChips;
+        console.log(`[Server:GameSim] Double Chips Payout active! Added bonus of +${bonusChips} Chips!`);
+      }
+
       this.recordDayStat(gameType, -netPayout);
 
       // Player wins award Research Points equal to 1/4 of net profits (min 1 RP on any win!)
       let rpAwarded = 0;
       if (netPayout > 0) {
         rpAwarded = Math.max(1, Math.floor(netPayout * 0.25));
+        
+        // Double RP buff modifier!
+        const hasRpBuff = player.buffs && (player.buffs.rp > 0 || player.buffs.coffee_buff > 0 || player.buffs.vip_buff > 0 || player.buffs.restaurant_buff > 0 || player.buffs.hologram > 0 || player.buffs.pizza_oven > 0);
+        if (hasRpBuff) {
+          rpAwarded *= 2;
+        }
+
         this.researchPoints += rpAwarded;
         console.log(`[Server:GameSim] Player won ${netPayout} Chips gambling! Awarded ${rpAwarded} Research Points. Total RP: ${this.researchPoints}`);
       }
@@ -9498,7 +9620,7 @@ kbd {
 
         // Dispatch Play minigame command to GameSim
         this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
-          gameType: 'roulette',
+          gameType: this.activeGameType,
           tableId: this.activeTableId,
           bets: betsArray
         });
@@ -9933,7 +10055,7 @@ kbd {
         this.currentBets.clear();
 
         this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
-          gameType: 'craps',
+          gameType: this.activeGameType,
           tableId: this.activeTableId,
           action: 'roll',
           bets: betsArray
@@ -10960,17 +11082,17 @@ kbd {
             Place bets on PLAYER, BANKER, or TIE!
           </div>
           <div style="display:flex; gap:12px; width:100%; justify-content:center; margin:8px 0;">
-            <button id="btn-bac-bet-player" class="action-btn primary" style="flex:1; border:2px solid #00f0ff; background:rgba(0,240,255,0.05); color:#00f0ff; font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">PLAYER Bet (<span id="bac-p-bet">0</span>)</button>
-            <button id="btn-bac-bet-tie" class="action-btn secondary" style="flex:1; border:2px solid var(--accent-gold); background:rgba(255,215,0,0.05); color:var(--accent-gold); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">TIE Bet (<span id="bac-t-bet">0</span>)</button>
-            <button id="btn-bac-bet-banker" class="action-btn danger" style="flex:1; border:2px solid var(--accent-pink); background:rgba(255,0,127,0.05); color:var(--accent-pink); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">BANKER Bet (<span id="bac-b-bet">0</span>)</button>
+            <button id="btn-bac-bet-player" class="minigame-btn action" style="flex:1; border:2px solid #00f0ff; background:rgba(0,240,255,0.05); color:#00f0ff; font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">PLAYER Bet (<span id="bac-p-bet">0</span>)</button>
+            <button id="btn-bac-bet-tie" class="minigame-btn" style="flex:1; border:2px solid var(--accent-gold); background:rgba(255,215,0,0.05); color:var(--accent-gold); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">TIE Bet (<span id="bac-t-bet">0</span>)</button>
+            <button id="btn-bac-bet-banker" class="minigame-btn action" style="flex:1; border:2px solid var(--accent-pink); background:rgba(255,0,127,0.05); color:var(--accent-pink); font-weight:bold; font-size:12px; padding:10px; cursor:pointer;">BANKER Bet (<span id="bac-b-bet">0</span>)</button>
           </div>
           <div style="display:flex; justify-content:space-between; width:100%; background:rgba(0,0,0,0.3); padding:6px 12px; border-radius:8px; font-size:11px;">
             <div>Session Profit: <span id="bac-profit-val" style="font-weight:bold;">0</span> Chips</div>
             <div id="bac-chip-val" style="color:var(--accent-gold);">Chip: 5</div>
           </div>
           <div class="controls-wrapper" style="width:100%; display:flex; gap:12px; justify-content:center;">
-            <button id="btn-bac-clear" class="action-btn secondary" style="flex:1; padding:10px; cursor:pointer;">Clear Bets</button>
-            <button id="btn-bac-deal" class="action-btn primary" style="flex:2; padding:10px; cursor:pointer;">Deal Cards</button>
+            <button id="btn-bac-clear" class="minigame-btn reset" style="flex:1; padding:10px; cursor:pointer;">Clear Bets</button>
+            <button id="btn-bac-deal" class="minigame-btn action" style="flex:2; padding:10px; cursor:pointer;">Deal Cards</button>
           </div>
         </div>
       `;
@@ -11602,11 +11724,81 @@ kbd {
     /* ==========================================================================
        BIG SIX WHEEL CLIENT
        ========================================================================== */
+    drawBigSixWheel(angle) {
+      const canvas = document.getElementById('bs-wheel-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const r = cx - 6;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const segments = [
+        { label: '$1', color: '#1a1a2e', textColor: '#ffffff' },
+        { label: '$2', color: '#00f0ff', textColor: '#000000' },
+        { label: '$5', color: '#39ff14', textColor: '#000000' },
+        { label: '$10', color: '#ffaa00', textColor: '#000000' },
+        { label: '$20', color: '#ff007f', textColor: '#ffffff' },
+        { label: 'JOKER', color: '#e64dff', textColor: '#ffffff' },
+        { label: 'LOGO', color: '#ffd700', textColor: '#000000' }
+      ];
+      
+      const numSlices = 24; 
+      const sliceAngle = (Math.PI * 2) / numSlices;
+      
+      for (let i = 0; i < numSlices; i++) {
+        const seg = segments[i % segments.length];
+        const start = angle + i * sliceAngle;
+        const end = start + sliceAngle;
+        
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#222';
+        ctx.stroke();
+        
+        // Draw label text
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = seg.textColor;
+        ctx.font = 'bold 8px "Outfit", sans-serif';
+        ctx.fillText(seg.label, r - 6, 0);
+        ctx.restore();
+      }
+      
+      // Center hub
+      ctx.beginPath();
+      ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Top pointer needle pointing down
+      ctx.beginPath();
+      ctx.moveTo(cx, 1);
+      ctx.lineTo(cx - 5, 10);
+      ctx.lineTo(cx + 5, 10);
+      ctx.closePath();
+      ctx.fillStyle = '#ff0000';
+      ctx.fill();
+    }
+
     renderBigSix() {
       this.bigSixBets = {};
       this.modalBody.innerHTML = `
-        <div class="card-game-container" style="display:flex; flex-direction:column; gap:12px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:12px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
-          <div style="font-size:18px; font-weight:bold; color:var(--accent-gold); margin-bottom:4px;" id="bs-wheel-display">🎡 WHEEL</div>
+        <div class="card-game-container" style="display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:12px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+          <div style="font-size:16px; font-weight:bold; color:var(--accent-gold); margin-bottom:2px;" id="bs-wheel-display">🎡 WHEEL OF FORTUNE</div>
+          <canvas id="bs-wheel-canvas" width="150" height="150" style="margin:2px 0; border: 4px solid var(--accent-gold); border-radius: 50%; box-shadow: 0 0 15px rgba(255,215,0,0.3); background:#111;"></canvas>
           <div id="bs-status-text" style="font-size:13px; font-weight:bold; text-align:center; color:#fff; height:18px;">
             Place bets on $1, $2, $5, $10, $20, JOKER, or LOGO!
           </div>
@@ -11629,6 +11821,9 @@ kbd {
           </div>
         </div>
       `;
+
+      this.wheelRotation = 0;
+      setTimeout(() => this.drawBigSixWheel(0), 50);
 
       const b1 = document.getElementById('bs-1-bet');
       const b2 = document.getElementById('bs-2-bet');
@@ -11696,33 +11891,43 @@ kbd {
     }
 
     handleBigSixPayout(payload) {
-      const wheelDisplay = document.getElementById('bs-wheel-display');
       const statusText = document.getElementById('bs-status-text');
       const spinBtn = document.getElementById('btn-bs-spin');
       const clearBtn = document.getElementById('btn-bs-clear');
       
-      if (wheelDisplay && statusText) {
+      if (statusText) {
         if (spinBtn) spinBtn.disabled = true;
         if (clearBtn) clearBtn.disabled = true;
         statusText.innerText = "Spinning wheel...";
         statusText.style.color = '#fff';
 
-        const segments = ['$1', '$2', '$5', '$10', '$20', 'joker', 'logo'];
-        let cycles = 0;
-        
-        const interval = setInterval(() => {
-          const randSeg = segments[Math.floor(Math.random() * segments.length)];
-          wheelDisplay.innerText = `🔄 [${randSeg.toUpperCase()}]`;
-          window.Casino.SoundManager.playBeep();
-          cycles++;
-          
-          if (cycles >= 12) {
-            clearInterval(interval);
+        const startAngle = this.wheelRotation || 0;
+        const spinDuration = 3000;
+        let startTime = null;
+
+        // Force a nice random rotation that lands smoothly
+        const totalRotation = Math.PI * 2 * 3 + (Math.random() * Math.PI * 2);
+        const targetRotation = startAngle + totalRotation;
+
+        const animate = (timestamp) => {
+          if (!startTime) startTime = timestamp;
+          const elapsed = timestamp - startTime;
+          const progress = Math.min(elapsed / spinDuration, 1);
+
+          // easeOutQuad
+          const ease = 1 - (1 - progress) * (1 - progress);
+          this.wheelRotation = startAngle + (targetRotation - startAngle) * ease;
+          this.drawBigSixWheel(this.wheelRotation);
+
+          if (progress < 1) {
+            if (Math.floor(this.wheelRotation * 10) % 2 === 0) {
+              window.Casino.SoundManager.playBeep();
+            }
+            requestAnimationFrame(animate);
+          } else {
             if (spinBtn) spinBtn.disabled = false;
             if (clearBtn) clearBtn.disabled = false;
-            
-            wheelDisplay.innerText = `✨ [${payload.winSegment.toUpperCase()}]`;
-            
+
             const outcomeText = `Wheel landed on: ${payload.winSegment.toUpperCase()}.`;
             if (payload.netPayout > 0) {
               statusText.innerText = `${outcomeText} You Won +${payload.netPayout} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
@@ -11733,7 +11938,7 @@ kbd {
               statusText.style.color = '#ff4d4d';
               window.Casino.SoundManager.playLose();
             }
-            
+
             this.sessionProfit += payload.netPayout;
             const profitEl = document.getElementById('bs-profit-val');
             if (profitEl) {
@@ -11745,7 +11950,8 @@ kbd {
             if (payload.chips !== undefined) this.clientGame.chips = payload.chips;
             this.updateBalance();
           }
-        }, 150);
+        };
+        requestAnimationFrame(animate);
       }
     }
 
@@ -12459,7 +12665,7 @@ kbd {
               </div>
             </div>
             <!-- Dynamic ball overlay -->
-            <div id="pk-ball" style="display:none; position:absolute; width:8px; height:8px; border-radius:50%; background:#ffd700; left:96px; top:4px; box-shadow:0 0 8px #ffd700;"></div>
+            <div id="pk-ball" style="display:none; position:absolute; width:8px; height:8px; border-radius:50%; background:#ffd700; left:96px; top:4px; box-shadow:0 0 8px #ffd700; z-index: 5;"></div>
           </div>
           <div id="pk-status-text" style="font-size:13px; font-weight:bold; text-align:center; color:#fff; height:18px;">
             Place bet and click DROP BALL!
@@ -12474,7 +12680,7 @@ kbd {
               <div class="picker-chip" data-value="25">25</div>
               <div class="picker-chip" data-value="100">100</div>
             </div>
-              <button id="btn-pk-drop" class="action-btn primary" style="flex:2; padding:12px; font-weight:bold; font-size:14px; cursor:pointer;">DROP BALL</button>
+            <button id="btn-pk-drop" class="minigame-btn action" style="width:100%; font-weight:bold; font-size:14px; cursor:pointer;">DROP BALL</button>
           </div>
         </div>
       `;
@@ -12534,12 +12740,13 @@ kbd {
             clearInterval(interval);
             dropBtn.disabled = false;
 
-            if (payload.multiplier > 0) {
-              statusText.innerText = `Landed on ${payload.multiplier}x slot! You Won +${payload.netPayout} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
+            const netVal = payload.netPayout;
+            if (netVal >= 0) {
+              statusText.innerText = `Landed on ${payload.multiplier}x slot! Won +${netVal} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
               statusText.style.color = '#39ff14';
               window.Casino.SoundManager.playWin();
             } else {
-              statusText.innerText = "Landed on 0x slot. Lost bet.";
+              statusText.innerText = `Landed on ${payload.multiplier}x slot! Net Loss: ${Math.abs(netVal)} Chips${payload.rpAwarded > 0 ? ' (+' + payload.rpAwarded + ' 🧪)' : ''}!`;
               statusText.style.color = '#ff4d4d';
               window.Casino.SoundManager.playLose();
             }
@@ -12567,6 +12774,14 @@ kbd {
       this.selectedNumbers = [];
       this.modalBody.innerHTML = `
         <div class="card-game-container" style="display:flex; flex-direction:column; gap:12px; align-items:center; width:100%; max-width:600px; margin:0 auto; padding:12px; background:rgba(0,0,0,0.4); border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+          <!-- Bouncing ball lottery drum -->
+          <div id="lt-drum" style="position:relative; width:80px; height:80px; border-radius:50%; border:3px dashed var(--accent-gold); margin:4px 0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; overflow:hidden; transition: transform 0.1s linear;">
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#ffd700; left:20%; top:30%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#00f0ff; left:40%; top:60%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#ff007f; left:60%; top:20%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#39ff14; left:70%; top:50%;"></div>
+            <div class="drum-ball" style="position:absolute; width:10px; height:10px; border-radius:50%; background:#e64dff; left:30%; top:25%;"></div>
+          </div>
           <div style="font-size:11px; color:#aaa; margin-bottom:4px;">SELECT 5 NUMBERS (1-20)</div>
           <div id="lt-board" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; width:100%;">
             <!-- 1 to 20 buttons -->
@@ -12662,6 +12877,7 @@ kbd {
       const resultsEl = document.getElementById('lt-results');
       const statusText = document.getElementById('lt-status-text');
       const buyBtn = document.getElementById('btn-lt-buy');
+      const drum = document.getElementById('lt-drum');
 
       if (resultsEl && statusText) {
         if (buyBtn) buyBtn.disabled = true;
@@ -12675,6 +12891,15 @@ kbd {
           while (randNums.length < 5) {
             const r = Math.floor(Math.random() * 20) + 1;
             if (!randNums.includes(r)) randNums.push(r);
+          }
+
+          if (drum) {
+            drum.style.transform = `rotate(${cycles * 30}deg)`;
+            const balls = drum.querySelectorAll('.drum-ball');
+            balls.forEach(b => {
+              b.style.left = `${15 + Math.random() * 60}%`;
+              b.style.top = `${15 + Math.random() * 60}%`;
+            });
           }
 
           resultsEl.innerHTML = randNums.map(n => {
@@ -13967,6 +14192,7 @@ kbd {
     }
 
     updateHUD() {
+      this.updateBuffsUI();
       document.getElementById('chip-balance').innerText = this.chips.toLocaleString();
       
       const researchEl = document.getElementById('research-balance');
@@ -14227,29 +14453,9 @@ kbd {
           return;
         }
 
-        // QTE mini-games for Stages
-        if (['jazz_band', 'hologram', 'fountain'].includes(closestObj.type)) {
-          this.startQTEMinigame(
-            "🎭 STAGE PERFORMANCE",
-            "Rhythm performance! Hit the GREEN zone!",
-            () => {
-              this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: closestObj.id });
-              this.showNotification("🎭 Crowd cheered! Surrounding guest entertainment refilled!", "success");
-            }
-          );
-          return;
-        }
-
-        // QTE mini-games for Food/Bar service
-        if (['bar', 'restaurant'].includes(closestObj.type)) {
-          this.startQTEMinigame(
-            "🍻 SERVICE BOOST",
-            "Prepping wagers! Hit the GREEN zone!",
-            () => {
-              this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: closestObj.id });
-              this.showNotification("🍻 Station boosted! Payouts increased +50% for 60 seconds!", "success");
-            }
-          );
+        // Open Amenity Buff Shop if applicable (covers stages, food/bar service, and decor)
+        if (AmenityShopData[closestObj.type]) {
+          this.openAmenityShop(closestObj.id);
           return;
         }
 
@@ -14609,6 +14815,99 @@ kbd {
         if (entRow) entRow.style.display = 'none';
       }
 
+      // Employee upgrades section
+      const upgradesSection = document.getElementById('char-upgrades-section');
+      if (upgradesSection) {
+        if (role !== 'guest' && role !== 'pickpocket') {
+          upgradesSection.style.display = 'flex';
+          
+          const speedLvl = char.speedLvl || 1;
+          const capacityLvl = char.capacityLvl || 1;
+          const needsLvl = char.needsLvl || 1;
+          
+          document.getElementById('char-lvl-speed').innerText = speedLvl;
+          document.getElementById('char-lvl-capacity').innerText = capacityLvl;
+          document.getElementById('char-lvl-needs').innerText = needsLvl;
+          
+          const speedCost = speedLvl >= 5 ? 'MAX' : (200 * speedLvl) + 'c';
+          const capacityCost = capacityLvl >= 5 ? 'MAX' : (300 * capacityLvl) + 'c';
+          const needsCost = needsLvl >= 5 ? 'MAX' : (150 * needsLvl) + 'c';
+          
+          document.getElementById('char-cost-speed').innerText = speedCost;
+          document.getElementById('char-cost-capacity').innerText = capacityCost;
+          document.getElementById('char-cost-needs').innerText = needsCost;
+          
+          // Re-bind click event handlers safely
+          const replaceBtn = (id) => {
+            const oldEl = document.getElementById(id);
+            if (!oldEl) return null;
+            const newEl = oldEl.cloneNode(true);
+            oldEl.parentNode.replaceChild(newEl, oldEl);
+            return newEl;
+          };
+          
+          const btnSpeed = replaceBtn('btn-upgrade-speed');
+          const btnCapacity = replaceBtn('btn-upgrade-capacity');
+          const btnNeeds = replaceBtn('btn-upgrade-needs');
+          
+          if (btnSpeed && speedLvl < 5) {
+            btnSpeed.disabled = false;
+            btnSpeed.onclick = () => {
+              const cost = 200 * speedLvl;
+              if (this.chips < cost) {
+                this.showNotification("Cannot afford speed upgrade!", "error");
+                return;
+              }
+              this.sendAction(window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+                employeeId: char.id,
+                upgradeType: 'speed'
+              });
+              modal.classList.add('hidden');
+            };
+          } else if (btnSpeed) {
+            btnSpeed.disabled = true;
+          }
+          
+          if (btnCapacity && capacityLvl < 5) {
+            btnCapacity.disabled = false;
+            btnCapacity.onclick = () => {
+              const cost = 300 * capacityLvl;
+              if (this.chips < cost) {
+                this.showNotification("Cannot afford carry upgrade!", "error");
+                return;
+              }
+              this.sendAction(window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+                employeeId: char.id,
+                upgradeType: 'capacity'
+              });
+              modal.classList.add('hidden');
+            };
+          } else if (btnCapacity) {
+            btnCapacity.disabled = true;
+          }
+          
+          if (btnNeeds && needsLvl < 5) {
+            btnNeeds.disabled = false;
+            btnNeeds.onclick = () => {
+              const cost = 150 * needsLvl;
+              if (this.chips < cost) {
+                this.showNotification("Cannot afford needs upgrade!", "error");
+                return;
+              }
+              this.sendAction(window.Casino.Protocol.Commands.UPGRADE_EMPLOYEE, {
+                employeeId: char.id,
+                upgradeType: 'needs'
+              });
+              modal.classList.add('hidden');
+            };
+          } else if (btnNeeds) {
+            btnNeeds.disabled = true;
+          }
+        } else {
+          upgradesSection.style.display = 'none';
+        }
+      }
+
       modal.classList.remove('hidden');
     }
 
@@ -14737,12 +15036,28 @@ kbd {
     }
 
     update(dt) {
+      // Tick local player buffs
+      const localPlayer = this.state.players[this.playerId];
+      if (localPlayer && localPlayer.buffs) {
+        for (const key in localPlayer.buffs) {
+          localPlayer.buffs[key] = Math.max(0, localPlayer.buffs[key] - dt);
+          if (localPlayer.buffs[key] <= 0) {
+            delete localPlayer.buffs[key];
+          }
+        }
+        this.updateBuffsUI();
+      }
+
       if (this.isInMinigame || this.isInQTE) return;
 
       // 1. Process player movement keyboard inputs
       const now = performance.now();
+      const hasSpeedBuff = localPlayer && localPlayer.buffs && (localPlayer.buffs.speed > 0 || localPlayer.buffs.coffee_buff > 0 || localPlayer.buffs.massage_buff > 0 || localPlayer.buffs.vip_buff > 0);
       const isShift = this.inputHandler.keys['Shift'];
-      const cooldown = isShift ? 90 : this.moveCooldown;
+      let cooldown = isShift ? 90 : this.moveCooldown;
+      if (hasSpeedBuff) {
+        cooldown = cooldown / 2; // Speed buff halves the cooldown!
+      }
       if (now - this.lastMoveTime > cooldown) {
         const { dx, dy } = this.inputHandler.getMovementDirection();
         if (dx !== 0 || dy !== 0) {
@@ -15175,9 +15490,288 @@ kbd {
         }
       }
 
-      return true;
+    openAmenityShop(objectId) {
+      const obj = this.state.grid.objects.find(o => o.id === objectId);
+      if (!obj) return;
+      
+      const shopData = AmenityShopData[obj.type];
+      if (!shopData) return;
+      
+      const modal = document.getElementById('amenity-shop-modal');
+      if (!modal) return;
+      
+      document.getElementById('amenity-shop-title').innerText = shopData.title;
+      document.getElementById('amenity-shop-desc').innerText = shopData.desc;
+      
+      const itemsList = document.getElementById('amenity-shop-items');
+      itemsList.innerHTML = '';
+      
+      // Render buyable items
+      shopData.items.forEach(item => {
+        const itemEl = document.createElement('div');
+        itemEl.style.display = 'flex';
+        itemEl.style.flexDirection = 'column';
+        itemEl.style.gap = '4px';
+        itemEl.style.background = 'rgba(255,255,255,0.03)';
+        itemEl.style.padding = '8px';
+        itemEl.style.borderRadius = '6px';
+        itemEl.style.border = '1px solid rgba(255,255,255,0.05)';
+        
+        itemEl.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:bold; font-size:12px; color:#fff;">${item.name}</span>
+            <button class="minigame-btn action" style="padding:4px 8px; font-size:10px;">Buy (${item.cost}c)</button>
+          </div>
+          <div style="font-size:10px; color:var(--text-secondary);">${item.desc}</div>
+        `;
+        
+        const buyBtn = itemEl.querySelector('button');
+        buyBtn.onclick = () => {
+          if (this.chips < item.cost) {
+            this.showNotification("Insufficient chips!", "error");
+            return;
+          }
+          // Send BUY_BUFF command to server
+          this.sendAction(window.Casino.Protocol.Commands.BUY_BUFF, {
+            buffType: item.buff,
+            cost: item.cost,
+            duration: item.duration * 1000 // duration in ms
+          });
+          modal.classList.add('hidden');
+          window.Casino.SoundManager.playPlaceBet();
+        };
+        
+        itemsList.appendChild(itemEl);
+      });
+      
+      // Render QTE options if applicable
+      if (['jazz_band', 'hologram', 'fountain', 'bar', 'restaurant'].includes(obj.type)) {
+        const qteEl = document.createElement('div');
+        qteEl.style.marginTop = '8px';
+        qteEl.style.borderTop = '1px solid rgba(255,255,255,0.08)';
+        qteEl.style.paddingTop = '8px';
+        
+        let qteName = '';
+        let qteDesc = '';
+        let qteTitle = '';
+        if (['jazz_band', 'hologram', 'fountain'].includes(obj.type)) {
+          qteTitle = "🎭 STAGE PERFORMANCE";
+          qteDesc = "Rhythm performance! Hit the GREEN zone!";
+          qteName = "Perform Live";
+        } else {
+          qteTitle = "🍻 SERVICE BOOST";
+          qteDesc = "Prepping wagers! Hit the GREEN zone!";
+          qteName = "Boost Service";
+        }
+        
+        qteEl.innerHTML = `
+          <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">${qteDesc}</div>
+          <button class="minigame-btn action" style="width:100%; border-color:var(--accent-blue); background:rgba(0,240,255,0.05); color:var(--accent-blue); font-size:11px; padding:6px;">${qteName} (Free)</button>
+        `;
+        
+        const qteBtn = qteEl.querySelector('button');
+        qteBtn.onclick = () => {
+          modal.classList.add('hidden');
+          this.startQTEMinigame(
+            qteTitle,
+            qteDesc,
+            () => {
+              this.sendAction(window.Casino.Protocol.Commands.INTERACT, { objectId: obj.id });
+              this.showNotification(`${qteName} complete! Station boosted!`, "success");
+            }
+          );
+        };
+        
+        itemsList.appendChild(qteEl);
+      }
+      
+      // Close button wiring
+      document.getElementById('btn-close-amenity-shop').onclick = () => {
+        modal.classList.add('hidden');
+      };
+      
+      modal.classList.remove('hidden');
+    }
+
+    updateBuffsUI() {
+      const container = document.getElementById('hud-buffs-list');
+      if (!container) return;
+      
+      const player = this.state.players[this.playerId];
+      if (!player || !player.buffs || Object.keys(player.buffs).length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      
+      const buffNames = {
+        speed: { name: "⚡ Volt Soda", color: "#00f0ff" },
+        luck: { name: "🍀 Lucky Chips", color: "#39ff14" },
+        rp: { name: "🧪 Gummy Brain", color: "#e64dff" },
+        coffee_buff: { name: "☕ Espresso", color: "#ffaa00" },
+        massage_buff: { name: "☯️ Zen Massage", color: "#ff007f" },
+        vip_buff: { name: "👑 VIP Lounge", color: "#ffd700" },
+        payout: { name: "🍸 Royal Cocktail", color: "#39ff14" },
+        restaurant_buff: { name: "🍳 Ribeye Steak", color: "#ffd700" },
+        music_buff: { name: "🎵 Concert Ticket", color: "#e64dff" }
+      };
+      
+      container.innerHTML = Object.keys(player.buffs).map(key => {
+        const remainingSec = Math.ceil(player.buffs[key] / 1000);
+        if (remainingSec <= 0) return '';
+        const info = buffNames[key] || { name: key.toUpperCase(), color: "#fff" };
+        
+        return `
+          <div style="font-size:10px; font-weight:bold; color:#000; background:${info.color}; padding:2px 6px; border-radius:4px; box-shadow: 0 0 6px ${info.color}66; display:flex; align-items:center; gap:4px;">
+            <span>${info.name}</span>
+            <span style="opacity:0.8; font-family:monospace;">${remainingSec}s</span>
+          </div>
+        `;
+      }).join('');
     }
   }
+
+  const AmenityShopData = {
+    soda_machine: {
+      title: "🥤 Soda Machine Shop",
+      desc: "Buy refreshments to boost your energy!",
+      items: [
+        { name: "Volt Energy Drink", cost: 50, duration: 60, buff: "speed", desc: "⚡ Double Movement Speed for 60s" }
+      ]
+    },
+    vending_machine: {
+      title: "🍫 Vending Kiosk",
+      desc: "Salty snacks to get you in the zone!",
+      items: [
+        { name: "Lucky Chips", cost: 60, duration: 60, buff: "luck", desc: "🍀 +15% Minigame Win Luck for 60s" }
+      ]
+    },
+    candy_dispenser: {
+      title: "🍬 Candy Dispenser",
+      desc: "Sweet sugary treats for brain power!",
+      items: [
+        { name: "Gummy Brains", cost: 100, duration: 60, buff: "rp", desc: "🧪 2x Research Point (RP) rewards for 60s" }
+      ]
+    },
+    coffee_maker: {
+      title: "☕ Coffee Station",
+      desc: "Freshly brewed espresso shots!",
+      items: [
+        { name: "Double Espresso", cost: 150, duration: 60, buff: "coffee_buff", desc: "⚡ +100% Speed & 2x RP for 60s" }
+      ]
+    },
+    bathroom_stall: {
+      title: "🚽 Restroom Stall",
+      desc: "Clean up and freshen up!",
+      items: [
+        { name: "Splash of Cold Water", cost: 40, duration: 60, buff: "speed", desc: "⚡ Halves movement cooldown for 60s" }
+      ]
+    },
+    luxury_bathroom: {
+      title: "✨ Luxury Restroom",
+      desc: "Premium wash station for VIPs!",
+      items: [
+        { name: "VIP Cologne Splash", cost: 80, duration: 90, buff: "luck", desc: "🍀 +15% Luck & Speed Boost for 90s" }
+      ]
+    },
+    massage_chair: {
+      title: "💺 Massage Chair Kiosk",
+      desc: "Sit back and relax under vibration rollers!",
+      items: [
+        { name: "Zen Massage Session", cost: 120, duration: 60, buff: "massage_buff", desc: "☯️ Speed & Luck Boost for 60s" }
+      ]
+    },
+    vip_lounge: {
+      title: "🥂 VIP Lounge Bar",
+      desc: "Access the elite area for premium benefits!",
+      items: [
+        { name: "VIP Lounge Pass", cost: 300, duration: 90, buff: "vip_buff", desc: "👑 Double Guest Tips & 2x RP for 90s" }
+      ]
+    },
+    popcorn_cart: {
+      title: "🍿 Popcorn Cart",
+      desc: "Fresh buttered popcorn smell!",
+      items: [
+        { name: "Caramel Glazed Popcorn", cost: 80, duration: 60, buff: "luck", desc: "🍀 +10% Minigame Win Luck for 60s" }
+      ]
+    },
+    ice_cream: {
+      title: "🍦 Ice Cream Kiosk",
+      desc: "Delicious frozen sundaes!",
+      items: [
+        { name: "Double Cherry Sundae", cost: 90, duration: 60, buff: "massage_buff", desc: "⚡ Speed & Luck Boost for 60s" }
+      ]
+    },
+    bar: {
+      title: "🍸 Cocktail Bar Kiosk",
+      desc: "Premium mixology station!",
+      items: [
+        { name: "Royal Gin & Tonic", cost: 110, duration: 60, buff: "payout", desc: "🪙 Double all chip payouts in minigames for 60s" }
+      ]
+    },
+    restaurant: {
+      title: "🍳 Gourmet Restaurant",
+      desc: "Fine dining for management!",
+      items: [
+        { name: "Gourmet Ribeye Steak", cost: 200, duration: 60, buff: "restaurant_buff", desc: "👑 Double RP & Double Chip Payouts for 60s" }
+      ]
+    },
+    pizza_oven: {
+      title: "🍕 Stone Pizzeria",
+      desc: "Fresh hot pizza slices!",
+      items: [
+        { name: "Super Pepperoni Slice", cost: 130, duration: 90, buff: "rp", desc: "🧪 2x Research Point (RP) rewards for 90s" }
+      ]
+    },
+    jazz_band: {
+      title: "🎷 Music Stage Concert",
+      desc: "Buy concert tickets or perform live!",
+      items: [
+        { name: "Front Row VIP Concert Ticket", cost: 250, duration: 60, buff: "music_buff", desc: "🎵 Double Payouts & Luck Boost for 60s" }
+      ]
+    },
+    fountain: {
+      title: "⛲ Wishing Fountain",
+      desc: "Throw a coin and make a wish!",
+      items: [
+        { name: "Throw Lucky Golden Coin", cost: 50, duration: 60, buff: "luck", desc: "🍀 +15% Minigame Win Luck for 60s" }
+      ]
+    },
+    arcade_console: {
+      title: "🕹️ Retro Arcade Cabinet",
+      desc: "Insert coin to play!",
+      items: [
+        { name: "VIP Game Tokens", cost: 70, duration: 60, buff: "massage_buff", desc: "⚡ Speed & Luck Boost for 60s" }
+      ]
+    },
+    vr_pod: {
+      title: "🥽 Virtual Reality Pod",
+      desc: "Simulate a cyber world!",
+      items: [
+        { name: "Cyber Vibe Experience", cost: 140, duration: 60, buff: "coffee_buff", desc: "⚡ +100% Speed & 2x RP for 60s" }
+      ]
+    },
+    hologram: {
+      title: "💿 Hologram Projector",
+      desc: "Futuristic visual projections!",
+      items: [
+        { name: "Holo-Matrix Vibe", cost: 100, duration: 60, buff: "rp", desc: "🧪 2x Research Point (RP) rewards for 60s" }
+      ]
+    },
+    gold_statue: {
+      title: "👑 Golden Statue Shrine",
+      desc: "Rub the statue's hands for positive energy!",
+      items: [
+        { name: "Rub Golden Statue", cost: 120, duration: 60, buff: "luck", desc: "🍀 +15% Minigame Win Luck for 60s" }
+      ]
+    },
+    glow_sofa: {
+      title: "🛋️ Neon Glow Lounge",
+      desc: "Relax on neon leather!",
+      items: [
+        { name: "Relaxing Couch Nap", cost: 60, duration: 60, buff: "speed", desc: "⚡ Halves movement cooldown for 60s" }
+      ]
+    }
+  };
 
   window.Casino.ClientGame = ClientGame;
 })();
