@@ -503,7 +503,7 @@
         // Name tag
         this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#e0e0ff';
         this.ctx.font = 'bold 9px "Outfit", sans-serif';
-        const label = isMainPlayer ? "MANAGER (YOU)" : `P_${p.id.substring(0,4)}`;
+        const label = isMainPlayer ? `${p.name || "MANAGER"} (YOU)` : (p.name || `P_${p.id.substring(0,4)}`);
         this.ctx.fillText(label, xPx, yPx - 22);
 
         // Render carrying status

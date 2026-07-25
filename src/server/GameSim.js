@@ -70,11 +70,14 @@
       ];
     }
 
-    addPlayer(playerId) {
+    addPlayer(playerId, playerName = null) {
       // Spawn player near center
       const startX = Math.floor(this.gridManager.cols / 2);
       const startY = Math.floor(this.gridManager.rows / 2);
       const newPlayer = new window.Casino.PlayerEntity(playerId, startX, startY);
+      if (playerName) {
+        newPlayer.name = playerName;
+      }
       
       // Bind chips property directly to economyManager to prevent synchronization drift and NaNs
       Object.defineProperty(newPlayer, 'chips', {
@@ -378,6 +381,10 @@
 
         case Protocol.Commands.HAND_NEEDS:
           this.handleHandNeeds(player, payload);
+          break;
+
+        case Protocol.Commands.SET_PLAYER_NAME:
+          this.handleSetPlayerName(player, payload);
           break;
 
         case Protocol.Commands.MOVE_OBJECT:
@@ -1276,6 +1283,13 @@
           this.recordDayStat('tips', 20);
           this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
         }
+      }
+    }
+
+    handleSetPlayerName(player, payload) {
+      if (player && payload && payload.name) {
+        player.name = payload.name;
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
       }
     }
 

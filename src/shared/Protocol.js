@@ -23,7 +23,8 @@
       BUY_BUFF: 'BUY_BUFF',                 // { buffType, cost, duration }
       REFILL_AMENITY: 'REFILL_AMENITY',     // { objectId }
       GRAB_AMENITY_ITEM: 'GRAB_AMENITY_ITEM', // { objectId }
-      HAND_NEEDS: 'HAND_NEEDS'              // { guestId, itemType }
+      HAND_NEEDS: 'HAND_NEEDS',              // { guestId, itemType }
+      SET_PLAYER_NAME: 'SET_PLAYER_NAME'    // { name }
     },
 
     // Events broadcast from Simulator (Server) -> Client

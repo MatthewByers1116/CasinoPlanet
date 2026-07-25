@@ -4,8 +4,8 @@
     constructor() {
       this.ctx = null;
       this.musicPlaying = false;
-      this.musicInterval = null;
-      this.tempo = 120; // BPM
+      this.musicTimeout = null;
+      this.tempo = 100; // BPM
       this.step = 0;
       this.masterVolume = 0.5;
       
@@ -42,30 +42,67 @@
 
     startMusic() {
       this.musicPlaying = true;
-      const stepDuration = 60 / this.tempo / 2; // Eighth notes
-      
-      this.musicInterval = setInterval(() => {
-        this.playMusicStep();
-      }, stepDuration * 1000);
-      
       const btn = document.getElementById('btn-toggle-music');
       if (btn) {
         btn.innerText = "🎵 Music: On";
         btn.classList.add('active');
       }
+
+      const scheduleNext = () => {
+        if (!this.musicPlaying) return;
+        
+        this.updateDynamicTempo();
+        const stepDuration = 60 / this.tempo / 2; // Eighth notes
+        this.playMusicStep();
+        
+        this.musicTimeout = setTimeout(scheduleNext, stepDuration * 1000);
+      };
+      
+      scheduleNext();
     }
 
     stopMusic() {
       this.musicPlaying = false;
-      if (this.musicInterval) {
-        clearInterval(this.musicInterval);
-        this.musicInterval = null;
+      if (this.musicTimeout) {
+        clearTimeout(this.musicTimeout);
+        this.musicTimeout = null;
       }
       const btn = document.getElementById('btn-toggle-music');
       if (btn) {
         btn.innerText = "🎵 Music: Off";
         btn.classList.remove('active');
       }
+    }
+
+    updateDynamicTempo() {
+      const client = window.Casino.clientInstance;
+      if (!client || !client.state) {
+        this.tempo = 100;
+        return;
+      }
+
+      let unhappyCount = 0;
+      let totalGuests = 0;
+      if (client.state.guests) {
+        const guestsList = Object.values(client.state.guests);
+        totalGuests = guestsList.length;
+        guestsList.forEach(guest => {
+          if (guest.happiness < 50 || guest.hunger < 40 || guest.thirst < 40) {
+            unhappyCount++;
+          }
+        });
+      }
+
+      const timeModulation = Math.sin(performance.now() * 0.00005) * 8; // slow swing modulation (+/- 8 bpm)
+
+      let anxietyFactor = 0;
+      if (totalGuests > 0) {
+        anxietyFactor = unhappyCount / totalGuests;
+      }
+
+      const targetTempo = 100 + anxietyFactor * 45 + timeModulation;
+      if (!this.tempo) this.tempo = 100;
+      this.tempo = this.tempo * 0.9 + targetTempo * 0.1;
     }
 
     playMusicStep() {
@@ -93,6 +130,18 @@
         }
       }
 
+      // Calculate anxiety factor to modulate sound
+      const client = window.Casino.clientInstance;
+      let anxietyFactor = 0;
+      if (client && client.state && client.state.guests) {
+        const guestsList = Object.values(client.state.guests);
+        let unhappy = 0;
+        guestsList.forEach(g => {
+          if (g.happiness < 50 || g.hunger < 40 || g.thirst < 40) unhappy++;
+        });
+        if (guestsList.length > 0) anxietyFactor = unhappy / guestsList.length;
+      }
+
       // Play bass note on beats 1, 5, 9, 13
       if (barStep % 4 === 0) {
         // Bass frequency is played one octave lower (half frequency) (increased base vol to 0.15)
@@ -102,7 +151,15 @@
       // Play improvised melody note (increased base vol to 0.08)
       const noteFreq = this.melodyPattern[barStep];
       if (noteFreq) {
-        this.playTone(noteFreq, 'triangle', 0.08, 0.2, now);
+        let oscType = 'triangle';
+        let volume = 0.08;
+        if (anxietyFactor > 0.4) {
+          oscType = Math.random() < 0.3 ? 'sawtooth' : 'triangle';
+          volume = 0.09;
+        }
+        const playFreq = noteFreq * (1.0 + anxietyFactor * 0.05);
+        const duration = 0.2 - (anxietyFactor * 0.05);
+        this.playTone(playFreq, oscType, volume, duration, now);
       }
 
       this.step++;

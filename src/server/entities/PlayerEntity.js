@@ -3,6 +3,7 @@
   class PlayerEntity {
     constructor(id, startX, startY) {
       this.id = id;
+      this.name = `P_${id.substring(0, 4)}`;
       this.gridX = startX;
       this.gridY = startY;
       this.targetX = startX; // Used for smooth transition interpolation
@@ -44,6 +45,7 @@
     serialize() {
       return {
         id: this.id,
+        name: this.name,
         gridX: this.gridX,
         gridY: this.gridY,
         interactingObjectId: this.interactingObjectId,
@@ -56,6 +58,7 @@
     deserialize(data) {
       if (!data) return;
       this.id = data.id || this.id;
+      this.name = data.name || this.name;
       this.gridX = data.gridX !== undefined ? data.gridX : this.gridX;
       this.gridY = data.gridY !== undefined ? data.gridY : this.gridY;
       this.interactingObjectId = data.interactingObjectId !== undefined ? data.interactingObjectId : this.interactingObjectId;

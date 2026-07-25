@@ -42,6 +42,15 @@
 
       // PeerJS multiplayer fields
       this.peer = null;
+      this.playerName = 'Manager';
+      const nameInput = document.getElementById('player-name-input');
+      if (nameInput) {
+        const savedName = localStorage.getItem('casino_player_name');
+        if (savedName) nameInput.value = savedName;
+        nameInput.addEventListener('input', () => {
+          localStorage.setItem('casino_player_name', nameInput.value);
+        });
+      }
       this.peerConn = null; // Used in Guest mode
       this.connections = new Map(); // Used in Host mode (Peer ID -> DataConnection)
       this.isMultiplayerHost = false;
@@ -60,7 +69,7 @@
       };
 
       // Join the game!
-      sim.addPlayer(this.playerId);
+      sim.addPlayer(this.playerId, this.playerName);
 
       // Initialize state cache
       const fullState = sim.getFullState();
@@ -94,8 +103,14 @@
       const joinOverlay = document.getElementById('join-room-overlay');
 
       if (modeOverlay) {
+        const readPlayerName = () => {
+          const nameInput = document.getElementById('player-name-input');
+          this.playerName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : `Manager_${Math.floor(1000 + Math.random() * 9000)}`;
+        };
+
         if (soloBtn) {
           soloBtn.addEventListener('click', () => {
+            readPlayerName();
             modeOverlay.style.display = 'none';
             if (diffOverlay) {
               diffOverlay.classList.remove('hidden');
@@ -110,6 +125,7 @@
 
         if (hostBtn) {
           hostBtn.addEventListener('click', () => {
+            readPlayerName();
             modeOverlay.style.display = 'none';
             if (diffOverlay) {
               diffOverlay.classList.remove('hidden');
@@ -123,6 +139,7 @@
 
         if (joinBtn) {
           joinBtn.addEventListener('click', () => {
+            readPlayerName();
             modeOverlay.style.display = 'none';
             if (joinOverlay) {
               joinOverlay.classList.remove('hidden');
@@ -2700,6 +2717,7 @@
 
           this.playerId = myId;
           this.showNotification("Successfully joined casino lobby!", "success");
+          this.sendAction(window.Casino.Protocol.Commands.SET_PLAYER_NAME, { name: this.playerName });
         });
 
         conn.on('data', (dataStr) => {

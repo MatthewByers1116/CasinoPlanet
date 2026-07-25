@@ -1268,7 +1268,12 @@ kbd {
   <div id="mode-selection-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 21000; font-family: 'Outfit', sans-serif;">
     <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid var(--accent-blue); box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); padding: 40px; border-radius: 16px; text-align: center; max-width: 440px; color: #fff;">
       <h1 style="margin: 0 0 10px 0; font-size: 32px; background: linear-gradient(135deg, #00f0ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: 1px;">CASINO PLANET</h1>
-      <p style="margin: 0 0 30px 0; font-size: 13px; color: var(--text-secondary);">Manage the ultimate casino empire solo or together with friends!</p>
+      <p style="margin: 0 0 24px 0; font-size: 13px; color: var(--text-secondary);">Manage the ultimate casino empire solo or together with friends!</p>
+      
+      <div style="margin-bottom: 20px; text-align: left; width: 100%;">
+        <label for="player-name-input" style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 6px; font-weight: bold;">MANAGER NAME:</label>
+        <input type="text" id="player-name-input" placeholder="Enter your name..." value="Manager" style="width: 100%; padding: 10px; border: 2px solid rgba(0, 240, 255, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 14px; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+      </div>
       
       <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
         <button id="mode-solo-btn" style="padding: 16px; border: 2px solid var(--accent-blue); background: rgba(0, 240, 255, 0.05); border-radius: 10px; color: var(--accent-blue); font-weight: bold; font-size: 15px; cursor: pointer; transition: all 0.2s ease; text-align: left; display: flex; align-items: center; gap: 12px;">
@@ -1384,6 +1389,16 @@ kbd {
         <div>
           <strong style="color: #fff; font-size: 13px;">📦 Stocking & Manual Serving</strong>
           <p style="margin: 4px 0 0 0;">Vending machines, snacks, bars, and restaurants run out of stock! Walk up to them and press <kbd style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">E</kbd> to manually grab items to hand directly to hungry/thirsty guests for tips, or refill the stands. You can also hire **Stockers** (Staff tab) to refill them automatically.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">💭 Guest Need Bubbles (Over Heads)</strong>
+          <p style="margin: 4px 0 0 0;">Guests will show emojis over their heads when their needs fall below 50%:</p>
+          <ul style="margin: 4px 0 0 16px; padding: 0; list-style-type: none; display: flex; flex-direction: column; gap: 4px;">
+            <li>🍔 <strong>Hamburger</strong>: Guest is hungry. Serve them food or build dining areas.</li>
+            <li>🍺 <strong>Beer Glass</strong>: Guest is thirsty. Serve them drinks or build bars/soda machines.</li>
+            <li>🚻 <strong>Restroom Sign</strong>: Guest needs a toilet. Build and repair bathrooms/stalls.</li>
+            <li>🎵 <strong>Music Note</strong>: Guest wants entertainment. Build games, stages, or decorations.</li>
+          </ul>
         </div>
         <div>
           <strong style="color: #fff; font-size: 13px;">🔧 Breakages & Toilet Repairs</strong>
@@ -2032,7 +2047,8 @@ kbd {
       BUY_BUFF: 'BUY_BUFF',                 // { buffType, cost, duration }
       REFILL_AMENITY: 'REFILL_AMENITY',     // { objectId }
       GRAB_AMENITY_ITEM: 'GRAB_AMENITY_ITEM', // { objectId }
-      HAND_NEEDS: 'HAND_NEEDS'              // { guestId, itemType }
+      HAND_NEEDS: 'HAND_NEEDS',              // { guestId, itemType }
+      SET_PLAYER_NAME: 'SET_PLAYER_NAME'    // { name }
     },
 
     // Events broadcast from Simulator (Server) -> Client
@@ -3372,6 +3388,7 @@ kbd {
   class PlayerEntity {
     constructor(id, startX, startY) {
       this.id = id;
+      this.name = `P_${id.substring(0, 4)}`;
       this.gridX = startX;
       this.gridY = startY;
       this.targetX = startX; // Used for smooth transition interpolation
@@ -3413,6 +3430,7 @@ kbd {
     serialize() {
       return {
         id: this.id,
+        name: this.name,
         gridX: this.gridX,
         gridY: this.gridY,
         interactingObjectId: this.interactingObjectId,
@@ -3425,6 +3443,7 @@ kbd {
     deserialize(data) {
       if (!data) return;
       this.id = data.id || this.id;
+      this.name = data.name || this.name;
       this.gridX = data.gridX !== undefined ? data.gridX : this.gridX;
       this.gridY = data.gridY !== undefined ? data.gridY : this.gridY;
       this.interactingObjectId = data.interactingObjectId !== undefined ? data.interactingObjectId : this.interactingObjectId;
@@ -5042,11 +5061,14 @@ kbd {
       ];
     }
 
-    addPlayer(playerId) {
+    addPlayer(playerId, playerName = null) {
       // Spawn player near center
       const startX = Math.floor(this.gridManager.cols / 2);
       const startY = Math.floor(this.gridManager.rows / 2);
       const newPlayer = new window.Casino.PlayerEntity(playerId, startX, startY);
+      if (playerName) {
+        newPlayer.name = playerName;
+      }
       
       // Bind chips property directly to economyManager to prevent synchronization drift and NaNs
       Object.defineProperty(newPlayer, 'chips', {
@@ -5350,6 +5372,10 @@ kbd {
 
         case Protocol.Commands.HAND_NEEDS:
           this.handleHandNeeds(player, payload);
+          break;
+
+        case Protocol.Commands.SET_PLAYER_NAME:
+          this.handleSetPlayerName(player, payload);
           break;
 
         case Protocol.Commands.MOVE_OBJECT:
@@ -6248,6 +6274,13 @@ kbd {
           this.recordDayStat('tips', 20);
           this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
         }
+      }
+    }
+
+    handleSetPlayerName(player, payload) {
+      if (player && payload && payload.name) {
+        player.name = payload.name;
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
       }
     }
 
@@ -9200,7 +9233,7 @@ kbd {
         // Name tag
         this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#e0e0ff';
         this.ctx.font = 'bold 9px "Outfit", sans-serif';
-        const label = isMainPlayer ? "MANAGER (YOU)" : `P_${p.id.substring(0,4)}`;
+        const label = isMainPlayer ? `${p.name || "MANAGER"} (YOU)` : (p.name || `P_${p.id.substring(0,4)}`);
         this.ctx.fillText(label, xPx, yPx - 22);
 
         // Render carrying status
@@ -13574,8 +13607,8 @@ kbd {
     constructor() {
       this.ctx = null;
       this.musicPlaying = false;
-      this.musicInterval = null;
-      this.tempo = 120; // BPM
+      this.musicTimeout = null;
+      this.tempo = 100; // BPM
       this.step = 0;
       this.masterVolume = 0.5;
       
@@ -13612,30 +13645,67 @@ kbd {
 
     startMusic() {
       this.musicPlaying = true;
-      const stepDuration = 60 / this.tempo / 2; // Eighth notes
-      
-      this.musicInterval = setInterval(() => {
-        this.playMusicStep();
-      }, stepDuration * 1000);
-      
       const btn = document.getElementById('btn-toggle-music');
       if (btn) {
         btn.innerText = "🎵 Music: On";
         btn.classList.add('active');
       }
+
+      const scheduleNext = () => {
+        if (!this.musicPlaying) return;
+        
+        this.updateDynamicTempo();
+        const stepDuration = 60 / this.tempo / 2; // Eighth notes
+        this.playMusicStep();
+        
+        this.musicTimeout = setTimeout(scheduleNext, stepDuration * 1000);
+      };
+      
+      scheduleNext();
     }
 
     stopMusic() {
       this.musicPlaying = false;
-      if (this.musicInterval) {
-        clearInterval(this.musicInterval);
-        this.musicInterval = null;
+      if (this.musicTimeout) {
+        clearTimeout(this.musicTimeout);
+        this.musicTimeout = null;
       }
       const btn = document.getElementById('btn-toggle-music');
       if (btn) {
         btn.innerText = "🎵 Music: Off";
         btn.classList.remove('active');
       }
+    }
+
+    updateDynamicTempo() {
+      const client = window.Casino.clientInstance;
+      if (!client || !client.state) {
+        this.tempo = 100;
+        return;
+      }
+
+      let unhappyCount = 0;
+      let totalGuests = 0;
+      if (client.state.guests) {
+        const guestsList = Object.values(client.state.guests);
+        totalGuests = guestsList.length;
+        guestsList.forEach(guest => {
+          if (guest.happiness < 50 || guest.hunger < 40 || guest.thirst < 40) {
+            unhappyCount++;
+          }
+        });
+      }
+
+      const timeModulation = Math.sin(performance.now() * 0.00005) * 8; // slow swing modulation (+/- 8 bpm)
+
+      let anxietyFactor = 0;
+      if (totalGuests > 0) {
+        anxietyFactor = unhappyCount / totalGuests;
+      }
+
+      const targetTempo = 100 + anxietyFactor * 45 + timeModulation;
+      if (!this.tempo) this.tempo = 100;
+      this.tempo = this.tempo * 0.9 + targetTempo * 0.1;
     }
 
     playMusicStep() {
@@ -13663,6 +13733,18 @@ kbd {
         }
       }
 
+      // Calculate anxiety factor to modulate sound
+      const client = window.Casino.clientInstance;
+      let anxietyFactor = 0;
+      if (client && client.state && client.state.guests) {
+        const guestsList = Object.values(client.state.guests);
+        let unhappy = 0;
+        guestsList.forEach(g => {
+          if (g.happiness < 50 || g.hunger < 40 || g.thirst < 40) unhappy++;
+        });
+        if (guestsList.length > 0) anxietyFactor = unhappy / guestsList.length;
+      }
+
       // Play bass note on beats 1, 5, 9, 13
       if (barStep % 4 === 0) {
         // Bass frequency is played one octave lower (half frequency) (increased base vol to 0.15)
@@ -13672,7 +13754,15 @@ kbd {
       // Play improvised melody note (increased base vol to 0.08)
       const noteFreq = this.melodyPattern[barStep];
       if (noteFreq) {
-        this.playTone(noteFreq, 'triangle', 0.08, 0.2, now);
+        let oscType = 'triangle';
+        let volume = 0.08;
+        if (anxietyFactor > 0.4) {
+          oscType = Math.random() < 0.3 ? 'sawtooth' : 'triangle';
+          volume = 0.09;
+        }
+        const playFreq = noteFreq * (1.0 + anxietyFactor * 0.05);
+        const duration = 0.2 - (anxietyFactor * 0.05);
+        this.playTone(playFreq, oscType, volume, duration, now);
       }
 
       this.step++;
@@ -13842,6 +13932,15 @@ kbd {
 
       // PeerJS multiplayer fields
       this.peer = null;
+      this.playerName = 'Manager';
+      const nameInput = document.getElementById('player-name-input');
+      if (nameInput) {
+        const savedName = localStorage.getItem('casino_player_name');
+        if (savedName) nameInput.value = savedName;
+        nameInput.addEventListener('input', () => {
+          localStorage.setItem('casino_player_name', nameInput.value);
+        });
+      }
       this.peerConn = null; // Used in Guest mode
       this.connections = new Map(); // Used in Host mode (Peer ID -> DataConnection)
       this.isMultiplayerHost = false;
@@ -13860,7 +13959,7 @@ kbd {
       };
 
       // Join the game!
-      sim.addPlayer(this.playerId);
+      sim.addPlayer(this.playerId, this.playerName);
 
       // Initialize state cache
       const fullState = sim.getFullState();
@@ -13894,8 +13993,14 @@ kbd {
       const joinOverlay = document.getElementById('join-room-overlay');
 
       if (modeOverlay) {
+        const readPlayerName = () => {
+          const nameInput = document.getElementById('player-name-input');
+          this.playerName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : `Manager_${Math.floor(1000 + Math.random() * 9000)}`;
+        };
+
         if (soloBtn) {
           soloBtn.addEventListener('click', () => {
+            readPlayerName();
             modeOverlay.style.display = 'none';
             if (diffOverlay) {
               diffOverlay.classList.remove('hidden');
@@ -13910,6 +14015,7 @@ kbd {
 
         if (hostBtn) {
           hostBtn.addEventListener('click', () => {
+            readPlayerName();
             modeOverlay.style.display = 'none';
             if (diffOverlay) {
               diffOverlay.classList.remove('hidden');
@@ -13923,6 +14029,7 @@ kbd {
 
         if (joinBtn) {
           joinBtn.addEventListener('click', () => {
+            readPlayerName();
             modeOverlay.style.display = 'none';
             if (joinOverlay) {
               joinOverlay.classList.remove('hidden');
@@ -16500,6 +16607,7 @@ kbd {
 
           this.playerId = myId;
           this.showNotification("Successfully joined casino lobby!", "success");
+          this.sendAction(window.Casino.Protocol.Commands.SET_PLAYER_NAME, { name: this.playerName });
         });
 
         conn.on('data', (dataStr) => {

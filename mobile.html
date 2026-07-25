@@ -252,7 +252,11 @@
       <div id="mode-selection-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20000; font-family: 'Outfit', sans-serif;">
         <div style="text-align: center; margin-bottom: 24px; padding: 0 20px;">
           <h1 style="margin: 0; font-size: 32px; font-weight: 800; background: linear-gradient(45deg, #00f0ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px rgba(0,240,255,0.2);">CASINO PLANET</h1>
-          <p style="margin: 6px 0 0 0; color: #a0a0c0; font-size: 13px; font-weight: bold;">Mobile Co-op Tycoon & Arcade</p>
+        </div>
+        
+        <div style="margin-bottom: 20px; text-align: left; width: 280px;">
+          <label for="player-name-input" style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 6px; font-weight: bold;">MANAGER NAME:</label>
+          <input type="text" id="player-name-input" placeholder="Enter your name..." value="Manager" style="width: 100%; padding: 10px; border: 2px solid rgba(0, 240, 255, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 13px; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 14px; width: 280px;">
@@ -305,6 +309,16 @@
             <div>
               <strong style="color: #fff;">📦 Stocking & Manual Serving</strong>
               <p style="margin: 2px 0 0 0;">Food/drink stands run out of stock! Walk up to them and press interact to grab items and serve hungry/thirsty guests directly for tips, or refill the stands. Hire **Stockers** (Staff menu) to automate this!</p>
+            </div>
+            <div>
+              <strong style="color: #fff;">💭 Guest Need Bubbles (Over Heads)</strong>
+              <p style="margin: 2px 0 0 0;">Guests show emojis when needs fall below 50%:</p>
+              <p style="margin: 2px 0 0 0; font-size: 11px; line-height: 1.4;">
+                🍔 <strong>Hamburger</strong>: Hungry (serve food)<br>
+                🍺 <strong>Beer Glass</strong>: Thirsty (serve drinks)<br>
+                🚻 <strong>Restroom</strong>: Needs toilet (build/repair stalls)<br>
+                🎵 <strong>Music Note</strong>: Wants fun (build games/decor)
+              </p>
             </div>
             <div>
               <strong style="color: #fff;">🔧 Breakage & Toilet Repairs</strong>
