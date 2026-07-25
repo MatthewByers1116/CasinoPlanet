@@ -1281,6 +1281,40 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that guests forced to leave at the end of the day do not impact rating history.");
 
+      // Verify Sigmoid Needs Decay & Seating Lock Fixes:
+      // Test Case 1: releaseAllHeldSeats releases locks
+      const mockObj = {
+        id: "mock_seat_release_obj",
+        type: "slots",
+        gridX: 0,
+        gridY: 0,
+        seats: [{ rx: 0, ry: 0, guestId: "guest_seating_test" }]
+      };
+      sim.gridManager.placedObjects.set(mockObj.id, mockObj);
+      const seatingGuest = new winHost.Casino.GuestAI("guest_seating_test", 0, 0);
+      seatingGuest.releaseAllHeldSeats(sim.gridManager);
+      if (mockObj.seats[0].guestId !== null) {
+        throw new Error("releaseAllHeldSeats failed to clear seat guestId lock");
+      }
+      sim.gridManager.placedObjects.delete(mockObj.id);
+      writeToLog("* Verified that releaseAllHeldSeats successfully clears seat reservations in placed objects.");
+      
+      // Test Case 2: Sigmoid needs decay rates
+      const highNeedGuest = new winHost.Casino.GuestAI("guest_sigmoid_high", 0, 0);
+      highNeedGuest.thirst = 100;
+      highNeedGuest.update(1000, sim.gridManager, sim.economyManager, sim);
+      const highDecay = 100 - highNeedGuest.thirst;
+      
+      const lowNeedGuest = new winHost.Casino.GuestAI("guest_sigmoid_low", 0, 0);
+      lowNeedGuest.thirst = 50;
+      lowNeedGuest.update(1000, sim.gridManager, sim.economyManager, sim);
+      const lowDecay = 50 - lowNeedGuest.thirst;
+      
+      if (highDecay >= lowDecay) {
+        throw new Error(`Sigmoid need decay failed. High need decay (${highDecay}) was not slower than low need decay (${lowDecay})`);
+      }
+      writeToLog("* Verified that need decay follows a sigmoid satisfaction curve (slower when needs are full).");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));

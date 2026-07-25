@@ -173,7 +173,8 @@
         guest.update(dt, this.gridManager, this.economyManager, this);
         
         if (guest.shouldDespawn) {
-          // Unoccupy any game table
+          // Unoccupy any game table and release seats
+          guest.releaseAllHeldSeats(this.gridManager);
           if (guest.targetObjectId) {
             const obj = this.gridManager.placedObjects.get(guest.targetObjectId);
             if (obj) {
@@ -1628,10 +1629,10 @@
       // Reset all guests and employees to prevent stuck pathfinding/seating references
       for (const guest of this.guests.values()) {
         if (guest.state === 'GAMBLING' || guest.state === 'WALKING') {
+          guest.releaseAllHeldSeats(this.gridManager);
           guest.state = 'WANDERING';
           guest.wanderTimer = 500;
           guest.path = null;
-          guest.assignedSeatIndex = null;
           guest.targetObjectId = null;
         }
       }

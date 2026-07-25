@@ -51,18 +51,23 @@
       return names[Math.floor(Math.random() * names.length)] + ' #' + Math.floor(Math.random() * 900 + 100);
     }
 
-    chooseNextAction(gridManager, sim) {
-      // Release seat if currently held
-      if (this.targetObjectId && this.assignedSeatIndex !== undefined && this.assignedSeatIndex !== null) {
-        const obj = gridManager.placedObjects.get(this.targetObjectId);
-        if (obj && obj.seats) {
-          const seat = obj.seats[this.assignedSeatIndex];
-          if (seat && seat.guestId === this.id) {
-            seat.guestId = null;
+    releaseAllHeldSeats(gridManager) {
+      if (!gridManager || !gridManager.placedObjects) return;
+      for (const obj of gridManager.placedObjects.values()) {
+        if (obj.seats) {
+          for (const seat of obj.seats) {
+            if (seat.guestId === this.id) {
+              seat.guestId = null;
+            }
           }
         }
       }
       this.assignedSeatIndex = null;
+    }
+
+    chooseNextAction(gridManager, sim) {
+      // Release seat if currently held
+      this.releaseAllHeldSeats(gridManager);
 
       // If budget is depleted, leave the casino
       if (this.budget <= 0) {
@@ -289,16 +294,7 @@
 
     startLeaving(gridManager) {
       // Release seat if held
-      if (this.targetObjectId && this.assignedSeatIndex !== undefined && this.assignedSeatIndex !== null) {
-        const obj = gridManager.placedObjects.get(this.targetObjectId);
-        if (obj && obj.seats) {
-          const seat = obj.seats[this.assignedSeatIndex];
-          if (seat && seat.guestId === this.id) {
-            seat.guestId = null;
-          }
-        }
-      }
-      this.assignedSeatIndex = null;
+      this.releaseAllHeldSeats(gridManager);
       this.state = States.LEAVING;
       this.targetObjectId = null;
       this.happinessOnDeparture = (this.thirst + this.hunger + this.bio + this.entertainment) / 4;
@@ -365,11 +361,16 @@
       this.renderX += (this.gridX - this.renderX) * lerpSpeed;
       this.renderY += (this.gridY - this.renderY) * lerpSpeed;
 
-      // Decay needs over time (dt is in milliseconds)
+      // Decay needs over time using a sigmoid satisfaction curve (slower when full)
       const decayRateMultiplier = dt / 1000;
-      this.thirst = Math.max(0, this.thirst - 2.0 * decayRateMultiplier);   // thirst decays in 50s
-      this.hunger = Math.max(0, this.hunger - 1.5 * decayRateMultiplier);   // hunger decays in 66s
-      this.bio = Math.max(0, this.bio - 1.8 * decayRateMultiplier);         // bio decays in 55s
+      const thirstFactor = 1.0 - 1.0 / (1.0 + Math.exp(-0.1 * (this.thirst - 75)));
+      this.thirst = Math.max(0, this.thirst - thirstFactor * 2.0 * decayRateMultiplier);
+
+      const hungerFactor = 1.0 - 1.0 / (1.0 + Math.exp(-0.1 * (this.hunger - 75)));
+      this.hunger = Math.max(0, this.hunger - hungerFactor * 1.5 * decayRateMultiplier);
+
+      const bioFactor = 1.0 - 1.0 / (1.0 + Math.exp(-0.1 * (this.bio - 75)));
+      this.bio = Math.max(0, this.bio - bioFactor * 1.8 * decayRateMultiplier);
 
       // Entertainment decay/restore: +10 per sec when gambling, -2.5 per sec otherwise
       if (this.state === States.GAMBLING) {
