@@ -6,7 +6,8 @@
     WORKING: 'WORKING',
     RESTOCKING: 'RESTOCKING',
     SATISFYING_NEED: 'SATISFYING_NEED',
-    WANDERING: 'WANDERING'
+    WANDERING: 'WANDERING',
+    REFILLING_STAND: 'REFILLING_STAND'
   };
 
   function findWalkableAdjacent(gridManager, obj) {
@@ -178,6 +179,16 @@
                 this.state = States.WANDERING;
                 this.wanderTimer = 500;
               }
+            } else if (this.role === 'stocker' && this.targetObjectId) {
+              const obj = gridManager.placedObjects.get(this.targetObjectId);
+              if (obj && obj.stock !== null && obj.stock < obj.maxStock) {
+                this.state = States.REFILLING_STAND;
+                this.refillTimer = 2000;
+              } else {
+                this.targetObjectId = null;
+                this.state = States.WANDERING;
+                this.wanderTimer = 500;
+              }
             } else {
               this.state = States.WANDERING;
               this.wanderTimer = 1000;
@@ -229,8 +240,17 @@
           this.restockTimer -= dt;
           if (this.restockTimer <= 0) {
             const cap = 5 + ((this.capacityLvl || 1) - 1) * 2;
-            if (this.role === 'waitress') this.drinks = cap;
-            if (this.role === 'chef') this.meals = cap;
+            const obj = gridManager.placedObjects.get(this.targetObjectId);
+            if (obj && obj.stock !== undefined && obj.stock !== null) {
+              const amountToTake = Math.min(cap, obj.stock);
+              obj.stock = Math.max(0, obj.stock - amountToTake);
+              obj.isOutOfStock = obj.stock === 0;
+              if (this.role === 'waitress') this.drinks = amountToTake;
+              if (this.role === 'chef') this.meals = amountToTake;
+            } else {
+              if (this.role === 'waitress') this.drinks = cap;
+              if (this.role === 'chef') this.meals = cap;
+            }
             this.targetObjectId = null;
             this.state = States.WANDERING;
             this.wanderTimer = 2000 + Math.random() * 2000;
@@ -259,6 +279,22 @@
             this.currentNeedBeingSatisfied = null;
             this.state = States.WANDERING;
             this.wanderTimer = 500;
+          }
+          break;
+
+        case States.REFILLING_STAND:
+          this.refillTimer -= dt;
+          if (this.refillTimer <= 0) {
+            const obj = gridManager.placedObjects.get(this.targetObjectId);
+            if (obj && obj.stock !== null) {
+              obj.stock = obj.maxStock;
+              obj.isOutOfStock = false;
+              const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+              if (ui) ui.logDebug(`Stocker ${this.id} refilled "${obj.name}"!`, 'success');
+            }
+            this.targetObjectId = null;
+            this.state = States.WANDERING;
+            this.wanderTimer = 1000 + Math.random() * 1000;
           }
           break;
       }
@@ -528,7 +564,7 @@
       } else if (this.role === 'waitress') {
         // If out of drinks, must go to Cocktail Bar or Soda Machine to restock
         if (this.drinks <= 0) {
-          const bars = objects.filter(obj => obj.type === 'bar' || obj.type === 'soda_machine');
+          const bars = objects.filter(obj => (obj.type === 'bar' || obj.type === 'soda_machine' || obj.type === 'coffee_maker' || obj.type === 'bubble_tea') && !obj.isOutOfStock);
           if (bars.length > 0) {
             // Find closest bar
             let closestBar = null;
@@ -600,7 +636,7 @@
       } else if (this.role === 'chef') {
         // If out of meals, must go to Restaurant or Vending Machine to restock
         if (this.meals <= 0) {
-          const kitchens = objects.filter(obj => obj.type === 'restaurant' || obj.type === 'vending_machine');
+          const kitchens = objects.filter(obj => (obj.type === 'restaurant' || obj.type === 'vending_machine' || obj.type === 'candy_dispenser' || obj.type === 'popcorn_cart' || obj.type === 'pizza_oven' || obj.type === 'ice_cream') && !obj.isOutOfStock);
           if (kitchens.length > 0) {
             // Find closest kitchen
             let closestKitchen = null;
@@ -696,6 +732,49 @@
           }
         }
         
+        this.state = States.WANDERING;
+        this.wanderTimer = 1000 + Math.random() * 1000;
+      } else if (this.role === 'stocker') {
+        // Find out-of-stock or low-stock objects
+        const refillables = objects.filter(obj => 
+          ['bar', 'restaurant', 'soda_machine', 'vending_machine', 'candy_dispenser', 'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea'].includes(obj.type) &&
+          obj.stock !== null && obj.stock < obj.maxStock
+        );
+        if (refillables.length > 0) {
+          // Find closest
+          let closest = null;
+          let minDist = Infinity;
+          refillables.forEach(r => {
+            const dist = Math.sqrt((this.gridX - r.gridX)**2 + (this.gridY - r.gridY)**2);
+            if (dist < minDist) {
+              minDist = dist;
+              closest = r;
+            }
+          });
+          if (closest) {
+            const adj = findWalkableAdjacent(gridManager, closest);
+            if (adj) {
+              this.targetObjectId = closest.id;
+              const path = window.Casino.Pathfinding.findPath(
+                gridManager,
+                this.gridX,
+                this.gridY,
+                adj.x,
+                adj.y,
+                false
+              );
+              if (path && path.length > 0) {
+                this.path = path;
+                this.pathIndex = 0;
+                this.moveProgress = 0;
+                this.state = States.WALKING;
+                return;
+              } else {
+                this.targetObjectId = null;
+              }
+            }
+          }
+        }
         this.state = States.WANDERING;
         this.wanderTimer = 1000 + Math.random() * 1000;
       } else {

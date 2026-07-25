@@ -197,6 +197,7 @@
         // Try to find available objects of these types
         availableObjects = objects.filter(obj => {
           if (obj.isBroken) return false;
+          if (obj.isOutOfStock) return false;
           if (!prioritizedTypes.includes(obj.type)) return false;
           if (!obj.seats) return obj.guests ? obj.guests.length < obj.guestCapacity : true;
           return obj.seats.some(s => s.guestId === null);
@@ -205,7 +206,7 @@
         // Persistent search: if the need is critical (below 45) and we have such amenities but they are busy,
         // wait/wander instead of reverting to playing games immediately
         if (availableObjects.length === 0 && needs[0].val < 45 && needs[0].name !== 'entertainment') {
-          const hasAmenity = objects.some(obj => !obj.isBroken && prioritizedTypes.includes(obj.type));
+          const hasAmenity = objects.some(obj => !obj.isBroken && !obj.isOutOfStock && prioritizedTypes.includes(obj.type));
           if (hasAmenity) {
             this.state = States.WANDERING;
             this.wanderTimer = 1000 + Math.random() * 1000;
@@ -219,6 +220,7 @@
       if (availableObjects.length === 0) {
         availableObjects = objects.filter(obj => {
           if (obj.isBroken) return false;
+          if (obj.isOutOfStock) return false;
           const isGame = ['slots', 'roulette', 'craps', 'blackjack', 'ride_the_bus', 'three_card_poker', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud', 'big_six', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery'].includes(obj.type);
           if (!isGame) return false;
 
@@ -578,12 +580,16 @@
           const cost = Math.max(1, Math.floor(baseCost * (1 + managerBonus)));
           this.budget -= cost;
           economyManager.addChips(cost);
+          if (obj.stock !== undefined && obj.stock !== null) {
+            obj.stock = Math.max(0, obj.stock - 1);
+            obj.isOutOfStock = obj.stock === 0;
+          }
           if (sim && typeof sim.recordDayStat === 'function') {
             sim.recordDayStat(obj.type, cost);
           }
 
           // Spontaneous machine breakdown check (2% chance)
-          const breakableTypes = ['slots', 'video_poker', 'plinko', 'lottery', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'elec_sic_bo', 'elec_baccarat', 'atm', 'arcade_console', 'vr_pod', 'massage_chair'];
+          const breakableTypes = ['slots', 'video_poker', 'plinko', 'lottery', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'elec_sic_bo', 'elec_baccarat', 'atm', 'arcade_console', 'vr_pod', 'massage_chair', 'bathroom', 'bathroom_stall'];
           if (breakableTypes.includes(obj.type) && !obj.isBroken) {
             if (Math.random() < 0.02) {
               obj.isBroken = true;

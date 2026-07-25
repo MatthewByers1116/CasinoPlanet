@@ -368,6 +368,18 @@
           this.handleUnlockTech(player, payload);
           break;
 
+        case Protocol.Commands.REFILL_AMENITY:
+          this.handleRefillAmenity(player, payload);
+          break;
+
+        case Protocol.Commands.GRAB_AMENITY_ITEM:
+          this.handleGrabAmenityItem(player, payload);
+          break;
+
+        case Protocol.Commands.HAND_NEEDS:
+          this.handleHandNeeds(player, payload);
+          break;
+
         case Protocol.Commands.MOVE_OBJECT:
           this.handleMoveObject(player, payload);
           break;
@@ -1190,7 +1202,7 @@
       }
 
       let cost = 300;
-      if (role === 'waitress' || role === 'chef' || role === 'tech_support') cost = 400;
+      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') cost = 400;
       else if (role === 'scientist' || role === 'security') cost = 500;
       else if (role === 'manager' || role === 'entertainer') cost = 600;
 
@@ -1214,6 +1226,57 @@
       if (ui) ui.logDebug(`Hired employee: role=${role.toUpperCase()} (ID: ${id})`, 'success');
 
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleRefillAmenity(player, payload) {
+      const { objectId } = payload;
+      const obj = this.gridManager.placedObjects.get(objectId);
+      if (obj && obj.stock !== undefined && obj.stock !== null) {
+        obj.stock = obj.maxStock;
+        obj.isOutOfStock = false;
+        console.log(`[Server:GameSim] Player refilled amenity "${obj.id}"`);
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+      }
+    }
+
+    handleGrabAmenityItem(player, payload) {
+      const { objectId } = payload;
+      const obj = this.gridManager.placedObjects.get(objectId);
+      if (obj && obj.stock !== undefined && obj.stock !== null && obj.stock > 0) {
+        if (['bar', 'soda_machine', 'coffee_maker', 'bubble_tea'].includes(obj.type)) {
+          player.holdingDrink = true;
+          player.holdingMeal = false;
+          obj.stock--;
+          obj.isOutOfStock = obj.stock === 0;
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        } else if (['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream'].includes(obj.type)) {
+          player.holdingMeal = true;
+          player.holdingDrink = false;
+          obj.stock--;
+          obj.isOutOfStock = obj.stock === 0;
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        }
+      }
+    }
+
+    handleHandNeeds(player, payload) {
+      const { guestId, itemType } = payload;
+      const guest = this.guests.get(guestId);
+      if (guest && guest.state !== 'LEAVING') {
+        if (itemType === 'drink' && player.holdingDrink) {
+          guest.thirst = 100;
+          player.holdingDrink = false;
+          this.economyManager.addChips(20); // Tip!
+          this.recordDayStat('tips', 20);
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        } else if (itemType === 'meal' && player.holdingMeal) {
+          guest.hunger = 100;
+          player.holdingMeal = false;
+          this.economyManager.addChips(20); // Tip!
+          this.recordDayStat('tips', 20);
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        }
+      }
     }
 
     getFullState() {

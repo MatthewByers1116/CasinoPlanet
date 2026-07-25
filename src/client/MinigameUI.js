@@ -359,9 +359,7 @@
         this.renderLottery();
       }
 
-      // Wrap modalBody in layout with other-players-panel if not already present
-      const listElId = `${gameType}-other-players-list`;
-      if (!this.modalBody.querySelector('[id$="-other-players-list"]')) {
+      if (!this.modalBody.querySelector('[id$="-other-players-list"]') && gameType !== 'craps' && gameType !== 'bubble_craps') {
         const layout = document.createElement('div');
         layout.className = 'card-game-layout';
         layout.style.display = 'flex';
@@ -1031,6 +1029,10 @@
 
       this.modalBody.innerHTML = `
         <div class="craps-container">
+          <div id="craps-other-players-inline" style="font-size: 11px; color: var(--text-secondary); background: rgba(0,0,0,0.25); padding: 6px 12px; margin-bottom: 8px; border-radius: 8px; display: none; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <span>👥 Other Players at Table:</span>
+            <span id="craps-other-players-list-inline" style="color: var(--accent-gold); font-weight: bold;"></span>
+          </div>
           <div class="craps-top">
             <div class="craps-status" style="align-items:center;">
               <div class="status-indicator" style="margin-right:12px;">Point: <span id="craps-point-display" class="status-value">OFF</span></div>
@@ -4167,6 +4169,17 @@
             }).join('');
           } else {
             listEl.innerHTML = `<div style="padding: 12px 0; font-size:10px;">No other players playing at this table</div>`;
+          }
+        }
+      } else if (gameType === 'craps' || gameType === 'bubble_craps') {
+        const inlineContainer = document.getElementById('craps-other-players-inline');
+        const inlineList = document.getElementById('craps-other-players-list-inline');
+        if (inlineContainer && inlineList) {
+          if (otherPlayers.length > 0) {
+            inlineContainer.style.display = 'flex';
+            inlineList.innerText = otherPlayers.map(p => `Manager ${p.playerId.substring(0, 5)}`).join(', ');
+          } else {
+            inlineContainer.style.display = 'none';
           }
         }
       } else if (gameType === 'ride_the_bus') {

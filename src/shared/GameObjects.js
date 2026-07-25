@@ -775,6 +775,17 @@
         dealerSeat = { rx: 2, ry: -1, employeeId: null };
       }
 
+      // Setup stock properties for food/drink amenities
+      let maxStock = null;
+      let stock = null;
+      if (['bar', 'restaurant', 'soda_machine', 'vending_machine', 'candy_dispenser', 'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) {
+        if (type === 'bar') maxStock = 15;
+        else if (type === 'restaurant') maxStock = 25;
+        else if (['pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) maxStock = 10;
+        else maxStock = 5;
+        stock = maxStock;
+      }
+
       return {
         id: id,
         type: type,
@@ -792,7 +803,10 @@
         guests: [], // List of guestIds currently occupying this object
         seats: seats, // Occupying seats list
         upgradesCount: { capacity: 0, income: 0 }, // Purchase trackers
-        dealerSeat: dealerSeat // Dealer seat state
+        dealerSeat: dealerSeat, // Dealer seat state
+        maxStock: maxStock,
+        stock: stock,
+        isOutOfStock: stock !== null ? (stock === 0) : false
       };
     }
   };

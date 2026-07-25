@@ -300,19 +300,23 @@
           <div style="display: flex; flex-direction: column; gap: 12px; line-height: 1.5; color: #ccc;">
             <div>
               <strong style="color: #fff;">🏢 Build & Tap-To-Move</strong>
-              <p style="margin: 2px 0 0 0;">Tap anywhere on the empty grid space to walk there. Open construction drawers at the bottom to build and expand.</p>
+              <p style="margin: 2px 0 0 0;">Tap anywhere on the empty grid space to walk. Open construction drawers at the bottom to build and expand.</p>
             </div>
             <div>
-              <strong style="color: #fff;">👔 Staff & Research</strong>
-              <p style="margin: 2px 0 0 0;">Hire Dealers to increase game payouts, Waitresses to serve food, and Scientists to generate Research Points (RP).</p>
+              <strong style="color: #fff;">📦 Stocking & Manual Serving</strong>
+              <p style="margin: 2px 0 0 0;">Food/drink stands run out of stock! Walk up to them and press interact to grab items and serve hungry/thirsty guests directly for tips, or refill the stands. Hire **Stockers** (Staff menu) to automate this!</p>
             </div>
             <div>
-              <strong style="color: #fff;">🎰 Unlock High Stakes</strong>
-              <p style="margin: 2px 0 0 0;">Scientists generate RP. Tap the Research lab upgrades button to unlock roulette, blackjack, poker, and lottery kiosks!</p>
+              <strong style="color: #fff;">🔧 Breakage & Toilet Repairs</strong>
+              <p style="margin: 2px 0 0 0;">Games, ATM machines, and Toilets (bathroom stalls) can break down! Hire **Tech Support** (mechanics) to keep things running.</p>
+            </div>
+            <div>
+              <strong style="color: #fff;">👥 Universal Co-Play</strong>
+              <p style="margin: 2px 0 0 0;">Play Slots, Plinko, Roulette, Blackjack, and Craps together at the same tables in real-time with other managers.</p>
             </div>
             <div>
               <strong style="color: #fff;">🤝 Cross-Play Lobby</strong>
-              <p style="margin: 2px 0 0 0;">Host a lobby to generate a Room ID, allowing desktop and phone managers to construct co-op casinos together.</p>
+              <p style="margin: 2px 0 0 0;">Host a lobby to generate a Room ID, allowing desktop and mobile managers to construct co-op casinos together.</p>
             </div>
           </div>
           <button id="tutorial-close-btn" style="width: 100%; padding: 12px; border: none; background: var(--accent-blue); border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 12px;">GOT IT!</button>
@@ -494,7 +498,7 @@
         </div>
         <div class="mobile-cats">
           <button class="mobile-cat-btn active" data-target="cat-games">🎰 GAMES</button>
-          <button class="mobile-cat-btn" data-target="cat-dining">🍕 DINING</button>
+          <button class="mobile-cat-btn" data-target="cat-dining">🍕 FOOD & DRINK</button>
           <button class="mobile-cat-btn" data-target="cat-amenities">🥤 AMENITIES</button>
           <button class="mobile-cat-btn" data-target="cat-decor">🌴 DECOR</button>
         </div>
@@ -711,6 +715,10 @@
           <button id="btn-hire-entertainer" class="dropdown-item mobile-grid-item" title="Hire Stage Entertainer (Cost: 600 Chips, Requires 3.0★, Research: 12 RP)">
             <span class="mobile-item-name">Hire Entertainer</span>
             <span class="mobile-item-cost">600c</span>
+          </button>
+          <button id="btn-hire-stocker" class="dropdown-item mobile-grid-item" title="Hire Amenity Stocker (Cost: 400 Chips, Wage: 15/min)">
+            <span class="mobile-item-name">Hire Stocker</span>
+            <span class="mobile-item-cost">400c</span>
           </button>
         </div>
       </div>

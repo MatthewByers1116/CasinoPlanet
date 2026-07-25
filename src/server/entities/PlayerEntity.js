@@ -9,6 +9,8 @@
       this.targetY = startY;
       this.interactingObjectId = null;
       this.buffs = {}; // Active temporary buffs
+      this.holdingDrink = false;
+      this.holdingMeal = false;
     }
 
     move(gridX, gridY, gridManager) {
@@ -45,7 +47,9 @@
         gridX: this.gridX,
         gridY: this.gridY,
         interactingObjectId: this.interactingObjectId,
-        buffs: this.buffs
+        buffs: this.buffs,
+        holdingDrink: this.holdingDrink || false,
+        holdingMeal: this.holdingMeal || false
       };
     }
 
@@ -56,6 +60,8 @@
       this.gridY = data.gridY !== undefined ? data.gridY : this.gridY;
       this.interactingObjectId = data.interactingObjectId !== undefined ? data.interactingObjectId : this.interactingObjectId;
       this.buffs = data.buffs || this.buffs || {};
+      this.holdingDrink = data.holdingDrink || false;
+      this.holdingMeal = data.holdingMeal || false;
     }
   }
 

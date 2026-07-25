@@ -244,6 +244,19 @@
           this.ctx.fillStyle = '#ff4d4d';
           this.ctx.font = 'bold 8px Arial';
           this.ctx.fillText('REPAIR', xPx + wPx / 2, yPx + hPx - 6);
+        } else if (obj.isOutOfStock) {
+          this.ctx.fillStyle = 'rgba(255, 100, 0, 0.2)';
+          this.ctx.fillRect(xPx, yPx, wPx, hPx);
+
+          this.ctx.fillStyle = '#ff6c00';
+          this.ctx.font = '14px Arial';
+          this.ctx.textAlign = 'center';
+          const bob = Math.sin(performance.now() * 0.01) * 3;
+          this.ctx.fillText('📦', xPx + wPx / 2, yPx + hPx / 2 - 8 + bob);
+          
+          this.ctx.fillStyle = '#ffaa00';
+          this.ctx.font = 'bold 8px "Outfit", sans-serif';
+          this.ctx.fillText('EMPTY', xPx + wPx / 2, yPx + hPx - 6);
         }
       });
 
@@ -492,6 +505,17 @@
         this.ctx.font = 'bold 9px "Outfit", sans-serif';
         const label = isMainPlayer ? "MANAGER (YOU)" : `P_${p.id.substring(0,4)}`;
         this.ctx.fillText(label, xPx, yPx - 22);
+
+        // Render carrying status
+        if (p.holdingDrink) {
+          this.ctx.fillStyle = '#00f0ff';
+          this.ctx.font = 'bold 8px "Outfit", sans-serif';
+          this.ctx.fillText("🍹 Carry Drink", xPx, yPx + 24);
+        } else if (p.holdingMeal) {
+          this.ctx.fillStyle = '#ffaa00';
+          this.ctx.font = 'bold 8px "Outfit", sans-serif';
+          this.ctx.fillText("🍱 Carry Food", xPx, yPx + 24);
+        }
 
         // If interacting, draw active link to table
         if (p.interactingObjectId) {

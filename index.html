@@ -127,23 +127,27 @@
       <div style="display: flex; flex-direction: column; gap: 14px; font-size: 12px; line-height: 1.6; color: #ccc;">
         <div>
           <strong style="color: #fff; font-size: 13px;">🏢 Managing Your Casino</strong>
-          <p style="margin: 4px 0 0 0;">Build games, decorations, and dining facilities from the lower toolbar to attract guests and earn passive chips. Click placed items to upgrade their capacity/income limits or sell them.</p>
+          <p style="margin: 4px 0 0 0;">Build games, decorations, and food/drink facilities from the lower toolbar to attract guests and earn passive chips. Click placed items to upgrade their capacity/income limits or sell them.</p>
         </div>
         <div>
-          <strong style="color: #fff; font-size: 13px;">👥 Hiring Employee Staff</strong>
-          <p style="margin: 4px 0 0 0;">Open the Staff tab to hire dealers (boost game income), waitresses (speed up food delivery), security (catch pickpockets), scientists (generate research points), managers, tech support (repair machines), and entertainers.</p>
+          <strong style="color: #fff; font-size: 13px;">📦 Stocking & Manual Serving</strong>
+          <p style="margin: 4px 0 0 0;">Vending machines, snacks, bars, and restaurants run out of stock! Walk up to them and press <kbd style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">E</kbd> to manually grab items to hand directly to hungry/thirsty guests for tips, or refill the stands. You can also hire **Stockers** (Staff tab) to refill them automatically.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🔧 Breakages & Toilet Repairs</strong>
+          <p style="margin: 4px 0 0 0;">Games, ATMs, and Toilets (bathroom/stalls) can break down and leak! Hire **Tech Support** (mechanics) or approach and press <kbd style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">E</kbd> to fix them yourself.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🎯 QTE Skill Checks & Puzzles</strong>
+          <p style="margin: 4px 0 0 0;">Doing manual repairs, dealer card boosts, and floor sweeping triggers circular Skill Checks (hit the green zone) or wiring connection puzzles for huge efficiency boosts!</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">👥 Universal Co-Play & Multiplayer</strong>
+          <p style="margin: 4px 0 0 0;">Host a lobby to generate a Room ID and invite friends! Sit down together at any machine (Slots, Plinko, Craps, Roulette, Blackjack) to play co-op, see each other's rolls, and share payouts.</p>
         </div>
         <div>
           <strong style="color: #fff; font-size: 13px;">🧪 Scientists & Lab Upgrades</strong>
-          <p style="margin: 4px 0 0 0;">Build Research Labs and hire Scientists. They generate Research Points (RP) over time. You also gain RP whenever you win a minigame! Use RP to unlock high-stakes games in the upgrades menu.</p>
-        </div>
-        <div>
-          <strong style="color: #fff; font-size: 13px;">☀️ Day/Night & Daily Reports</strong>
-          <p style="margin: 4px 0 0 0;">Every 3 minutes, the "Day" ends. Guests are reset, and you get a financial report breaking down earnings/losses per table. Your progress is autosaved to browser storage at the end of each day!</p>
-        </div>
-        <div>
-          <strong style="color: #fff; font-size: 13px;">🤝 Multiplayer & Co-op</strong>
-          <p style="margin: 4px 0 0 0;">Host a multiplayer lobby to generate a Room ID. Send it to friends so they can join and help you build, hire staff, or sit down together to play Blackjack and Craps at the same tables!</p>
+          <p style="margin: 4px 0 0 0;">Build Research Labs and hire Scientists. They generate Research Points (RP). You also gain RP whenever you win a minigame! Use RP to unlock high-stakes games in the upgrades menu.</p>
         </div>
         <div>
           <strong style="color: #fff; font-size: 13px;">🏃 Fast Running</strong>
@@ -353,18 +357,6 @@
               <span class="btn-text">Amenities ▾</span>
             </button>
             <div class="dropdown-content">
-              <button id="btn-build-soda-machine" class="dropdown-item" title="Build Soda Machine (Cost: 100 Chips)">
-                <span>🥤 Soda Machine</span> <span class="cost-tag">100</span>
-              </button>
-              <button id="btn-build-vending-machine" class="dropdown-item" title="Build Vending Machine (Cost: 120 Chips)">
-                <span>🍫 Vending Machine</span> <span class="cost-tag">120</span>
-              </button>
-              <button id="btn-build-candy-dispenser" class="dropdown-item" title="Build Candy Dispenser (Cost: 100 Chips)">
-                <span>🍬 Candy Dispenser</span> <span class="cost-tag">100</span>
-              </button>
-              <button id="btn-build-coffee-maker" class="dropdown-item" title="Build Coffee Maker (Cost: 250 Chips)">
-                <span>☕ Coffee Maker</span> <span class="cost-tag">250</span>
-              </button>
               <button id="btn-build-bathroom-stall" class="dropdown-item" title="Build Bathroom Stall (Cost: 150 Chips)">
                 <span>🚽 Bathroom Stall</span> <span class="cost-tag">150</span>
               </button>
@@ -383,13 +375,25 @@
             </div>
           </div>
 
-          <!-- Dining Dropdown -->
+          <!-- Food & Drink Dropdown -->
           <div class="dropdown dropdown-right">
             <button class="build-btn dropdown-toggle" title="Food and Beverage options">
               <span class="btn-icon">🍔</span>
-              <span class="btn-text">Dining ▾</span>
+              <span class="btn-text">Food & Drink ▾</span>
             </button>
             <div class="dropdown-content">
+              <button id="btn-build-soda-machine" class="dropdown-item" title="Build Soda Machine (Cost: 100 Chips)">
+                <span>🥤 Soda Machine</span> <span class="cost-tag">100</span>
+              </button>
+              <button id="btn-build-vending-machine" class="dropdown-item" title="Build Vending Machine (Cost: 120 Chips)">
+                <span>🍫 Vending Machine</span> <span class="cost-tag">120</span>
+              </button>
+              <button id="btn-build-candy-dispenser" class="dropdown-item" title="Build Candy Dispenser (Cost: 100 Chips)">
+                <span>🍬 Candy Dispenser</span> <span class="cost-tag">100</span>
+              </button>
+              <button id="btn-build-coffee-maker" class="dropdown-item" title="Build Coffee Maker (Cost: 250 Chips)">
+                <span>☕ Coffee Maker</span> <span class="cost-tag">250</span>
+              </button>
               <button id="btn-build-bar" class="dropdown-item" title="Build Drink Bar (Cost: 300 Chips)">
                 <span>🍺 Cocktail Bar</span> <span class="cost-tag">300</span>
               </button>
@@ -479,6 +483,9 @@
               <button id="btn-hire-entertainer" class="dropdown-item" title="Hire Stage Entertainer (Cost: 600 Chips, Requires 3.0★, Research: 12 RP)">
                 <span>🎭 Hire Entertainer</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">12 RP</span>
               </button>
+              <button id="btn-hire-stocker" class="dropdown-item" title="Hire Amenity Stocker (Cost: 400 Chips, Wage: 15/min)">
+                <span>📦 Hire Stocker</span> <span class="cost-tag">400</span>
+              </button>
               <div style="border-top:1px solid rgba(255,255,255,0.08); padding:6px 12px; font-size:10px; color:var(--text-secondary); text-align:left; line-height:1.4;">
                 Dlr: <span id="staff-dealers-count" style="color:var(--accent-blue);">0</span> | 
                 Wtr: <span id="staff-waitresses-count" style="color:var(--accent-green);">0</span> | 
@@ -487,7 +494,8 @@
                 Mgr: <span id="staff-managers-count" style="color:#00f0ff;">0</span> | 
                 Sec: <span id="staff-securities-count" style="color:#ff4d4d;">0</span> | 
                 Tch: <span id="staff-tech_supports-count" style="color:#bf55ec;">0</span> | 
-                Ent: <span id="staff-entertainers-count" style="color:#ff007f;">0</span>
+                Ent: <span id="staff-entertainers-count" style="color:#ff007f;">0</span> |
+                Stk: <span id="staff-stockers-count" style="color:#00ffcc;">0</span>
               </div>
             </div>
           </div>

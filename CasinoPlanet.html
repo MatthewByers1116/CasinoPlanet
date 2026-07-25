@@ -1379,23 +1379,27 @@ kbd {
       <div style="display: flex; flex-direction: column; gap: 14px; font-size: 12px; line-height: 1.6; color: #ccc;">
         <div>
           <strong style="color: #fff; font-size: 13px;">🏢 Managing Your Casino</strong>
-          <p style="margin: 4px 0 0 0;">Build games, decorations, and dining facilities from the lower toolbar to attract guests and earn passive chips. Click placed items to upgrade their capacity/income limits or sell them.</p>
+          <p style="margin: 4px 0 0 0;">Build games, decorations, and food/drink facilities from the lower toolbar to attract guests and earn passive chips. Click placed items to upgrade their capacity/income limits or sell them.</p>
         </div>
         <div>
-          <strong style="color: #fff; font-size: 13px;">👥 Hiring Employee Staff</strong>
-          <p style="margin: 4px 0 0 0;">Open the Staff tab to hire dealers (boost game income), waitresses (speed up food delivery), security (catch pickpockets), scientists (generate research points), managers, tech support (repair machines), and entertainers.</p>
+          <strong style="color: #fff; font-size: 13px;">📦 Stocking & Manual Serving</strong>
+          <p style="margin: 4px 0 0 0;">Vending machines, snacks, bars, and restaurants run out of stock! Walk up to them and press <kbd style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">E</kbd> to manually grab items to hand directly to hungry/thirsty guests for tips, or refill the stands. You can also hire **Stockers** (Staff tab) to refill them automatically.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🔧 Breakages & Toilet Repairs</strong>
+          <p style="margin: 4px 0 0 0;">Games, ATMs, and Toilets (bathroom/stalls) can break down and leak! Hire **Tech Support** (mechanics) or approach and press <kbd style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">E</kbd> to fix them yourself.</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">🎯 QTE Skill Checks & Puzzles</strong>
+          <p style="margin: 4px 0 0 0;">Doing manual repairs, dealer card boosts, and floor sweeping triggers circular Skill Checks (hit the green zone) or wiring connection puzzles for huge efficiency boosts!</p>
+        </div>
+        <div>
+          <strong style="color: #fff; font-size: 13px;">👥 Universal Co-Play & Multiplayer</strong>
+          <p style="margin: 4px 0 0 0;">Host a lobby to generate a Room ID and invite friends! Sit down together at any machine (Slots, Plinko, Craps, Roulette, Blackjack) to play co-op, see each other's rolls, and share payouts.</p>
         </div>
         <div>
           <strong style="color: #fff; font-size: 13px;">🧪 Scientists & Lab Upgrades</strong>
-          <p style="margin: 4px 0 0 0;">Build Research Labs and hire Scientists. They generate Research Points (RP) over time. You also gain RP whenever you win a minigame! Use RP to unlock high-stakes games in the upgrades menu.</p>
-        </div>
-        <div>
-          <strong style="color: #fff; font-size: 13px;">☀️ Day/Night & Daily Reports</strong>
-          <p style="margin: 4px 0 0 0;">Every 3 minutes, the "Day" ends. Guests are reset, and you get a financial report breaking down earnings/losses per table. Your progress is autosaved to browser storage at the end of each day!</p>
-        </div>
-        <div>
-          <strong style="color: #fff; font-size: 13px;">🤝 Multiplayer & Co-op</strong>
-          <p style="margin: 4px 0 0 0;">Host a multiplayer lobby to generate a Room ID. Send it to friends so they can join and help you build, hire staff, or sit down together to play Blackjack and Craps at the same tables!</p>
+          <p style="margin: 4px 0 0 0;">Build Research Labs and hire Scientists. They generate Research Points (RP). You also gain RP whenever you win a minigame! Use RP to unlock high-stakes games in the upgrades menu.</p>
         </div>
         <div>
           <strong style="color: #fff; font-size: 13px;">🏃 Fast Running</strong>
@@ -1605,18 +1609,6 @@ kbd {
               <span class="btn-text">Amenities ▾</span>
             </button>
             <div class="dropdown-content">
-              <button id="btn-build-soda-machine" class="dropdown-item" title="Build Soda Machine (Cost: 100 Chips)">
-                <span>🥤 Soda Machine</span> <span class="cost-tag">100</span>
-              </button>
-              <button id="btn-build-vending-machine" class="dropdown-item" title="Build Vending Machine (Cost: 120 Chips)">
-                <span>🍫 Vending Machine</span> <span class="cost-tag">120</span>
-              </button>
-              <button id="btn-build-candy-dispenser" class="dropdown-item" title="Build Candy Dispenser (Cost: 100 Chips)">
-                <span>🍬 Candy Dispenser</span> <span class="cost-tag">100</span>
-              </button>
-              <button id="btn-build-coffee-maker" class="dropdown-item" title="Build Coffee Maker (Cost: 250 Chips)">
-                <span>☕ Coffee Maker</span> <span class="cost-tag">250</span>
-              </button>
               <button id="btn-build-bathroom-stall" class="dropdown-item" title="Build Bathroom Stall (Cost: 150 Chips)">
                 <span>🚽 Bathroom Stall</span> <span class="cost-tag">150</span>
               </button>
@@ -1635,13 +1627,25 @@ kbd {
             </div>
           </div>
 
-          <!-- Dining Dropdown -->
+          <!-- Food & Drink Dropdown -->
           <div class="dropdown dropdown-right">
             <button class="build-btn dropdown-toggle" title="Food and Beverage options">
               <span class="btn-icon">🍔</span>
-              <span class="btn-text">Dining ▾</span>
+              <span class="btn-text">Food & Drink ▾</span>
             </button>
             <div class="dropdown-content">
+              <button id="btn-build-soda-machine" class="dropdown-item" title="Build Soda Machine (Cost: 100 Chips)">
+                <span>🥤 Soda Machine</span> <span class="cost-tag">100</span>
+              </button>
+              <button id="btn-build-vending-machine" class="dropdown-item" title="Build Vending Machine (Cost: 120 Chips)">
+                <span>🍫 Vending Machine</span> <span class="cost-tag">120</span>
+              </button>
+              <button id="btn-build-candy-dispenser" class="dropdown-item" title="Build Candy Dispenser (Cost: 100 Chips)">
+                <span>🍬 Candy Dispenser</span> <span class="cost-tag">100</span>
+              </button>
+              <button id="btn-build-coffee-maker" class="dropdown-item" title="Build Coffee Maker (Cost: 250 Chips)">
+                <span>☕ Coffee Maker</span> <span class="cost-tag">250</span>
+              </button>
               <button id="btn-build-bar" class="dropdown-item" title="Build Drink Bar (Cost: 300 Chips)">
                 <span>🍺 Cocktail Bar</span> <span class="cost-tag">300</span>
               </button>
@@ -1731,6 +1735,9 @@ kbd {
               <button id="btn-hire-entertainer" class="dropdown-item" title="Hire Stage Entertainer (Cost: 600 Chips, Requires 3.0★, Research: 12 RP)">
                 <span>🎭 Hire Entertainer</span> <span class="cost-tag" style="background:var(--accent-gold); color:#000;">12 RP</span>
               </button>
+              <button id="btn-hire-stocker" class="dropdown-item" title="Hire Amenity Stocker (Cost: 400 Chips, Wage: 15/min)">
+                <span>📦 Hire Stocker</span> <span class="cost-tag">400</span>
+              </button>
               <div style="border-top:1px solid rgba(255,255,255,0.08); padding:6px 12px; font-size:10px; color:var(--text-secondary); text-align:left; line-height:1.4;">
                 Dlr: <span id="staff-dealers-count" style="color:var(--accent-blue);">0</span> | 
                 Wtr: <span id="staff-waitresses-count" style="color:var(--accent-green);">0</span> | 
@@ -1739,7 +1746,8 @@ kbd {
                 Mgr: <span id="staff-managers-count" style="color:#00f0ff;">0</span> | 
                 Sec: <span id="staff-securities-count" style="color:#ff4d4d;">0</span> | 
                 Tch: <span id="staff-tech_supports-count" style="color:#bf55ec;">0</span> | 
-                Ent: <span id="staff-entertainers-count" style="color:#ff007f;">0</span>
+                Ent: <span id="staff-entertainers-count" style="color:#ff007f;">0</span> |
+                Stk: <span id="staff-stockers-count" style="color:#00ffcc;">0</span>
               </div>
             </div>
           </div>
@@ -2021,7 +2029,10 @@ kbd {
       REPAIR_MACHINE: 'REPAIR_MACHINE',     // { objectId }
       SELECT_DIFFICULTY: 'SELECT_DIFFICULTY', // { difficulty }
       UPGRADE_EMPLOYEE: 'UPGRADE_EMPLOYEE', // { employeeId, upgradeType }
-      BUY_BUFF: 'BUY_BUFF'                 // { buffType, cost, duration }
+      BUY_BUFF: 'BUY_BUFF',                 // { buffType, cost, duration }
+      REFILL_AMENITY: 'REFILL_AMENITY',     // { objectId }
+      GRAB_AMENITY_ITEM: 'GRAB_AMENITY_ITEM', // { objectId }
+      HAND_NEEDS: 'HAND_NEEDS'              // { guestId, itemType }
     },
 
     // Events broadcast from Simulator (Server) -> Client
@@ -2826,6 +2837,17 @@ kbd {
         dealerSeat = { rx: 2, ry: -1, employeeId: null };
       }
 
+      // Setup stock properties for food/drink amenities
+      let maxStock = null;
+      let stock = null;
+      if (['bar', 'restaurant', 'soda_machine', 'vending_machine', 'candy_dispenser', 'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) {
+        if (type === 'bar') maxStock = 15;
+        else if (type === 'restaurant') maxStock = 25;
+        else if (['pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) maxStock = 10;
+        else maxStock = 5;
+        stock = maxStock;
+      }
+
       return {
         id: id,
         type: type,
@@ -2843,7 +2865,10 @@ kbd {
         guests: [], // List of guestIds currently occupying this object
         seats: seats, // Occupying seats list
         upgradesCount: { capacity: 0, income: 0 }, // Purchase trackers
-        dealerSeat: dealerSeat // Dealer seat state
+        dealerSeat: dealerSeat, // Dealer seat state
+        maxStock: maxStock,
+        stock: stock,
+        isOutOfStock: stock !== null ? (stock === 0) : false
       };
     }
   };
@@ -3353,6 +3378,8 @@ kbd {
       this.targetY = startY;
       this.interactingObjectId = null;
       this.buffs = {}; // Active temporary buffs
+      this.holdingDrink = false;
+      this.holdingMeal = false;
     }
 
     move(gridX, gridY, gridManager) {
@@ -3389,7 +3416,9 @@ kbd {
         gridX: this.gridX,
         gridY: this.gridY,
         interactingObjectId: this.interactingObjectId,
-        buffs: this.buffs
+        buffs: this.buffs,
+        holdingDrink: this.holdingDrink || false,
+        holdingMeal: this.holdingMeal || false
       };
     }
 
@@ -3400,6 +3429,8 @@ kbd {
       this.gridY = data.gridY !== undefined ? data.gridY : this.gridY;
       this.interactingObjectId = data.interactingObjectId !== undefined ? data.interactingObjectId : this.interactingObjectId;
       this.buffs = data.buffs || this.buffs || {};
+      this.holdingDrink = data.holdingDrink || false;
+      this.holdingMeal = data.holdingMeal || false;
     }
   }
 
@@ -3608,6 +3639,7 @@ kbd {
         // Try to find available objects of these types
         availableObjects = objects.filter(obj => {
           if (obj.isBroken) return false;
+          if (obj.isOutOfStock) return false;
           if (!prioritizedTypes.includes(obj.type)) return false;
           if (!obj.seats) return obj.guests ? obj.guests.length < obj.guestCapacity : true;
           return obj.seats.some(s => s.guestId === null);
@@ -3616,7 +3648,7 @@ kbd {
         // Persistent search: if the need is critical (below 45) and we have such amenities but they are busy,
         // wait/wander instead of reverting to playing games immediately
         if (availableObjects.length === 0 && needs[0].val < 45 && needs[0].name !== 'entertainment') {
-          const hasAmenity = objects.some(obj => !obj.isBroken && prioritizedTypes.includes(obj.type));
+          const hasAmenity = objects.some(obj => !obj.isBroken && !obj.isOutOfStock && prioritizedTypes.includes(obj.type));
           if (hasAmenity) {
             this.state = States.WANDERING;
             this.wanderTimer = 1000 + Math.random() * 1000;
@@ -3630,6 +3662,7 @@ kbd {
       if (availableObjects.length === 0) {
         availableObjects = objects.filter(obj => {
           if (obj.isBroken) return false;
+          if (obj.isOutOfStock) return false;
           const isGame = ['slots', 'roulette', 'craps', 'blackjack', 'ride_the_bus', 'three_card_poker', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud', 'big_six', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery'].includes(obj.type);
           if (!isGame) return false;
 
@@ -3989,12 +4022,16 @@ kbd {
           const cost = Math.max(1, Math.floor(baseCost * (1 + managerBonus)));
           this.budget -= cost;
           economyManager.addChips(cost);
+          if (obj.stock !== undefined && obj.stock !== null) {
+            obj.stock = Math.max(0, obj.stock - 1);
+            obj.isOutOfStock = obj.stock === 0;
+          }
           if (sim && typeof sim.recordDayStat === 'function') {
             sim.recordDayStat(obj.type, cost);
           }
 
           // Spontaneous machine breakdown check (2% chance)
-          const breakableTypes = ['slots', 'video_poker', 'plinko', 'lottery', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'elec_sic_bo', 'elec_baccarat', 'atm', 'arcade_console', 'vr_pod', 'massage_chair'];
+          const breakableTypes = ['slots', 'video_poker', 'plinko', 'lottery', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'elec_sic_bo', 'elec_baccarat', 'atm', 'arcade_console', 'vr_pod', 'massage_chair', 'bathroom', 'bathroom_stall'];
           if (breakableTypes.includes(obj.type) && !obj.isBroken) {
             if (Math.random() < 0.02) {
               obj.isBroken = true;
@@ -4080,7 +4117,8 @@ kbd {
     WORKING: 'WORKING',
     RESTOCKING: 'RESTOCKING',
     SATISFYING_NEED: 'SATISFYING_NEED',
-    WANDERING: 'WANDERING'
+    WANDERING: 'WANDERING',
+    REFILLING_STAND: 'REFILLING_STAND'
   };
 
   function findWalkableAdjacent(gridManager, obj) {
@@ -4252,6 +4290,16 @@ kbd {
                 this.state = States.WANDERING;
                 this.wanderTimer = 500;
               }
+            } else if (this.role === 'stocker' && this.targetObjectId) {
+              const obj = gridManager.placedObjects.get(this.targetObjectId);
+              if (obj && obj.stock !== null && obj.stock < obj.maxStock) {
+                this.state = States.REFILLING_STAND;
+                this.refillTimer = 2000;
+              } else {
+                this.targetObjectId = null;
+                this.state = States.WANDERING;
+                this.wanderTimer = 500;
+              }
             } else {
               this.state = States.WANDERING;
               this.wanderTimer = 1000;
@@ -4303,8 +4351,17 @@ kbd {
           this.restockTimer -= dt;
           if (this.restockTimer <= 0) {
             const cap = 5 + ((this.capacityLvl || 1) - 1) * 2;
-            if (this.role === 'waitress') this.drinks = cap;
-            if (this.role === 'chef') this.meals = cap;
+            const obj = gridManager.placedObjects.get(this.targetObjectId);
+            if (obj && obj.stock !== undefined && obj.stock !== null) {
+              const amountToTake = Math.min(cap, obj.stock);
+              obj.stock = Math.max(0, obj.stock - amountToTake);
+              obj.isOutOfStock = obj.stock === 0;
+              if (this.role === 'waitress') this.drinks = amountToTake;
+              if (this.role === 'chef') this.meals = amountToTake;
+            } else {
+              if (this.role === 'waitress') this.drinks = cap;
+              if (this.role === 'chef') this.meals = cap;
+            }
             this.targetObjectId = null;
             this.state = States.WANDERING;
             this.wanderTimer = 2000 + Math.random() * 2000;
@@ -4333,6 +4390,22 @@ kbd {
             this.currentNeedBeingSatisfied = null;
             this.state = States.WANDERING;
             this.wanderTimer = 500;
+          }
+          break;
+
+        case States.REFILLING_STAND:
+          this.refillTimer -= dt;
+          if (this.refillTimer <= 0) {
+            const obj = gridManager.placedObjects.get(this.targetObjectId);
+            if (obj && obj.stock !== null) {
+              obj.stock = obj.maxStock;
+              obj.isOutOfStock = false;
+              const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+              if (ui) ui.logDebug(`Stocker ${this.id} refilled "${obj.name}"!`, 'success');
+            }
+            this.targetObjectId = null;
+            this.state = States.WANDERING;
+            this.wanderTimer = 1000 + Math.random() * 1000;
           }
           break;
       }
@@ -4602,7 +4675,7 @@ kbd {
       } else if (this.role === 'waitress') {
         // If out of drinks, must go to Cocktail Bar or Soda Machine to restock
         if (this.drinks <= 0) {
-          const bars = objects.filter(obj => obj.type === 'bar' || obj.type === 'soda_machine');
+          const bars = objects.filter(obj => (obj.type === 'bar' || obj.type === 'soda_machine' || obj.type === 'coffee_maker' || obj.type === 'bubble_tea') && !obj.isOutOfStock);
           if (bars.length > 0) {
             // Find closest bar
             let closestBar = null;
@@ -4674,7 +4747,7 @@ kbd {
       } else if (this.role === 'chef') {
         // If out of meals, must go to Restaurant or Vending Machine to restock
         if (this.meals <= 0) {
-          const kitchens = objects.filter(obj => obj.type === 'restaurant' || obj.type === 'vending_machine');
+          const kitchens = objects.filter(obj => (obj.type === 'restaurant' || obj.type === 'vending_machine' || obj.type === 'candy_dispenser' || obj.type === 'popcorn_cart' || obj.type === 'pizza_oven' || obj.type === 'ice_cream') && !obj.isOutOfStock);
           if (kitchens.length > 0) {
             // Find closest kitchen
             let closestKitchen = null;
@@ -4770,6 +4843,49 @@ kbd {
           }
         }
         
+        this.state = States.WANDERING;
+        this.wanderTimer = 1000 + Math.random() * 1000;
+      } else if (this.role === 'stocker') {
+        // Find out-of-stock or low-stock objects
+        const refillables = objects.filter(obj => 
+          ['bar', 'restaurant', 'soda_machine', 'vending_machine', 'candy_dispenser', 'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea'].includes(obj.type) &&
+          obj.stock !== null && obj.stock < obj.maxStock
+        );
+        if (refillables.length > 0) {
+          // Find closest
+          let closest = null;
+          let minDist = Infinity;
+          refillables.forEach(r => {
+            const dist = Math.sqrt((this.gridX - r.gridX)**2 + (this.gridY - r.gridY)**2);
+            if (dist < minDist) {
+              minDist = dist;
+              closest = r;
+            }
+          });
+          if (closest) {
+            const adj = findWalkableAdjacent(gridManager, closest);
+            if (adj) {
+              this.targetObjectId = closest.id;
+              const path = window.Casino.Pathfinding.findPath(
+                gridManager,
+                this.gridX,
+                this.gridY,
+                adj.x,
+                adj.y,
+                false
+              );
+              if (path && path.length > 0) {
+                this.path = path;
+                this.pathIndex = 0;
+                this.moveProgress = 0;
+                this.state = States.WALKING;
+                return;
+              } else {
+                this.targetObjectId = null;
+              }
+            }
+          }
+        }
         this.state = States.WANDERING;
         this.wanderTimer = 1000 + Math.random() * 1000;
       } else {
@@ -5222,6 +5338,18 @@ kbd {
 
         case Protocol.Commands.UNLOCK_TECH:
           this.handleUnlockTech(player, payload);
+          break;
+
+        case Protocol.Commands.REFILL_AMENITY:
+          this.handleRefillAmenity(player, payload);
+          break;
+
+        case Protocol.Commands.GRAB_AMENITY_ITEM:
+          this.handleGrabAmenityItem(player, payload);
+          break;
+
+        case Protocol.Commands.HAND_NEEDS:
+          this.handleHandNeeds(player, payload);
           break;
 
         case Protocol.Commands.MOVE_OBJECT:
@@ -6046,7 +6174,7 @@ kbd {
       }
 
       let cost = 300;
-      if (role === 'waitress' || role === 'chef' || role === 'tech_support') cost = 400;
+      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') cost = 400;
       else if (role === 'scientist' || role === 'security') cost = 500;
       else if (role === 'manager' || role === 'entertainer') cost = 600;
 
@@ -6070,6 +6198,57 @@ kbd {
       if (ui) ui.logDebug(`Hired employee: role=${role.toUpperCase()} (ID: ${id})`, 'success');
 
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleRefillAmenity(player, payload) {
+      const { objectId } = payload;
+      const obj = this.gridManager.placedObjects.get(objectId);
+      if (obj && obj.stock !== undefined && obj.stock !== null) {
+        obj.stock = obj.maxStock;
+        obj.isOutOfStock = false;
+        console.log(`[Server:GameSim] Player refilled amenity "${obj.id}"`);
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+      }
+    }
+
+    handleGrabAmenityItem(player, payload) {
+      const { objectId } = payload;
+      const obj = this.gridManager.placedObjects.get(objectId);
+      if (obj && obj.stock !== undefined && obj.stock !== null && obj.stock > 0) {
+        if (['bar', 'soda_machine', 'coffee_maker', 'bubble_tea'].includes(obj.type)) {
+          player.holdingDrink = true;
+          player.holdingMeal = false;
+          obj.stock--;
+          obj.isOutOfStock = obj.stock === 0;
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        } else if (['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream'].includes(obj.type)) {
+          player.holdingMeal = true;
+          player.holdingDrink = false;
+          obj.stock--;
+          obj.isOutOfStock = obj.stock === 0;
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        }
+      }
+    }
+
+    handleHandNeeds(player, payload) {
+      const { guestId, itemType } = payload;
+      const guest = this.guests.get(guestId);
+      if (guest && guest.state !== 'LEAVING') {
+        if (itemType === 'drink' && player.holdingDrink) {
+          guest.thirst = 100;
+          player.holdingDrink = false;
+          this.economyManager.addChips(20); // Tip!
+          this.recordDayStat('tips', 20);
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        } else if (itemType === 'meal' && player.holdingMeal) {
+          guest.hunger = 100;
+          player.holdingMeal = false;
+          this.economyManager.addChips(20); // Tip!
+          this.recordDayStat('tips', 20);
+          this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        }
+      }
     }
 
     getFullState() {
@@ -8762,6 +8941,19 @@ kbd {
           this.ctx.fillStyle = '#ff4d4d';
           this.ctx.font = 'bold 8px Arial';
           this.ctx.fillText('REPAIR', xPx + wPx / 2, yPx + hPx - 6);
+        } else if (obj.isOutOfStock) {
+          this.ctx.fillStyle = 'rgba(255, 100, 0, 0.2)';
+          this.ctx.fillRect(xPx, yPx, wPx, hPx);
+
+          this.ctx.fillStyle = '#ff6c00';
+          this.ctx.font = '14px Arial';
+          this.ctx.textAlign = 'center';
+          const bob = Math.sin(performance.now() * 0.01) * 3;
+          this.ctx.fillText('📦', xPx + wPx / 2, yPx + hPx / 2 - 8 + bob);
+          
+          this.ctx.fillStyle = '#ffaa00';
+          this.ctx.font = 'bold 8px "Outfit", sans-serif';
+          this.ctx.fillText('EMPTY', xPx + wPx / 2, yPx + hPx - 6);
         }
       });
 
@@ -9010,6 +9202,17 @@ kbd {
         this.ctx.font = 'bold 9px "Outfit", sans-serif';
         const label = isMainPlayer ? "MANAGER (YOU)" : `P_${p.id.substring(0,4)}`;
         this.ctx.fillText(label, xPx, yPx - 22);
+
+        // Render carrying status
+        if (p.holdingDrink) {
+          this.ctx.fillStyle = '#00f0ff';
+          this.ctx.font = 'bold 8px "Outfit", sans-serif';
+          this.ctx.fillText("🍹 Carry Drink", xPx, yPx + 24);
+        } else if (p.holdingMeal) {
+          this.ctx.fillStyle = '#ffaa00';
+          this.ctx.font = 'bold 8px "Outfit", sans-serif';
+          this.ctx.fillText("🍱 Carry Food", xPx, yPx + 24);
+        }
 
         // If interacting, draw active link to table
         if (p.interactingObjectId) {
@@ -9481,9 +9684,7 @@ kbd {
         this.renderLottery();
       }
 
-      // Wrap modalBody in layout with other-players-panel if not already present
-      const listElId = `${gameType}-other-players-list`;
-      if (!this.modalBody.querySelector('[id$="-other-players-list"]')) {
+      if (!this.modalBody.querySelector('[id$="-other-players-list"]') && gameType !== 'craps' && gameType !== 'bubble_craps') {
         const layout = document.createElement('div');
         layout.className = 'card-game-layout';
         layout.style.display = 'flex';
@@ -10153,6 +10354,10 @@ kbd {
 
       this.modalBody.innerHTML = `
         <div class="craps-container">
+          <div id="craps-other-players-inline" style="font-size: 11px; color: var(--text-secondary); background: rgba(0,0,0,0.25); padding: 6px 12px; margin-bottom: 8px; border-radius: 8px; display: none; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <span>👥 Other Players at Table:</span>
+            <span id="craps-other-players-list-inline" style="color: var(--accent-gold); font-weight: bold;"></span>
+          </div>
           <div class="craps-top">
             <div class="craps-status" style="align-items:center;">
               <div class="status-indicator" style="margin-right:12px;">Point: <span id="craps-point-display" class="status-value">OFF</span></div>
@@ -13291,6 +13496,17 @@ kbd {
             listEl.innerHTML = `<div style="padding: 12px 0; font-size:10px;">No other players playing at this table</div>`;
           }
         }
+      } else if (gameType === 'craps' || gameType === 'bubble_craps') {
+        const inlineContainer = document.getElementById('craps-other-players-inline');
+        const inlineList = document.getElementById('craps-other-players-list-inline');
+        if (inlineContainer && inlineList) {
+          if (otherPlayers.length > 0) {
+            inlineContainer.style.display = 'flex';
+            inlineList.innerText = otherPlayers.map(p => `Manager ${p.playerId.substring(0, 5)}`).join(', ');
+          } else {
+            inlineContainer.style.display = 'none';
+          }
+        }
       } else if (gameType === 'ride_the_bus') {
         const listEl = document.getElementById('rtb-other-players-list');
         if (listEl) {
@@ -14192,6 +14408,7 @@ kbd {
       setupStaffHiringBtn('btn-hire-security', 'security', 500, 'Security Guard', 2.0, 8);
       setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 400, 'Tech Support Specialist', 2.5, 10);
       setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 600, 'Stage Entertainer', 3.0, 12);
+      setupStaffHiringBtn('btn-hire-stocker', 'stocker', 400, 'Amenity Stocker', 0, 0);
 
       const btnUpgrade = document.getElementById('btn-upgrade-size');
       if (btnUpgrade) {
@@ -14673,6 +14890,7 @@ kbd {
       let securitiesCount = 0;
       let tech_supportsCount = 0;
       let entertainersCount = 0;
+      let stockersCount = 0;
       if (this.state.employees) {
         Object.values(this.state.employees).forEach(emp => {
           if (emp.role === 'dealer') dealersCount++;
@@ -14683,6 +14901,7 @@ kbd {
           else if (emp.role === 'security') securitiesCount++;
           else if (emp.role === 'tech_support') tech_supportsCount++;
           else if (emp.role === 'entertainer') entertainersCount++;
+          else if (emp.role === 'stocker') stockersCount++;
         });
       }
 
@@ -14694,6 +14913,7 @@ kbd {
       const securitiesCountEl = document.getElementById('staff-securities-count');
       const tech_supportsCountEl = document.getElementById('staff-tech_supports-count');
       const entertainersCountEl = document.getElementById('staff-entertainers-count');
+      const stockersCountEl = document.getElementById('staff-stockers-count');
       if (dealersCountEl) dealersCountEl.innerText = dealersCount;
       if (waitressesCountEl) waitressesCountEl.innerText = waitressesCount;
       if (chefsCountEl) chefsCountEl.innerText = chefsCount;
@@ -14702,6 +14922,7 @@ kbd {
       if (securitiesCountEl) securitiesCountEl.innerText = securitiesCount;
       if (tech_supportsCountEl) tech_supportsCountEl.innerText = tech_supportsCount;
       if (entertainersCountEl) entertainersCountEl.innerText = entertainersCount;
+      if (stockersCountEl) stockersCountEl.innerText = stockersCount;
 
       // Update staff hiring buttons styling (locked/unlocked)
       const unlocked = this.state.unlockedTechs || [];
@@ -14734,6 +14955,7 @@ kbd {
       updateStaffBtnStyle('btn-hire-security', 'security', '500', '8 RP');
       updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', '400', '10 RP');
       updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', '600', '12 RP');
+      updateStaffBtnStyle('btn-hire-stocker', 'stocker', '400', '0 RP');
 
       // Trigger minigame dealer badge update
       if (this.minigameUI && this.isInMinigame) {
@@ -14861,6 +15083,31 @@ kbd {
         }
       }
 
+      // Check if carrying food/drink, and look for a nearby guest who needs it
+      if (player.holdingDrink || player.holdingMeal) {
+        const nearbyGuests = Array.from(Object.values(this.state.guests)).filter(guest => {
+          const dist = Math.sqrt((player.gridX - guest.gridX)**2 + (player.gridY - guest.gridY)**2);
+          if (dist > 1.8 || guest.state === 'LEAVING') return false;
+          if (player.holdingDrink && guest.thirst < 90) return true;
+          if (player.holdingMeal && guest.hunger < 90) return true;
+          return false;
+        });
+
+        if (nearbyGuests.length > 0) {
+          const targetGuest = nearbyGuests[0];
+          const isDrink = player.holdingDrink;
+          this.startQTEMinigame(
+            isDrink ? "🍹 SERVE DRINK" : "🍱 SERVE FOOD",
+            isDrink ? "Press SPACE or E in the GREEN zone to hand the drink!" : "Press SPACE or E in the GREEN zone to hand the food!",
+            () => {
+              this.sendAction(window.Casino.Protocol.Commands.HAND_NEEDS, { guestId: targetGuest.id, itemType: isDrink ? 'drink' : 'meal' });
+              this.showNotification(`Served ${targetGuest.name} directly! +20 Chips Tip!`, "success");
+            }
+          );
+          return;
+        }
+      }
+
       // 3. Find nearby placed objects
       let closestObj = this.getClosestObject(player.gridX, player.gridY, 1.8);
       if (closestObj) {
@@ -14875,6 +15122,36 @@ kbd {
             }
           );
           return;
+        }
+
+        // Check for out-of-stock / low-stock refilling
+        if (closestObj.stock !== undefined && closestObj.stock !== null && closestObj.stock < closestObj.maxStock) {
+          this.startQTEMinigame(
+            "📦 REFILL AMENITY",
+            "Press SPACE or E in the GREEN zone to restock!",
+            () => {
+              this.sendAction(window.Casino.Protocol.Commands.REFILL_AMENITY, { objectId: closestObj.id });
+              this.showNotification(`Restocked "${closestObj.name}"!`, "success");
+            }
+          );
+          return;
+        }
+
+        // Check for grabbing food/drink item
+        if (closestObj.stock !== undefined && closestObj.stock !== null && closestObj.stock > 0 && !player.holdingDrink && !player.holdingMeal) {
+          const isDrinkStand = ['bar', 'soda_machine', 'coffee_maker', 'bubble_tea'].includes(closestObj.type);
+          const isFoodStand = ['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream'].includes(closestObj.type);
+          if (isDrinkStand || isFoodStand) {
+            this.startQTEMinigame(
+              isDrinkStand ? "🍹 GRAB DRINK" : "🍱 GRAB FOOD",
+              isDrinkStand ? "Press SPACE or E in the GREEN zone to grab!" : "Press SPACE or E in the GREEN zone to grab!",
+              () => {
+                this.sendAction(window.Casino.Protocol.Commands.GRAB_AMENITY_ITEM, { objectId: closestObj.id });
+                this.showNotification(isDrinkStand ? "🍹 Carrying a drink! Find a thirsty guest." : "🍱 Carrying food! Find a hungry guest.", "success");
+              }
+            );
+            return;
+          }
         }
 
         // Open Amenity Buff Shop if applicable (covers stages, food/bar service, and decor)

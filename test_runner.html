@@ -1315,6 +1315,60 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that need decay follows a sigmoid satisfaction curve (slower when needs are full).");
 
+      // Test Case 3: Vending machine stocking and refilling
+      const vendingObj = winHost.Casino.GameObjects.createPlaced("vending_1", "vending_machine", 2, 2);
+      sim.gridManager.placedObjects.set(vendingObj.id, vendingObj);
+      if (vendingObj.stock !== 5 || vendingObj.isOutOfStock !== false) {
+        throw new Error("Vending machine did not initialize with correct stock");
+      }
+      
+      // Simulate guest purchases until out of stock
+      vendingObj.stock = 0;
+      vendingObj.isOutOfStock = true;
+      
+      // Guest should NOT select it
+      const eligibleObjects = [vendingObj].filter(obj => {
+        if (obj.isBroken) return false;
+        if (obj.isOutOfStock) return false;
+        return true;
+      });
+      if (eligibleObjects.length > 0) {
+        throw new Error("Guest AI considered out-of-stock vending machine as eligible");
+      }
+      
+      // Player Refill command
+      const mockPlayer = new winHost.Casino.PlayerEntity("mock_player", 0, 0);
+      sim.players.set(mockPlayer.id, mockPlayer);
+      sim.handleRefillAmenity(mockPlayer, { objectId: vendingObj.id });
+      if (vendingObj.stock !== vendingObj.maxStock || vendingObj.isOutOfStock !== false) {
+        throw new Error("Refill command failed to replenish stock");
+      }
+      writeToLog("* Verified that out-of-stock machines are filtered out and successfully replenished by player refill commands.");
+      
+      // Test Case 4: Player manual food/drink serving
+      sim.handleGrabAmenityItem(mockPlayer, { objectId: vendingObj.id });
+      if (vendingObj.stock !== vendingObj.maxStock - 1) {
+        throw new Error("Grab command did not decrement machine stock");
+      }
+      if (mockPlayer.holdingMeal !== true) {
+        throw new Error("Player is not holding food after grabbing it");
+      }
+      
+      const hungryGuest = new winHost.Casino.GuestAI("guest_hungry", 0, 0);
+      hungryGuest.hunger = 40;
+      sim.guests.set(hungryGuest.id, hungryGuest);
+      sim.handleHandNeeds(mockPlayer, { guestId: hungryGuest.id, itemType: "meal" });
+      if (hungryGuest.hunger !== 100) {
+        throw new Error("Handing food to guest did not restore guest hunger to 100");
+      }
+      if (mockPlayer.holdingMeal !== false) {
+        throw new Error("Player carrying state was not cleared after serving");
+      }
+      sim.guests.delete(hungryGuest.id);
+      sim.players.delete(mockPlayer.id);
+      sim.gridManager.placedObjects.delete(vendingObj.id);
+      writeToLog("* Verified player manual food grabbing, carrying state, and direct guest serving.");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));

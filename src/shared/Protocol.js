@@ -20,7 +20,10 @@
       REPAIR_MACHINE: 'REPAIR_MACHINE',     // { objectId }
       SELECT_DIFFICULTY: 'SELECT_DIFFICULTY', // { difficulty }
       UPGRADE_EMPLOYEE: 'UPGRADE_EMPLOYEE', // { employeeId, upgradeType }
-      BUY_BUFF: 'BUY_BUFF'                 // { buffType, cost, duration }
+      BUY_BUFF: 'BUY_BUFF',                 // { buffType, cost, duration }
+      REFILL_AMENITY: 'REFILL_AMENITY',     // { objectId }
+      GRAB_AMENITY_ITEM: 'GRAB_AMENITY_ITEM', // { objectId }
+      HAND_NEEDS: 'HAND_NEEDS'              // { guestId, itemType }
     },
 
     // Events broadcast from Simulator (Server) -> Client

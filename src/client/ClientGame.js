@@ -608,6 +608,7 @@
       setupStaffHiringBtn('btn-hire-security', 'security', 500, 'Security Guard', 2.0, 8);
       setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 400, 'Tech Support Specialist', 2.5, 10);
       setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 600, 'Stage Entertainer', 3.0, 12);
+      setupStaffHiringBtn('btn-hire-stocker', 'stocker', 400, 'Amenity Stocker', 0, 0);
 
       const btnUpgrade = document.getElementById('btn-upgrade-size');
       if (btnUpgrade) {
@@ -1089,6 +1090,7 @@
       let securitiesCount = 0;
       let tech_supportsCount = 0;
       let entertainersCount = 0;
+      let stockersCount = 0;
       if (this.state.employees) {
         Object.values(this.state.employees).forEach(emp => {
           if (emp.role === 'dealer') dealersCount++;
@@ -1099,6 +1101,7 @@
           else if (emp.role === 'security') securitiesCount++;
           else if (emp.role === 'tech_support') tech_supportsCount++;
           else if (emp.role === 'entertainer') entertainersCount++;
+          else if (emp.role === 'stocker') stockersCount++;
         });
       }
 
@@ -1110,6 +1113,7 @@
       const securitiesCountEl = document.getElementById('staff-securities-count');
       const tech_supportsCountEl = document.getElementById('staff-tech_supports-count');
       const entertainersCountEl = document.getElementById('staff-entertainers-count');
+      const stockersCountEl = document.getElementById('staff-stockers-count');
       if (dealersCountEl) dealersCountEl.innerText = dealersCount;
       if (waitressesCountEl) waitressesCountEl.innerText = waitressesCount;
       if (chefsCountEl) chefsCountEl.innerText = chefsCount;
@@ -1118,6 +1122,7 @@
       if (securitiesCountEl) securitiesCountEl.innerText = securitiesCount;
       if (tech_supportsCountEl) tech_supportsCountEl.innerText = tech_supportsCount;
       if (entertainersCountEl) entertainersCountEl.innerText = entertainersCount;
+      if (stockersCountEl) stockersCountEl.innerText = stockersCount;
 
       // Update staff hiring buttons styling (locked/unlocked)
       const unlocked = this.state.unlockedTechs || [];
@@ -1150,6 +1155,7 @@
       updateStaffBtnStyle('btn-hire-security', 'security', '500', '8 RP');
       updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', '400', '10 RP');
       updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', '600', '12 RP');
+      updateStaffBtnStyle('btn-hire-stocker', 'stocker', '400', '0 RP');
 
       // Trigger minigame dealer badge update
       if (this.minigameUI && this.isInMinigame) {
@@ -1277,6 +1283,31 @@
         }
       }
 
+      // Check if carrying food/drink, and look for a nearby guest who needs it
+      if (player.holdingDrink || player.holdingMeal) {
+        const nearbyGuests = Array.from(Object.values(this.state.guests)).filter(guest => {
+          const dist = Math.sqrt((player.gridX - guest.gridX)**2 + (player.gridY - guest.gridY)**2);
+          if (dist > 1.8 || guest.state === 'LEAVING') return false;
+          if (player.holdingDrink && guest.thirst < 90) return true;
+          if (player.holdingMeal && guest.hunger < 90) return true;
+          return false;
+        });
+
+        if (nearbyGuests.length > 0) {
+          const targetGuest = nearbyGuests[0];
+          const isDrink = player.holdingDrink;
+          this.startQTEMinigame(
+            isDrink ? "🍹 SERVE DRINK" : "🍱 SERVE FOOD",
+            isDrink ? "Press SPACE or E in the GREEN zone to hand the drink!" : "Press SPACE or E in the GREEN zone to hand the food!",
+            () => {
+              this.sendAction(window.Casino.Protocol.Commands.HAND_NEEDS, { guestId: targetGuest.id, itemType: isDrink ? 'drink' : 'meal' });
+              this.showNotification(`Served ${targetGuest.name} directly! +20 Chips Tip!`, "success");
+            }
+          );
+          return;
+        }
+      }
+
       // 3. Find nearby placed objects
       let closestObj = this.getClosestObject(player.gridX, player.gridY, 1.8);
       if (closestObj) {
@@ -1291,6 +1322,36 @@
             }
           );
           return;
+        }
+
+        // Check for out-of-stock / low-stock refilling
+        if (closestObj.stock !== undefined && closestObj.stock !== null && closestObj.stock < closestObj.maxStock) {
+          this.startQTEMinigame(
+            "📦 REFILL AMENITY",
+            "Press SPACE or E in the GREEN zone to restock!",
+            () => {
+              this.sendAction(window.Casino.Protocol.Commands.REFILL_AMENITY, { objectId: closestObj.id });
+              this.showNotification(`Restocked "${closestObj.name}"!`, "success");
+            }
+          );
+          return;
+        }
+
+        // Check for grabbing food/drink item
+        if (closestObj.stock !== undefined && closestObj.stock !== null && closestObj.stock > 0 && !player.holdingDrink && !player.holdingMeal) {
+          const isDrinkStand = ['bar', 'soda_machine', 'coffee_maker', 'bubble_tea'].includes(closestObj.type);
+          const isFoodStand = ['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream'].includes(closestObj.type);
+          if (isDrinkStand || isFoodStand) {
+            this.startQTEMinigame(
+              isDrinkStand ? "🍹 GRAB DRINK" : "🍱 GRAB FOOD",
+              isDrinkStand ? "Press SPACE or E in the GREEN zone to grab!" : "Press SPACE or E in the GREEN zone to grab!",
+              () => {
+                this.sendAction(window.Casino.Protocol.Commands.GRAB_AMENITY_ITEM, { objectId: closestObj.id });
+                this.showNotification(isDrinkStand ? "🍹 Carrying a drink! Find a thirsty guest." : "🍱 Carrying food! Find a hungry guest.", "success");
+              }
+            );
+            return;
+          }
         }
 
         // Open Amenity Buff Shop if applicable (covers stages, food/bar service, and decor)
