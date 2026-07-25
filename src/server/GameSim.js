@@ -131,6 +131,7 @@
         // Make all remaining guests start leaving immediately
         for (const guest of this.guests.values()) {
           if (guest.state !== 'LEAVING') {
+            guest.isForcedExit = true;
             guest.startLeaving(this.gridManager);
           }
         }
@@ -180,22 +181,29 @@
             }
           }
           
-          // Calculate final average needs based on departure decision moment (or fallback)
+           // Calculate final average needs based on departure decision moment (or fallback)
           const finalHappiness = guest.happinessOnDeparture !== undefined ? guest.happinessOnDeparture : ((guest.thirst + guest.hunger + guest.bio + guest.entertainment) / 4);
           
-          // Save in history (up to 20 samples) and recalculate star rating
-          this.departureHistory.push(finalHappiness);
-          if (this.departureHistory.length > 20) {
-            this.departureHistory.shift();
-          }
-          this.updateStarRating();
+          if (!guest.isForcedExit) {
+            // 80% happy is fine -> scale so happiness >= 80 maps to 100%
+            const adjustedHappiness = finalHappiness >= 80 ? 100 : (finalHappiness / 80) * 100;
+            
+            // Save in history (up to 20 samples) and recalculate star rating
+            this.departureHistory.push(adjustedHappiness);
+            if (this.departureHistory.length > 20) {
+              this.departureHistory.shift();
+            }
+            this.updateStarRating();
 
-          // Award 1 Research Point if guest leaves happy (satisfaction >= 70)
-          if (finalHappiness >= 70) {
-            this.researchPoints += 1;
-            console.log(`[Server:GameSim] Guest "${guest.name}" left HAPPY (${finalHappiness.toFixed(0)}%). Awarded 1 Research Point. Total RP: ${this.researchPoints}`);
+            // Award 1 Research Point if guest leaves happy (adjusted satisfaction >= 70)
+            if (adjustedHappiness >= 70) {
+              this.researchPoints += 1;
+              console.log(`[Server:GameSim] Guest "${guest.name}" left HAPPY (${adjustedHappiness.toFixed(0)}%). Awarded 1 Research Point. Total RP: ${this.researchPoints}`);
+            } else {
+              console.log(`[Server:GameSim] Guest "${guest.name}" left UNHAPPY (${adjustedHappiness.toFixed(0)}%). No RP awarded.`);
+            }
           } else {
-            console.log(`[Server:GameSim] Guest "${guest.name}" left UNHAPPY (${finalHappiness.toFixed(0)}%). No RP awarded.`);
+            console.log(`[Server:GameSim] Guest "${guest.name}" left due to forced end of day. Skipping ratings impact.`);
           }
 
           this.guests.delete(id);

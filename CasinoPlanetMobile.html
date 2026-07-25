@@ -3478,19 +3478,37 @@ kbd {
       
       if (Math.random() < leaveChance) {
         let reason = 'satisfied';
-        if (this.thirst < 30) reason = 'thirsty';
-        else if (this.bio < 30) reason = 'bladder';
-        else if (this.hunger < 30) reason = 'hungry';
-        else if (this.entertainment < 40) reason = 'bored';
+        let shouldActuallyLeave = true;
         
-        if (sim) {
-          sim.broadcast(window.Casino.Protocol.Events.GUEST_LEFT_REASON, {
-            name: this.name,
-            reason: reason
-          });
+        // Find placed objects
+        const objects = Array.from(gridManager.placedObjects.values());
+        
+        if (this.thirst < 30) {
+          reason = 'thirsty';
+          const hasDrink = objects.some(obj => !obj.isBroken && ['bar', 'soda_machine', 'coffee_maker', 'bubble_tea', 'vip_lounge'].includes(obj.type));
+          if (hasDrink) shouldActuallyLeave = false;
+        } else if (this.bio < 30) {
+          reason = 'bladder';
+          const hasBathroom = objects.some(obj => !obj.isBroken && ['bathroom', 'bathroom_stall', 'massage_chair', 'glow_sofa'].includes(obj.type));
+          if (hasBathroom) shouldActuallyLeave = false;
+        } else if (this.hunger < 30) {
+          reason = 'hungry';
+          const hasFood = objects.some(obj => !obj.isBroken && ['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'vip_lounge'].includes(obj.type));
+          if (hasFood) shouldActuallyLeave = false;
+        } else if (this.entertainment < 40) {
+          reason = 'bored';
         }
-        this.startLeaving(gridManager);
-        return;
+        
+        if (shouldActuallyLeave) {
+          if (sim) {
+            sim.broadcast(window.Casino.Protocol.Events.GUEST_LEFT_REASON, {
+              name: this.name,
+              reason: reason
+            });
+          }
+          this.startLeaving(gridManager);
+          return;
+        }
       }
 
       // Find all placed objects
@@ -3543,12 +3561,21 @@ kbd {
         return;
       }
 
-      // Prioritize need satisfaction if any need is below 40 (or 30 for entertainment)
+      // Prioritize need satisfaction if any need is below 55 (or 30 for entertainment)
       let prioritizedTypes = null;
-      if (this.thirst < 40) prioritizedTypes = ['bar', 'soda_machine', 'coffee_maker', 'bubble_tea', 'vip_lounge'];
-      else if (this.hunger < 40) prioritizedTypes = ['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'vip_lounge'];
-      else if (this.bio < 40) prioritizedTypes = ['bathroom', 'bathroom_stall', 'massage_chair', 'glow_sofa'];
-      else if (this.entertainment < 30) prioritizedTypes = ['slots', 'roulette', 'craps', 'blackjack', 'ride_the_bus', 'three_card_poker', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud', 'big_six', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery', 'jazz_band', 'fountain', 'arcade_console', 'vr_pod', 'vip_lounge', 'hologram'];
+      const needs = [
+        { name: 'thirst', val: this.thirst, types: ['bar', 'soda_machine', 'coffee_maker', 'bubble_tea', 'vip_lounge'] },
+        { name: 'hunger', val: this.hunger, types: ['restaurant', 'vending_machine', 'candy_dispenser', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'vip_lounge'] },
+        { name: 'bio', val: this.bio, types: ['bathroom', 'bathroom_stall', 'massage_chair', 'glow_sofa'] }
+      ];
+      // Sort by value ascending to find the lowest need
+      needs.sort((a, b) => a.val - b.val);
+
+      if (needs[0].val < 55) {
+        prioritizedTypes = needs[0].types;
+      } else if (this.entertainment < 30) {
+        prioritizedTypes = ['slots', 'roulette', 'craps', 'blackjack', 'ride_the_bus', 'three_card_poker', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud', 'big_six', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery', 'jazz_band', 'fountain', 'arcade_console', 'vr_pod', 'vip_lounge', 'hologram'];
+      }
 
       let availableObjects = [];
       if (prioritizedTypes) {
@@ -3559,6 +3586,18 @@ kbd {
           if (!obj.seats) return obj.guests ? obj.guests.length < obj.guestCapacity : true;
           return obj.seats.some(s => s.guestId === null);
         });
+
+        // Persistent search: if the need is critical (below 45) and we have such amenities but they are busy,
+        // wait/wander instead of reverting to playing games immediately
+        if (availableObjects.length === 0 && needs[0].val < 45 && needs[0].name !== 'entertainment') {
+          const hasAmenity = objects.some(obj => !obj.isBroken && prioritizedTypes.includes(obj.type));
+          if (hasAmenity) {
+            this.state = States.WANDERING;
+            this.wanderTimer = 1000 + Math.random() * 1000;
+            this.targetObjectId = null;
+            return;
+          }
+        }
       }
 
       // Fallback if no prioritized types or none are available (only select game types!)
@@ -3575,7 +3614,7 @@ kbd {
             }
           }
 
-          if (!obj.seats) return obj.guests.length < obj.guestCapacity;
+          if (!obj.seats) return obj.guests ? obj.guests.length < obj.guestCapacity : true;
           return obj.seats.some(s => s.guestId === null);
         });
       }
@@ -3817,6 +3856,7 @@ kbd {
           }
         }
 
+        if (!obj.guests) obj.guests = [];
         if (seatValid && obj.guests.length < obj.guestCapacity) {
           // Register guest at table
           if (!obj.guests.includes(this.id)) {
@@ -4925,6 +4965,7 @@ kbd {
         // Make all remaining guests start leaving immediately
         for (const guest of this.guests.values()) {
           if (guest.state !== 'LEAVING') {
+            guest.isForcedExit = true;
             guest.startLeaving(this.gridManager);
           }
         }
@@ -4974,22 +5015,29 @@ kbd {
             }
           }
           
-          // Calculate final average needs based on departure decision moment (or fallback)
+           // Calculate final average needs based on departure decision moment (or fallback)
           const finalHappiness = guest.happinessOnDeparture !== undefined ? guest.happinessOnDeparture : ((guest.thirst + guest.hunger + guest.bio + guest.entertainment) / 4);
           
-          // Save in history (up to 20 samples) and recalculate star rating
-          this.departureHistory.push(finalHappiness);
-          if (this.departureHistory.length > 20) {
-            this.departureHistory.shift();
-          }
-          this.updateStarRating();
+          if (!guest.isForcedExit) {
+            // 80% happy is fine -> scale so happiness >= 80 maps to 100%
+            const adjustedHappiness = finalHappiness >= 80 ? 100 : (finalHappiness / 80) * 100;
+            
+            // Save in history (up to 20 samples) and recalculate star rating
+            this.departureHistory.push(adjustedHappiness);
+            if (this.departureHistory.length > 20) {
+              this.departureHistory.shift();
+            }
+            this.updateStarRating();
 
-          // Award 1 Research Point if guest leaves happy (satisfaction >= 70)
-          if (finalHappiness >= 70) {
-            this.researchPoints += 1;
-            console.log(`[Server:GameSim] Guest "${guest.name}" left HAPPY (${finalHappiness.toFixed(0)}%). Awarded 1 Research Point. Total RP: ${this.researchPoints}`);
+            // Award 1 Research Point if guest leaves happy (adjusted satisfaction >= 70)
+            if (adjustedHappiness >= 70) {
+              this.researchPoints += 1;
+              console.log(`[Server:GameSim] Guest "${guest.name}" left HAPPY (${adjustedHappiness.toFixed(0)}%). Awarded 1 Research Point. Total RP: ${this.researchPoints}`);
+            } else {
+              console.log(`[Server:GameSim] Guest "${guest.name}" left UNHAPPY (${adjustedHappiness.toFixed(0)}%). No RP awarded.`);
+            }
           } else {
-            console.log(`[Server:GameSim] Guest "${guest.name}" left UNHAPPY (${finalHappiness.toFixed(0)}%). No RP awarded.`);
+            console.log(`[Server:GameSim] Guest "${guest.name}" left due to forced end of day. Skipping ratings impact.`);
           }
 
           this.guests.delete(id);

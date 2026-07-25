@@ -1249,6 +1249,38 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that universal co-play sidebar is dynamically wrapped and injected across other minigames (Plinko, Slots).");
 
+      // Verify Guest Needs & Rating Safeguards:
+      const sim = hostGame.sim;
+      sim.departureHistory = [];
+      
+      const testGuest = new winHost.Casino.GuestAI("guest_rating_test", 0, 0);
+      testGuest.thirst = 80;
+      testGuest.hunger = 80;
+      testGuest.bio = 80;
+      testGuest.entertainment = 80;
+      testGuest.shouldDespawn = true;
+      
+      sim.guests.set(testGuest.id, testGuest);
+      sim.tick(0);
+      
+      if (sim.departureHistory.length !== 1 || sim.departureHistory[0] !== 100) {
+        throw new Error(`Guest ratings normalization failed. Expected 100 in history, got: ${sim.departureHistory[0]}`);
+      }
+      writeToLog("* Verified that guest departure happiness of 80% is normalized to 100% in rating history.");
+      
+      sim.departureHistory = [];
+      const forcedGuest = new winHost.Casino.GuestAI("guest_forced_test", 0, 0);
+      forcedGuest.isForcedExit = true;
+      forcedGuest.shouldDespawn = true;
+      
+      sim.guests.set(forcedGuest.id, forcedGuest);
+      sim.tick(0);
+      
+      if (sim.departureHistory.length !== 0) {
+        throw new Error("Forced end-of-day exit guest improperly affected ratings history");
+      }
+      writeToLog("* Verified that guests forced to leave at the end of the day do not impact rating history.");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));
