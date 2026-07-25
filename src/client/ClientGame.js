@@ -566,7 +566,7 @@
       const btnHireDealer = document.getElementById('btn-hire-dealer');
       if (btnHireDealer) {
         btnHireDealer.addEventListener('click', () => {
-          if (this.chips < 300) {
+          if (this.chips < 3000) {
             this.showNotification("Cannot afford to hire Dealer!", "error");
             return;
           }
@@ -577,7 +577,7 @@
       const btnHireWaitress = document.getElementById('btn-hire-waitress');
       if (btnHireWaitress) {
         btnHireWaitress.addEventListener('click', () => {
-          if (this.chips < 400) {
+          if (this.chips < 4000) {
             this.showNotification("Cannot afford to hire Waitress!", "error");
             return;
           }
@@ -619,13 +619,13 @@
         }
       };
 
-      setupStaffHiringBtn('btn-hire-chef', 'chef', 400, 'Food Chef', 2.0, 8);
-      setupStaffHiringBtn('btn-hire-scientist', 'scientist', 500, 'Research Scientist', 3.0, 12);
-      setupStaffHiringBtn('btn-hire-manager', 'manager', 600, 'Casino Manager', 3.5, 15);
-      setupStaffHiringBtn('btn-hire-security', 'security', 500, 'Security Guard', 2.0, 8);
-      setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 400, 'Tech Support Specialist', 2.5, 10);
-      setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 600, 'Stage Entertainer', 3.0, 12);
-      setupStaffHiringBtn('btn-hire-stocker', 'stocker', 400, 'Amenity Stocker', 0, 0);
+      setupStaffHiringBtn('btn-hire-chef', 'chef', 4000, 'Food Chef', 2.0, 80);
+      setupStaffHiringBtn('btn-hire-scientist', 'scientist', 5000, 'Research Scientist', 3.0, 120);
+      setupStaffHiringBtn('btn-hire-manager', 'manager', 6000, 'Casino Manager', 3.5, 150);
+      setupStaffHiringBtn('btn-hire-security', 'security', 5000, 'Security Guard', 2.0, 80);
+      setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 4000, 'Tech Support Specialist', 2.5, 100);
+      setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 6000, 'Stage Entertainer', 3.0, 120);
+      setupStaffHiringBtn('btn-hire-stocker', 'stocker', 4000, 'Amenity Stocker', 1.5, 60);
 
       const btnUpgrade = document.getElementById('btn-upgrade-size');
       if (btnUpgrade) {
@@ -1143,18 +1143,18 @@
         const btn = document.getElementById(id);
         if (btn) {
           const isUnlocked = unlocked.includes(role);
-          const costTag = btn.querySelector('.cost-tag');
+          const costTag = btn.querySelector('.cost-tag') || btn.querySelector('.mobile-item-cost');
           if (isUnlocked) {
             btn.style.opacity = '1';
             if (costTag) {
-              costTag.innerText = cost;
+              costTag.innerText = cost + (btn.classList.contains('mobile-grid-item') ? 'c' : '');
               costTag.style.background = 'rgba(255,255,255,0.1)';
               costTag.style.color = '#fff';
             }
           } else {
             btn.style.opacity = '0.6';
             if (costTag) {
-              costTag.innerText = `🔬 ${rpCost}`;
+              costTag.innerText = (btn.classList.contains('mobile-grid-item') ? '' : '🔬 ') + rpCost;
               costTag.style.background = 'var(--accent-gold)';
               costTag.style.color = '#000';
             }
@@ -1162,13 +1162,13 @@
         }
       };
 
-      updateStaffBtnStyle('btn-hire-chef', 'chef', '400', '8 RP');
-      updateStaffBtnStyle('btn-hire-scientist', 'scientist', '500', '12 RP');
-      updateStaffBtnStyle('btn-hire-manager', 'manager', '600', '15 RP');
-      updateStaffBtnStyle('btn-hire-security', 'security', '500', '8 RP');
-      updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', '400', '10 RP');
-      updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', '600', '12 RP');
-      updateStaffBtnStyle('btn-hire-stocker', 'stocker', '400', '0 RP');
+      updateStaffBtnStyle('btn-hire-chef', 'chef', '4,000', '80 RP');
+      updateStaffBtnStyle('btn-hire-scientist', 'scientist', '5,000', '120 RP');
+      updateStaffBtnStyle('btn-hire-manager', 'manager', '6,000', '150 RP');
+      updateStaffBtnStyle('btn-hire-security', 'security', '5,000', '80 RP');
+      updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', '4,000', '100 RP');
+      updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', '6,000', '120 RP');
+      updateStaffBtnStyle('btn-hire-stocker', 'stocker', '4,000', '60 RP');
 
       // Trigger minigame dealer badge update
       if (this.minigameUI && this.isInMinigame) {

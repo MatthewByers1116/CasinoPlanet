@@ -1208,10 +1208,10 @@
         }
       }
 
-      let cost = 300;
-      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') cost = 400;
-      else if (role === 'scientist' || role === 'security') cost = 500;
-      else if (role === 'manager' || role === 'entertainer') cost = 600;
+      let cost = 3000;
+      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') cost = 4000;
+      else if (role === 'scientist' || role === 'security') cost = 5000;
+      else if (role === 'manager' || role === 'entertainer') cost = 6000;
 
       if (!this.economyManager.canAfford(cost)) {
         const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;

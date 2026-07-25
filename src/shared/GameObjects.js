@@ -139,6 +139,8 @@
         useTime: 3000
       },
       blackjack: {
+        researchCost: 15,
+        requiredRating: 1.8,
         type: 'blackjack',
         name: 'Blackjack Table',
         width: 2,
@@ -152,6 +154,8 @@
         useTime: 2500
       },
       ride_the_bus: {
+        researchCost: 10,
+        requiredRating: 1.5,
         type: 'ride_the_bus',
         name: 'Ride The Bus Table',
         width: 2,
@@ -165,6 +169,8 @@
         useTime: 2000
       },
       three_card_poker: {
+        researchCost: 18,
+        requiredRating: 2.2,
         type: 'three_card_poker',
         name: '3 Card Poker Table',
         width: 2,
@@ -690,43 +696,50 @@
         type: 'chef',
         name: 'Food Chef Specialist',
         cost: 0,
-        researchCost: 8,
+        researchCost: 80,
         requiredRating: 2.0
       },
       scientist: {
         type: 'scientist',
         name: 'Research Scientist',
         cost: 0,
-        researchCost: 12,
+        researchCost: 120,
         requiredRating: 3.0
       },
       manager: {
         type: 'manager',
         name: 'Casino Manager',
         cost: 0,
-        researchCost: 15,
+        researchCost: 150,
         requiredRating: 3.5
       },
       security: {
         type: 'security',
         name: 'Security Guard',
         cost: 0,
-        researchCost: 8,
+        researchCost: 80,
         requiredRating: 2.0
       },
       tech_support: {
         type: 'tech_support',
         name: 'Tech Support Specialist',
         cost: 0,
-        researchCost: 10,
+        researchCost: 100,
         requiredRating: 2.5
       },
       entertainer: {
         type: 'entertainer',
         name: 'Stage Entertainer',
         cost: 0,
-        researchCost: 12,
+        researchCost: 120,
         requiredRating: 3.0
+      },
+      stocker: {
+        type: 'stocker',
+        name: 'Amenity Stocker',
+        cost: 0,
+        researchCost: 60,
+        requiredRating: 1.5
       },
     },
 
