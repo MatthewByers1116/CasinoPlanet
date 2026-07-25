@@ -360,6 +360,7 @@
       }
 
       if (!this.modalBody.querySelector('[id$="-other-players-list"]') && gameType !== 'craps' && gameType !== 'bubble_craps') {
+        const listElId = `${gameType}-other-players-list`;
         const layout = document.createElement('div');
         layout.className = 'card-game-layout';
         layout.style.display = 'flex';

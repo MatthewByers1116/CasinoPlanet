@@ -837,8 +837,19 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       doc.getElementById('btn-close-char-modal').click();
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Open a Minigame Overlay (e.g. slots minigame)
-      gameInstance.minigameUI.open('slots', 'obj_1');
+      // Place roulette table
+      gameInstance.sendAction(win.Casino.Protocol.Commands.PLACE_OBJECT, {
+        type: 'roulette',
+        gridX: 8,
+        gridY: 8
+      });
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      let rouletteObj = gameInstance.state.grid.objects.find(o => o.type === 'roulette');
+      if (!rouletteObj) throw new Error("Roulette table failed to place during UI verification");
+
+      // Open Roulette Minigame Overlay
+      gameInstance.minigameUI.open('roulette', rouletteObj.id);
       await new Promise(resolve => setTimeout(resolve, 200));
 
       // Test Minigame window controls
@@ -847,6 +858,17 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       assertButtonClickable('#minigame-debug-toggle', 'Minigame Modal Window: Debug Log Button');
 
       // Close minigame
+      doc.getElementById('minigame-close-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Open a Minigame Overlay (e.g. slots minigame)
+      gameInstance.minigameUI.open('slots', 'obj_1');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Test slots Minigame window controls
+      assertButtonClickable('#minigame-close-btn', 'Minigame Modal Window: Close button');
+
+      // Close slots minigame
       doc.getElementById('minigame-close-btn').click();
       await new Promise(resolve => setTimeout(resolve, 200));
 
