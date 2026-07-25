@@ -352,7 +352,8 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       { type: 'plinko', payload: { betAmount: 20 }, actions: [] },
       { type: 'lottery', payload: { betAmount: 20, selectedNumbers: [1, 2, 3, 4, 5] }, actions: [] },
       { type: 'elec_roulette', payload: { bets: [{ type: 'red', amount: 20 }] }, actions: [] },
-      { type: 'bubble_craps', payload: { action: 'roll', bets: [{ type: 'pass_line', amount: 20 }] }, actions: [] }
+      { type: 'bubble_craps', payload: { action: 'roll', bets: [{ type: 'pass_line', amount: 20 }] }, actions: [] },
+      { type: 'minigame_machine', payload: { action: 'bet', betAmount: 50 }, actions: [{ action: 'outcome', outcome: 'win', betAmount: 50 }] }
     ];
 
     for (const game of minigames) {
@@ -365,7 +366,17 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
           }
         }
         if (!table) {
-          table = sim.gridManager.placeObject(game.type, 10, 10);
+          let placed = false;
+          for (let y = 1; y < sim.gridManager.rows - 1; y++) {
+            for (let x = 1; x < sim.gridManager.cols - 1; x++) {
+              if (sim.gridManager.canPlaceObject(game.type, x, y)) {
+                table = sim.gridManager.placeObject(game.type, x, y);
+                placed = true;
+                break;
+              }
+            }
+            if (placed) break;
+          }
         }
         if (!table) {
           throw new Error(`Failed to place object of type ${game.type}`);
@@ -1359,35 +1370,35 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       
       // Player Refill command
-      const mockPlayer = new winHost.Casino.PlayerEntity("mock_player", 0, 0);
-      sim.players.set(mockPlayer.id, mockPlayer);
-      sim.handleRefillAmenity(mockPlayer, { objectId: vendingObj.id });
+      const mockPlayerEntity = new winHost.Casino.PlayerEntity("mock_player", 0, 0);
+      sim.players.set(mockPlayerEntity.id, mockPlayerEntity);
+      sim.handleRefillAmenity(mockPlayerEntity, { objectId: vendingObj.id });
       if (vendingObj.stock !== vendingObj.maxStock || vendingObj.isOutOfStock !== false) {
         throw new Error("Refill command failed to replenish stock");
       }
       writeToLog("* Verified that out-of-stock machines are filtered out and successfully replenished by player refill commands.");
       
       // Test Case 4: Player manual food/drink serving
-      sim.handleGrabAmenityItem(mockPlayer, { objectId: vendingObj.id });
+      sim.handleGrabAmenityItem(mockPlayerEntity, { objectId: vendingObj.id });
       if (vendingObj.stock !== vendingObj.maxStock - 1) {
         throw new Error("Grab command did not decrement machine stock");
       }
-      if (mockPlayer.holdingMeal !== true) {
+      if (mockPlayerEntity.holdingMeal !== true) {
         throw new Error("Player is not holding food after grabbing it");
       }
       
       const hungryGuest = new winHost.Casino.GuestAI("guest_hungry", 0, 0);
       hungryGuest.hunger = 40;
       sim.guests.set(hungryGuest.id, hungryGuest);
-      sim.handleHandNeeds(mockPlayer, { guestId: hungryGuest.id, itemType: "meal" });
+      sim.handleHandNeeds(mockPlayerEntity, { guestId: hungryGuest.id, itemType: "meal" });
       if (hungryGuest.hunger !== 100) {
         throw new Error("Handing food to guest did not restore guest hunger to 100");
       }
-      if (mockPlayer.holdingMeal !== false) {
+      if (mockPlayerEntity.holdingMeal !== false) {
         throw new Error("Player carrying state was not cleared after serving");
       }
       sim.guests.delete(hungryGuest.id);
-      sim.players.delete(mockPlayer.id);
+      sim.players.delete(mockPlayerEntity.id);
       sim.gridManager.placedObjects.delete(vendingObj.id);
       writeToLog("* Verified player manual food grabbing, carrying state, and direct guest serving.");
 

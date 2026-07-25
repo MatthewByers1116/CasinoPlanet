@@ -30,7 +30,23 @@ def start_server():
     # Reuse socket address to make sure restarts release ports instantly
     socketserver.TCPServer.allow_reuse_address = True
     
-    handler = http.server.SimpleHTTPRequestHandler
+    class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+        def do_POST(self):
+            if self.path == '/save_report':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                with open('test_report.md', 'wb') as f:
+                    f.write(post_data)
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(b'OK')
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+    handler = CustomHTTPRequestHandler
     
     try:
         # Instantiate the threaded server
