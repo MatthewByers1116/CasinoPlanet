@@ -1333,10 +1333,13 @@
               
               let logHtml = `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} (Net: ${netSign})</strong></div>`;
               payload.payoutDetails.forEach(d => {
-                if (d.won) {
-                  logHtml += `<div class="log-line win"> &raquo; Bet '${d.type.replace('prop_','').replace('place_','')}' (${d.amount}): WON (+${d.payout} Chips)</div>`;
+                const betName = d.type.replace('prop_','').replace('place_','').replace('buy_','');
+                if (d.isPush) {
+                  logHtml += `<div class="log-line info"> &raquo; Bet '${betName}' (${d.amount}): PUSH (Returned)</div>`;
+                } else if (d.won) {
+                  logHtml += `<div class="log-line win"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout} Chips)</div>`;
                 } else {
-                  logHtml += `<div class="log-line loss"> &raquo; Bet '${d.type.replace('prop_','').replace('place_','')}' (${d.amount}): LOST</div>`;
+                  logHtml += `<div class="log-line loss"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
                 }
               });
               

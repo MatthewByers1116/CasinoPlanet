@@ -887,6 +887,7 @@
         boardState.activeBets.forEach(bet => {
           let resolved = false;
           let won = false;
+          let resolved_push = false;
           let payoutRatio = 1; // standard is 1:1
 
           switch (bet.type) {
@@ -1077,7 +1078,11 @@
           }
 
           if (resolved) {
-            if (won) {
+            if (resolved_push) {
+              // Push: return original bet amount
+              totalWin += bet.amount;
+              payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: bet.amount, isPush: true });
+            } else if (won) {
               const winAmount = Math.floor(bet.amount * (payoutRatio + 1));
               totalWin += winAmount;
               payoutDetails.push({ type: bet.type, won: true, amount: bet.amount, payout: winAmount });
