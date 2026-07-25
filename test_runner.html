@@ -1199,6 +1199,56 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that new DBD Skill Check Wheel QTE correctly tracks rotating needle and triggers success upon click in target zone.");
 
+      // Verify Plinko simulation math & payouts bounds:
+      const mockPlayer = {
+        id: "plinko_math_mock_player",
+        gridX: 0,
+        gridY: 0,
+        chips: 1000
+      };
+      for (let count = 0; count < 50; count++) {
+        let payoutSent = false;
+        let recordedIndex = null;
+        let recordedMultiplier = null;
+        const originalSendPayout = hostGame.sim.sendPayout;
+        hostGame.sim.sendPayout = (player, type, netWin, totalWin, extra) => {
+          payoutSent = true;
+          recordedIndex = extra.pocketIndex;
+          recordedMultiplier = extra.multiplier;
+        };
+        hostGame.sim.runPlinkoGame(mockPlayer, "table_plinko_test", 10);
+        hostGame.sim.sendPayout = originalSendPayout;
+        if (!payoutSent) {
+          throw new Error("Plinko game did not trigger sendPayout event");
+        }
+        if (recordedIndex === null || recordedIndex < 0 || recordedIndex > 8 || isNaN(recordedIndex)) {
+          throw new Error(`Plinko game generated invalid pocketIndex: ${recordedIndex}`);
+        }
+        if (recordedMultiplier === null || isNaN(recordedMultiplier)) {
+          throw new Error(`Plinko game generated invalid multiplier: ${recordedMultiplier}`);
+        }
+      }
+      writeToLog("* Verified that Plinko simulation math maps pocketIndex correctly in range [0, 8] and never returns NaN/out-of-bounds.");
+
+      // Verify Universal Co-Play Sidebar wrapping:
+      const plinkoTableId = "plinko_test_table";
+      hostGame.minigameUI.open('plinko', plinkoTableId);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const plinkoPanel = docHost.getElementById('plinko-other-players-panel');
+      const plinkoList = docHost.getElementById('plinko-other-players-list');
+      if (!plinkoPanel || !plinkoList) {
+        throw new Error("Universal co-play sidebar wrap or list not injected dynamically for Plinko minigame");
+      }
+      const slotsTableId = "slots_test_table";
+      hostGame.minigameUI.open('slots', slotsTableId);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const slotsPanel = docHost.getElementById('slots-other-players-panel');
+      const slotsList = docHost.getElementById('slots-other-players-list');
+      if (!slotsPanel || !slotsList) {
+        throw new Error("Universal co-play sidebar wrap or list not injected dynamically for Slots minigame");
+      }
+      writeToLog("* Verified that universal co-play sidebar is dynamically wrapped and injected across other minigames (Plinko, Slots).");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));

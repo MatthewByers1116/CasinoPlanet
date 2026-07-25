@@ -8075,9 +8075,9 @@ kbd {
         path.push(Math.random() < 0.5 ? -1 : 1);
       }
 
-      // Pocket index: sum of steps + 4 (range 0 to 8)
+      // Pocket index: sum of steps / 2 + 4 (range 0 to 8)
       const stepsSum = path.reduce((sum, x) => sum + x, 0);
-      const pocketIndex = stepsSum + 4;
+      const pocketIndex = (stepsSum / 2) + 4;
 
       // Payout multipliers: [5x, 2x, 0.5x, 0.2x, 0x, 0.2x, 0.5x, 2x, 5x]
       const multipliers = [5, 2, 0.5, 0.2, 0, 0.2, 0.5, 2, 5];
@@ -9408,6 +9408,67 @@ kbd {
       } else if (gameType === 'lottery') {
         this.modalTitle.innerText = "🕹️ Lottery Kiosk Console";
         this.renderLottery();
+      }
+
+      // Wrap modalBody in layout with other-players-panel if not already present
+      const listElId = `${gameType}-other-players-list`;
+      if (!this.modalBody.querySelector('[id$="-other-players-list"]')) {
+        const layout = document.createElement('div');
+        layout.className = 'card-game-layout';
+        layout.style.display = 'flex';
+        layout.style.gap = '16px';
+        layout.style.width = '100%';
+        layout.style.maxWidth = '850px';
+        layout.style.margin = '0 auto';
+        layout.style.fontFamily = "'Outfit', sans-serif";
+
+        const mainContent = document.createElement('div');
+        mainContent.className = 'card-game-main-content';
+        mainContent.style.flex = '2';
+        mainContent.style.width = '100%';
+
+        while (this.modalBody.firstChild) {
+          mainContent.appendChild(this.modalBody.firstChild);
+        }
+
+        const sidebar = document.createElement('div');
+        sidebar.id = `${gameType}-other-players-panel`;
+        sidebar.style.display = 'flex';
+        sidebar.style.flexDirection = 'column';
+        sidebar.style.gap = '10px';
+        sidebar.style.flex = '1.1';
+        sidebar.style.padding = '16px';
+        sidebar.style.background = 'rgba(0,0,0,0.5)';
+        sidebar.style.borderRadius = '12px';
+        sidebar.style.border = '1px solid rgba(255,255,255,0.08)';
+        sidebar.style.fontSize = '11px';
+        sidebar.style.maxHeight = '420px';
+        sidebar.style.overflowY = 'auto';
+        sidebar.style.boxSizing = 'border-box';
+
+        const header = document.createElement('div');
+        header.style.fontWeight = 'bold';
+        header.style.color = 'var(--accent-gold)';
+        header.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+        header.style.paddingBottom = '6px';
+        header.style.textAlign = 'center';
+        header.innerText = '👥 PLAYERS AT TABLE';
+        sidebar.appendChild(header);
+
+        const list = document.createElement('div');
+        list.id = listElId;
+        list.style.display = 'flex';
+        list.style.flexDirection = 'column';
+        list.style.gap = '12px';
+        list.style.marginTop = '6px';
+        list.style.color = '#aaa';
+        list.style.textAlign = 'center';
+        list.innerText = 'No other players at this table';
+        sidebar.appendChild(list);
+
+        layout.appendChild(mainContent);
+        layout.appendChild(sidebar);
+        this.modalBody.appendChild(layout);
       }
 
       this.updateDealerStatus();
@@ -12806,12 +12867,24 @@ kbd {
           <div id="pk-board" style="position:relative; width:200px; height:180px; background:#111; border-radius:8px; border:1px solid rgba(255,255,255,0.1); overflow:hidden;">
             <!-- Render pegs array -->
             <div style="display:flex; flex-direction:column; justify-content:space-between; height:100%; padding:10px 0;">
-              <div style="display:flex; justify-content:center; gap:20px; color:rgba(255,255,255,0.15);">● ● ●</div>
-              <div style="display:flex; justify-content:center; gap:20px; color:rgba(255,255,255,0.15);">● ● ● ●</div>
-              <div style="display:flex; justify-content:center; gap:20px; color:rgba(255,255,255,0.15);">● ● ● ● ●</div>
-              <div style="display:flex; justify-content:center; gap:20px; color:rgba(255,255,255,0.15);">● ● ● ● ● ●</div>
-              <div style="display:flex; justify-content:space-between; width:100%; font-size:8px; padding:0 8px; border-top:1px dashed rgba(255,255,255,0.1); font-weight:bold; color:var(--accent-gold);">
-                <span>5x</span><span>2x</span><span>0.5x</span><span>0.2x</span><span>0x</span><span>0.2x</span><span>0.5x</span><span>2x</span><span>5x</span>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ● ● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ● ● ● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ● ● ● ● ● ●</div>
+              <div style="display:flex; justify-content:center; gap:16px; color:rgba(255,255,255,0.15); font-size: 8px;">● ● ● ● ● ● ● ● ● ●</div>
+              <div style="position:relative; width:100%; height:14px; border-top:1px dashed rgba(255,255,255,0.1); font-weight:bold; color:var(--accent-gold); font-size:8px;">
+                <span style="position:absolute; left:3px; width:18px; text-align:center;">5x</span>
+                <span style="position:absolute; left:25px; width:18px; text-align:center;">2x</span>
+                <span style="position:absolute; left:47px; width:18px; text-align:center;">0.5x</span>
+                <span style="position:absolute; left:69px; width:18px; text-align:center;">0.2x</span>
+                <span style="position:absolute; left:91px; width:18px; text-align:center;">0x</span>
+                <span style="position:absolute; left:113px; width:18px; text-align:center;">0.2x</span>
+                <span style="position:absolute; left:135px; width:18px; text-align:center;">0.5x</span>
+                <span style="position:absolute; left:157px; width:18px; text-align:center;">2x</span>
+                <span style="position:absolute; left:179px; width:18px; text-align:center;">5x</span>
               </div>
             </div>
             <!-- Dynamic ball overlay -->
@@ -13169,6 +13242,25 @@ kbd {
                   <div style="color: var(--accent-blue); font-weight: bold;">Manager ${shortId}</div>
                   ${stepHTML}
                   <div style="font-size: 8px; color: ${pState === 'resolved' ? '#ff4d4d' : '#39ff14'}; text-transform: uppercase; margin-top: 2px;">${pState}</div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            listEl.innerHTML = `<div style="padding: 12px 0; font-size:10px;">No other players playing at this table</div>`;
+          }
+        }
+      } else {
+        const listEl = document.getElementById(`${gameType}-other-players-list`);
+        if (listEl) {
+          if (otherPlayers.length > 0) {
+            listEl.innerHTML = otherPlayers.map(p => {
+              const shortId = p.playerId.substring(0, 5);
+              const pState = p.state || 'playing';
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 6px; border-radius: 6px; text-align: left;">
+                  <div style="color: var(--accent-blue); font-weight: bold;">Manager ${shortId}</div>
+                  <div style="font-size: 9px; color: #aaa; margin-top: 2px;">At table / playing</div>
+                  <div style="font-size: 8px; color: #39ff14; text-transform: uppercase; margin-top: 2px;">${pState}</div>
                 </div>
               `;
             }).join('');

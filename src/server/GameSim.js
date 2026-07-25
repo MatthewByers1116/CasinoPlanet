@@ -3281,9 +3281,9 @@
         path.push(Math.random() < 0.5 ? -1 : 1);
       }
 
-      // Pocket index: sum of steps + 4 (range 0 to 8)
+      // Pocket index: sum of steps / 2 + 4 (range 0 to 8)
       const stepsSum = path.reduce((sum, x) => sum + x, 0);
-      const pocketIndex = stepsSum + 4;
+      const pocketIndex = (stepsSum / 2) + 4;
 
       // Payout multipliers: [5x, 2x, 0.5x, 0.2x, 0x, 0.2x, 0.5x, 2x, 5x]
       const multipliers = [5, 2, 0.5, 0.2, 0, 0.2, 0.5, 2, 5];
