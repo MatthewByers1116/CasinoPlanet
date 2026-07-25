@@ -42,9 +42,9 @@ def run():
     ])
     
     # 3. Wait for test_report.md to appear and be completed
-    print("Waiting for tests to run (up to 30 seconds)...")
+    print("Waiting for tests to run (up to 60 seconds)...")
     success = False
-    for i in range(30):
+    for i in range(60):
         time.sleep(1)
         if os.path.exists("test_report.md"):
             # Check if it has completed writing (should have detailed step logs)

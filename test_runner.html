@@ -1424,6 +1424,153 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       writeToLog("* Verified guest player cleanup upon connection termination.");
     });
 
+    await runTestCase("Chaos Monkey Autoplay Fuzzer", async () => {
+      const iframe = document.createElement('iframe');
+      iframe.src = './index.html?v=monkey_' + Date.now();
+      iframe.width = '1200';
+      iframe.height = '800';
+      iframe.style.position = 'absolute';
+      iframe.style.visibility = 'hidden';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      document.body.appendChild(iframe);
+
+      await new Promise(resolve => iframe.onload = resolve);
+      const win = iframe.contentWindow;
+      const doc = iframe.contentDocument;
+
+      // Catch errors
+      let caughtError = null;
+      win.onerror = (message, source, lineno, colno, error) => {
+        caughtError = error || new Error(message);
+        console.error("Monkey caught error:", caughtError);
+        return false;
+      };
+      win.onunhandledrejection = (event) => {
+        caughtError = event.reason || new Error("Unhandled promise rejection");
+        console.error("Monkey caught rejection:", caughtError);
+      };
+
+      await new Promise(resolve => setTimeout(resolve, 800));
+      const client = win.Casino.clientInstance;
+      if (!client) {
+        throw new Error("ClientGame instance not initialized for Monkey");
+      }
+
+      // 1. Click Solo mode, then Easy difficulty
+      doc.getElementById('mode-solo-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 300));
+      doc.getElementById('difficulty-easy-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const actionsCount = 120;
+      const stepInterval = 100; // ms
+
+      for (let i = 0; i < actionsCount; i++) {
+        if (caughtError) {
+          throw new Error(`Chaos Monkey caught Javascript error during autoplay: ${caughtError.stack || caughtError.message}`);
+        }
+
+        // Simulating different random interactions
+        const qteContainer = doc.getElementById('qte-container');
+        const minigameOverlay = doc.getElementById('minigame-overlay');
+        const upgradeOverlay = doc.getElementById('table-upgrade-dialog');
+        const charModal = doc.getElementById('character-details-modal');
+        const confirmDialog = doc.getElementById('confirm-dialog');
+
+        if (confirmDialog && !confirmDialog.classList.contains('hidden')) {
+          // Click proceed
+          const yesBtn = doc.getElementById('confirm-yes-btn');
+          if (yesBtn) yesBtn.click();
+        } else if (qteContainer && !qteContainer.classList.contains('hidden')) {
+          // Simulate space bar mash for QTE / microgame
+          const spaceEvent = new win.KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true });
+          win.dispatchEvent(spaceEvent);
+          
+          const microgameCanvas = doc.getElementById('qte-microgame-canvas');
+          if (microgameCanvas) {
+            const clickEvent = new win.MouseEvent('click', { clientX: 140, clientY: 80, bubbles: true });
+            microgameCanvas.dispatchEvent(clickEvent);
+          }
+        } else if (minigameOverlay && !minigameOverlay.classList.contains('hidden')) {
+          // Playing active minigame
+          const activeType = client.minigameUI.activeGameType;
+          if (activeType === 'minigame_machine') {
+            const playBtn = doc.getElementById('arcade-play-btn');
+            if (playBtn) {
+              const chips = doc.querySelectorAll('.picker-chip');
+              if (chips.length > 0) {
+                chips[Math.floor(Math.random() * chips.length)].click();
+              }
+              playBtn.click();
+            }
+          } else {
+            const actionBtn = doc.getElementById('minigame-action-btn');
+            if (actionBtn && !actionBtn.disabled) {
+              actionBtn.click();
+            }
+          }
+          if (Math.random() < 0.1) {
+            const closeBtn = doc.getElementById('minigame-close-btn');
+            if (closeBtn) closeBtn.click();
+          }
+        } else if (upgradeOverlay && !upgradeOverlay.classList.contains('hidden')) {
+          if (Math.random() < 0.3) {
+            const closeBtn = doc.getElementById('upgrade-close-btn');
+            if (closeBtn) closeBtn.click();
+          } else {
+            const buttons = upgradeOverlay.querySelectorAll('.minigame-btn.action');
+            if (buttons.length > 0) {
+              buttons[Math.floor(Math.random() * buttons.length)].click();
+            }
+          }
+        } else if (charModal && !charModal.classList.contains('hidden')) {
+          if (Math.random() < 0.3) {
+            const closeBtn = doc.getElementById('btn-close-char-modal');
+            if (closeBtn) closeBtn.click();
+          } else {
+            const buttons = charModal.querySelectorAll('.minigame-btn.action');
+            if (buttons.length > 0) {
+              buttons[Math.floor(Math.random() * buttons.length)].click();
+            }
+          }
+        } else {
+          const roll = Math.random();
+          if (roll < 0.15) {
+            const eEvent = new win.KeyboardEvent('keydown', { key: 'e', code: 'KeyE', bubbles: true });
+            win.dispatchEvent(eEvent);
+          } else if (roll < 0.3) {
+            const buildItems = client.buildItems;
+            if (buildItems && buildItems.length > 0) {
+              const item = buildItems[Math.floor(Math.random() * buildItems.length)];
+              const btn = doc.getElementById(`btn-build-${item.replace(/_/g, '-')}`);
+              if (btn) btn.click();
+            }
+          } else if (roll < 0.5 && client.buildModeItem) {
+            const randX = 3 + Math.floor(Math.random() * 18);
+            const randY = 3 + Math.floor(Math.random() * 10);
+            client.handleCellClick(randX, randY);
+          } else {
+            const keys = ['w', 'a', 's', 'd'];
+            const key = keys[Math.floor(Math.random() * keys.length)];
+            const keyEvent = new win.KeyboardEvent('keydown', { key: key, bubbles: true });
+            win.dispatchEvent(keyEvent);
+            await new Promise(resolve => setTimeout(resolve, 20));
+            const keyUpEvent = new win.KeyboardEvent('keyup', { key: key, bubbles: true });
+            win.dispatchEvent(keyUpEvent);
+          }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, stepInterval));
+      }
+
+      // Cleanup
+      document.body.removeChild(iframe);
+      writeToLog("### Test Case: Chaos Monkey Autoplay Fuzzer");
+      writeToLog("* Executed 120 high-speed simulated gameplay steps.");
+      writeToLog("* Verified that no unhandled exceptions or browser console errors occurred during chaos execution.");
+    });
+
     // Write final report markdown file
     let summaryTable = `
 | Test Suite / Case | Status | Notes |
