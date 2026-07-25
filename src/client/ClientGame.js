@@ -813,7 +813,10 @@
             if (!hasDelay) {
               if (payload.researchPoints !== undefined) this.state.researchPoints = payload.researchPoints;
               if (payload.starRating !== undefined) this.state.starRating = payload.starRating;
-              if (payload.chips !== undefined) this.chips = payload.chips;
+              if (payload.chips !== undefined) {
+                this.chips = payload.chips;
+                if (this.state.economy) this.state.economy.chips = payload.chips;
+              }
               this.updateHUD();
             }
           }
@@ -861,6 +864,8 @@
                 this.minigameUI.handlePlinkoPayout(payload);
               } else if (payload.gameType === 'lottery') {
                 this.minigameUI.handleLotteryPayout(payload);
+              } else if (payload.gameType === 'minigame_machine') {
+                this.minigameUI.handleMinigameMachinePayout(payload);
               }
             }
           }
@@ -1263,12 +1268,11 @@
         }
       }
 
-      // Update build buttons locked state
       const buildItems = [
         'slots', 'roulette', 'craps', 'bar', 'restaurant', 'bathroom',
         'soda_machine', 'vending_machine', 'bathroom_stall', 'jazz_band',
         'blackjack', 'ride_the_bus', 'three_card_poker', 'elec_roulette',
-        'elec_blackjack', 'bubble_craps', 'atm',
+        'elec_blackjack', 'bubble_craps', 'atm', 'minigame_machine',
         'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud',
         'big_six', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war',
         'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery',
@@ -1479,6 +1483,7 @@
     startQTEMinigame(title, instructions, successCallback, failureCallback, preferredMode) {
       if (this.isInQTE) return;
       this.isInQTE = true;
+      let animId = null;
 
       const container = document.getElementById('qte-container');
       const titleEl = document.getElementById('qte-title');
@@ -1542,7 +1547,7 @@
         let pointerPct = 0;
         let direction = 1;
         const speed = 2.2 + Math.random() * 1.2;
-        let animId = null;
+        animId = null;
         const startTime = performance.now();
 
         const tick = () => {
@@ -1963,7 +1968,7 @@
         let currentAngle = 0;
         this.qteAngle = currentAngle;
         const speed = 0.045 + Math.random() * 0.015;
-        let animId = null;
+        animId = null;
 
         const tick = () => {
           if (!active) return;
@@ -2325,7 +2330,7 @@
         instrEl.innerText = subgameInstructions;
         if (footerTip) footerTip.innerText = "GET READY!";
         
-        let animId = null;
+        animId = null;
         const totalDuration = 3500; // 3.5 seconds
         const startTime = performance.now();
         
@@ -3540,6 +3545,7 @@
         
         const triggerClick = (e) => {
           e.preventDefault();
+          e.stopPropagation();
           triggerAction();
         };
         
@@ -3549,7 +3555,7 @@
     }
 
     handleCellClick(gridX, gridY) {
-      if (this.isInMinigame) return;
+      if (this.isInMinigame || this.isInQTE) return;
 
       if (this.buildModeItem) {
         // Send place object command to simulator

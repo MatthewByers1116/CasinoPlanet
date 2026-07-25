@@ -474,10 +474,10 @@
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         this.ctx.fill();
 
-        // Character Body (Main is Cyan suit, others Purple suit)
+        // Character Body (Use custom color if available)
         this.ctx.beginPath();
         this.ctx.arc(xPx, yPx, 11, 0, Math.PI * 2);
-        this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#a020f0';
+        this.ctx.fillStyle = p.color || (isMainPlayer ? '#00f0ff' : '#a020f0');
         this.ctx.fill();
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 2;
@@ -497,8 +497,8 @@
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(xPx - 4, yPx - 9 + bob, 9, 3);
         
-        // Hair / Hat (Retro golden crown or hair)
-        this.ctx.fillStyle = '#ffb300';
+        // Hair / Hat (Use custom hair color if available)
+        this.ctx.fillStyle = p.hairColor || '#ffb300';
         this.ctx.fillRect(xPx - 5, yPx - 14 + bob, 10, 4);
 
         // Name tag

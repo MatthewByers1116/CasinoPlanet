@@ -1705,10 +1705,6 @@
               });
               
               this.overlayEl.classList.remove('hidden');
-              this.logDebug(`CONGRATULATIONS! You won the microgame! Payout: +${betAmount * 2} Chips`, 'success');
-              this.sessionProfit += betAmount;
-              this.updateSessionProfit(this.sessionProfit);
-              this.updateBalance();
             },
             () => {
               client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
@@ -1720,14 +1716,25 @@
               });
               
               this.overlayEl.classList.remove('hidden');
-              this.logDebug(`GAME OVER! You failed the microgame. Lost ${betAmount} Chips`, 'error');
-              this.sessionProfit -= betAmount;
-              this.updateSessionProfit(this.sessionProfit);
-              this.updateBalance();
             },
             'microgame'
           );
         });
+      }
+    }
+
+    handleMinigameMachinePayout(payload) {
+      this.updateBalance();
+      if (payload.action === 'win') {
+        this.logDebug(`CONGRATULATIONS! You won the microgame! Payout: +${payload.betAmount * 2} Chips`, 'success');
+        this.sessionProfit += payload.betAmount;
+        this.updateSessionProfit(this.sessionProfit);
+      } else if (payload.action === 'lose') {
+        this.logDebug(`GAME OVER! You failed the microgame. Lost ${payload.betAmount} Chips`, 'error');
+        this.sessionProfit -= payload.betAmount;
+        this.updateSessionProfit(this.sessionProfit);
+      } else if (payload.action === 'bet_ack') {
+        this.logDebug(`Coin inserted: Bet ${payload.betAmount} Chips. Starting microgame...`, 'info');
       }
     }
 
