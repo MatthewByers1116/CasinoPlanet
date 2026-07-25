@@ -486,6 +486,7 @@
         'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea',
         'gold_statue', 'vr_pod', 'vip_lounge', 'hologram', 'massage_chair'
       ];
+      this.buildItems = buildItems;
 
       const clearActive = () => {
         btnSelect.classList.remove('active');
@@ -524,9 +525,10 @@
                 return;
               }
 
+              const dynamicCost = this.getDynamicBuildCost(item);
               this.showConfirm(
                 `🔬 Research ${template.name}`,
-                `Unlock ${template.name} for ${researchCost} Research Points? (Requires ${requiredRating}★, build cost: ${template.cost.toLocaleString()} chips)`,
+                `Unlock ${template.name} for ${researchCost} Research Points? (Requires ${requiredRating}★, build cost: ${dynamicCost.toLocaleString()} chips)`,
                 () => {
                   const currentRP = this.state.researchPoints || 0;
                   if (currentRP < researchCost) {
@@ -566,7 +568,8 @@
       const btnHireDealer = document.getElementById('btn-hire-dealer');
       if (btnHireDealer) {
         btnHireDealer.addEventListener('click', () => {
-          if (this.chips < 3000) {
+          const dynamicCost = this.getDynamicStaffHiringCost('dealer');
+          if (this.chips < dynamicCost) {
             this.showNotification("Cannot afford to hire Dealer!", "error");
             return;
           }
@@ -577,7 +580,8 @@
       const btnHireWaitress = document.getElementById('btn-hire-waitress');
       if (btnHireWaitress) {
         btnHireWaitress.addEventListener('click', () => {
-          if (this.chips < 4000) {
+          const dynamicCost = this.getDynamicStaffHiringCost('waitress');
+          if (this.chips < dynamicCost) {
             this.showNotification("Cannot afford to hire Waitress!", "error");
             return;
           }
@@ -585,13 +589,14 @@
         });
       }
 
-      const setupStaffHiringBtn = (btnId, role, cost, name, requiredRating, researchCost) => {
+      const setupStaffHiringBtn = (btnId, role, name, requiredRating, researchCost) => {
         const btn = document.getElementById(btnId);
         if (btn) {
           btn.addEventListener('click', () => {
             const isUnlocked = this.state.unlockedTechs && this.state.unlockedTechs.includes(role);
+            const dynamicCost = this.getDynamicStaffHiringCost(role);
             if (isUnlocked) {
-              if (this.chips < cost) {
+              if (this.chips < dynamicCost) {
                 this.showNotification(`Cannot afford to hire ${name}!`, "error");
                 return;
               }
@@ -604,7 +609,7 @@
               }
               this.showConfirm(
                 `🔬 Research ${name}`,
-                `Unlock the ability to hire a ${name} for ${researchCost} Research Points? (Requires ${requiredRating}★, hiring cost: ${cost} Chips)`,
+                `Unlock the ability to hire a ${name} for ${researchCost} Research Points? (Requires ${requiredRating}★, hiring cost: ${dynamicCost.toLocaleString()} Chips)`,
                 () => {
                   const currentRP = this.state.researchPoints || 0;
                   if (currentRP < researchCost) {
@@ -619,13 +624,13 @@
         }
       };
 
-      setupStaffHiringBtn('btn-hire-chef', 'chef', 4000, 'Food Chef', 2.0, 80);
-      setupStaffHiringBtn('btn-hire-scientist', 'scientist', 5000, 'Research Scientist', 3.0, 120);
-      setupStaffHiringBtn('btn-hire-manager', 'manager', 6000, 'Casino Manager', 3.5, 150);
-      setupStaffHiringBtn('btn-hire-security', 'security', 5000, 'Security Guard', 2.0, 80);
-      setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 4000, 'Tech Support Specialist', 2.5, 100);
-      setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 6000, 'Stage Entertainer', 3.0, 120);
-      setupStaffHiringBtn('btn-hire-stocker', 'stocker', 4000, 'Amenity Stocker', 1.5, 60);
+      setupStaffHiringBtn('btn-hire-chef', 'chef', 'Food Chef', 2.0, 80);
+      setupStaffHiringBtn('btn-hire-scientist', 'scientist', 'Research Scientist', 3.0, 120);
+      setupStaffHiringBtn('btn-hire-manager', 'manager', 'Casino Manager', 3.5, 150);
+      setupStaffHiringBtn('btn-hire-security', 'security', 'Security Guard', 2.0, 80);
+      setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 'Tech Support Specialist', 2.5, 100);
+      setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 'Stage Entertainer', 3.0, 120);
+      setupStaffHiringBtn('btn-hire-stocker', 'stocker', 'Amenity Stocker', 1.5, 60);
 
       const btnUpgrade = document.getElementById('btn-upgrade-size');
       if (btnUpgrade) {
@@ -1142,7 +1147,7 @@
       const updateStaffBtnStyle = (id, role, cost, rpCost) => {
         const btn = document.getElementById(id);
         if (btn) {
-          const isUnlocked = unlocked.includes(role);
+          const isUnlocked = ['dealer', 'waitress'].includes(role) || unlocked.includes(role);
           const costTag = btn.querySelector('.cost-tag') || btn.querySelector('.mobile-item-cost');
           if (isUnlocked) {
             btn.style.opacity = '1';
@@ -1151,6 +1156,7 @@
               costTag.style.background = 'rgba(255,255,255,0.1)';
               costTag.style.color = '#fff';
             }
+            btn.setAttribute('title', `Hire ${role.charAt(0).toUpperCase() + role.slice(1)} (Cost: ${cost} Chips)`);
           } else {
             btn.style.opacity = '0.6';
             if (costTag) {
@@ -1158,17 +1164,46 @@
               costTag.style.background = 'var(--accent-gold)';
               costTag.style.color = '#000';
             }
+            const Catalog = window.Casino.GameObjects.Catalog;
+            const requiredRating = Catalog[role] ? Catalog[role].requiredRating : 1.0;
+            btn.setAttribute('title', `Unlock ${role.charAt(0).toUpperCase() + role.slice(1)} for ${rpCost} (Requires ${requiredRating}★)`);
           }
         }
       };
 
-      updateStaffBtnStyle('btn-hire-chef', 'chef', '4,000', '80 RP');
-      updateStaffBtnStyle('btn-hire-scientist', 'scientist', '5,000', '120 RP');
-      updateStaffBtnStyle('btn-hire-manager', 'manager', '6,000', '150 RP');
-      updateStaffBtnStyle('btn-hire-security', 'security', '5,000', '80 RP');
-      updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', '4,000', '100 RP');
-      updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', '6,000', '120 RP');
-      updateStaffBtnStyle('btn-hire-stocker', 'stocker', '4,000', '60 RP');
+      const Catalog = window.Casino.GameObjects.Catalog;
+      updateStaffBtnStyle('btn-hire-dealer', 'dealer', this.getDynamicStaffHiringCost('dealer').toLocaleString(), '0 RP');
+      updateStaffBtnStyle('btn-hire-waitress', 'waitress', this.getDynamicStaffHiringCost('waitress').toLocaleString(), '0 RP');
+      updateStaffBtnStyle('btn-hire-chef', 'chef', this.getDynamicStaffHiringCost('chef').toLocaleString(), '80 RP');
+      updateStaffBtnStyle('btn-hire-scientist', 'scientist', this.getDynamicStaffHiringCost('scientist').toLocaleString(), '120 RP');
+      updateStaffBtnStyle('btn-hire-manager', 'manager', this.getDynamicStaffHiringCost('manager').toLocaleString(), '150 RP');
+      updateStaffBtnStyle('btn-hire-security', 'security', this.getDynamicStaffHiringCost('security').toLocaleString(), '80 RP');
+      updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', this.getDynamicStaffHiringCost('tech_support').toLocaleString(), '100 RP');
+      updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', this.getDynamicStaffHiringCost('entertainer').toLocaleString(), '120 RP');
+      updateStaffBtnStyle('btn-hire-stocker', 'stocker', this.getDynamicStaffHiringCost('stocker').toLocaleString(), '60 RP');
+
+      // Update build buttons styling (locked/unlocked and dynamic cost titles)
+      if (this.buildItems) {
+        this.buildItems.forEach(item => {
+          const btn = document.getElementById(`btn-build-${item.replace(/_/g, '-')}`);
+          if (btn) {
+            const template = Catalog[item];
+            if (template) {
+              const isUnlocked = unlocked.includes(item) || ['slots', 'roulette', 'craps', 'bar', 'restaurant', 'bathroom', 'soda_machine', 'vending_machine', 'bathroom_stall'].includes(item);
+              const dynamicCost = this.getDynamicBuildCost(item);
+              if (isUnlocked) {
+                btn.style.opacity = '1';
+                btn.setAttribute('title', `Build ${template.name} (Cost: ${dynamicCost.toLocaleString()} Chips)`);
+              } else {
+                btn.style.opacity = '0.6';
+                const researchCost = template.researchCost || 0;
+                const requiredRating = template.requiredRating || 1.0;
+                btn.setAttribute('title', `Research ${template.name} (Cost: ${researchCost} RP, Requires ${requiredRating}★, build cost: ${dynamicCost.toLocaleString()} Chips)`);
+              }
+            }
+          }
+        });
+      }
 
       // Trigger minigame dealer badge update
       if (this.minigameUI && this.isInMinigame) {
@@ -2510,6 +2545,27 @@
         this.playerId
       );
     }
+    getDynamicBuildCost(type) {
+      const Catalog = window.Casino.GameObjects.Catalog;
+      const template = Catalog[type];
+      if (!template) return 0;
+
+      const objects = (this.state.grid && this.state.grid.objects) ? this.state.grid.objects : [];
+      const count = objects.filter(o => o.type === type).length;
+      return Math.floor(template.cost * Math.pow(1.2, count));
+    }
+
+    getDynamicStaffHiringCost(role) {
+      let baseCost = 300;
+      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') baseCost = 400;
+      else if (role === 'scientist' || role === 'security') baseCost = 500;
+      else if (role === 'manager' || role === 'entertainer') baseCost = 600;
+
+      const employees = this.state.employees ? Object.values(this.state.employees) : [];
+      const count = employees.filter(e => e.role === role).length;
+      return Math.floor(baseCost * Math.pow(1.2, count));
+    }
+
     showNotification(msg, type = 'info') {
       const container = document.getElementById('toast-container');
       if (!container) return;

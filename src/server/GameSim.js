@@ -437,6 +437,25 @@
       }
     }
 
+    getDynamicBuildCost(type) {
+      const Catalog = window.Casino.GameObjects.Catalog;
+      const template = Catalog[type];
+      if (!template) return 0;
+      
+      const count = Array.from(this.gridManager.placedObjects.values()).filter(o => o.type === type).length;
+      return Math.floor(template.cost * Math.pow(1.2, count));
+    }
+
+    getDynamicStaffHiringCost(role) {
+      let baseCost = 300;
+      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') baseCost = 400;
+      else if (role === 'scientist' || role === 'security') baseCost = 500;
+      else if (role === 'manager' || role === 'entertainer') baseCost = 600;
+
+      const count = Array.from(this.employees.values()).filter(e => e.role === role).length;
+      return Math.floor(baseCost * Math.pow(1.2, count));
+    }
+
     handlePlaceObject(player, payload) {
       const Catalog = window.Casino.GameObjects.Catalog;
       const template = Catalog[payload.type];
@@ -449,7 +468,8 @@
       }
 
       // 1. Verify economy affordability
-      if (!this.economyManager.canAfford(template.cost)) return;
+      const dynamicCost = this.getDynamicBuildCost(payload.type);
+      if (!this.economyManager.canAfford(dynamicCost)) return;
 
       // 2. Prevent building on top of any player character model
       for (const p of this.players.values()) {
@@ -466,8 +486,8 @@
       const placedObj = this.gridManager.placeObject(payload.type, payload.gridX, payload.gridY);
       if (placedObj) {
         // Deduct money
-        this.economyManager.deductChips(template.cost);
-        this.recordDayStat('construction', -template.cost);
+        this.economyManager.deductChips(dynamicCost);
+        this.recordDayStat('construction', -dynamicCost);
         this.broadcast(window.Casino.Protocol.Events.OBJECT_PLACED, {
           object: placedObj,
           chips: this.economyManager.getChips()
@@ -1206,17 +1226,14 @@
       const { role } = payload;
 
       // Verify unlocked state for research-gated roles
-      if (['chef', 'scientist', 'manager', 'security', 'tech_support', 'entertainer'].includes(role)) {
+      if (['chef', 'scientist', 'manager', 'security', 'tech_support', 'entertainer', 'stocker'].includes(role)) {
         if (!this.unlockedTechs.includes(role)) {
           console.warn(`[Server:GameSim] Hiring employee "${role}" rejected: Role not unlocked yet.`);
           return;
         }
       }
 
-      let cost = 3000;
-      if (role === 'waitress' || role === 'chef' || role === 'tech_support' || role === 'stocker') cost = 4000;
-      else if (role === 'scientist' || role === 'security') cost = 5000;
-      else if (role === 'manager' || role === 'entertainer') cost = 6000;
+      const cost = this.getDynamicStaffHiringCost(role);
 
       if (!this.economyManager.canAfford(cost)) {
         const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
