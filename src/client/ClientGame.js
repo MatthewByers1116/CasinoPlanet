@@ -755,11 +755,7 @@
                 matched.guests = updatedObj.guests;
                 matched.eps = updatedObj.eps; // Sync EPS!
                 if (updatedObj.dealerSeat !== undefined) {
-                  if (matched.dealerSeat && updatedObj.dealerSeat) {
-                    matched.dealerSeat.employeeId = updatedObj.dealerSeat.employeeId;
-                  } else {
-                    matched.dealerSeat = updatedObj.dealerSeat;
-                  }
+                  matched.dealerSeat = updatedObj.dealerSeat;
                 }
               }
             });

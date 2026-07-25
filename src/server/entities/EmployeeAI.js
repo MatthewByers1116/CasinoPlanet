@@ -481,6 +481,13 @@
 
       // 1. Check if needs are critical and satisfy them first
       if (this.thirst < 25 || this.hunger < 25 || this.bio < 25) {
+        if (this.role === 'dealer' && this.targetObjectId) {
+          const oldTable = gridManager.placedObjects.get(this.targetObjectId);
+          if (oldTable && oldTable.dealerSeat && oldTable.dealerSeat.employeeId === this.id) {
+            oldTable.dealerSeat.employeeId = null;
+          }
+          this.targetObjectId = null;
+        }
         let reqTypes = null;
         if (this.thirst < 25) {
           reqTypes = ['bar', 'soda_machine'];

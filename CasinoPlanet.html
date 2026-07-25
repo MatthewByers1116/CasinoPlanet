@@ -3062,8 +3062,12 @@ kbd {
       }
 
       // 3. Verify dealer seat is walkable for table games
-      if (['roulette', 'blackjack', 'ride_the_bus', 'three_card_poker'].includes(type)) {
+      if (['roulette', 'blackjack', 'ride_the_bus', 'three_card_poker', 'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war'].includes(type)) {
         const dsX = gridX + 1;
+        const dsY = gridY - 1;
+        if (!this.isCellWalkable(dsX, dsY)) return false;
+      } else if (type === 'big_six') {
+        const dsX = gridX + 0;
         const dsY = gridY - 1;
         if (!this.isCellWalkable(dsX, dsY)) return false;
       } else if (type === 'craps') {
@@ -4611,6 +4615,13 @@ kbd {
 
       // 1. Check if needs are critical and satisfy them first
       if (this.thirst < 25 || this.hunger < 25 || this.bio < 25) {
+        if (this.role === 'dealer' && this.targetObjectId) {
+          const oldTable = gridManager.placedObjects.get(this.targetObjectId);
+          if (oldTable && oldTable.dealerSeat && oldTable.dealerSeat.employeeId === this.id) {
+            oldTable.dealerSeat.employeeId = null;
+          }
+          this.targetObjectId = null;
+        }
         let reqTypes = null;
         if (this.thirst < 25) {
           reqTypes = ['bar', 'soda_machine'];
@@ -6562,7 +6573,7 @@ kbd {
       const objects = Array.from(this.gridManager.placedObjects.values()).map(o => ({
         id: o.id,
         guests: o.guests,
-        dealerSeat: o.dealerSeat ? { employeeId: o.dealerSeat.employeeId } : null,
+        dealerSeat: o.dealerSeat ? { rx: o.dealerSeat.rx, ry: o.dealerSeat.ry, employeeId: o.dealerSeat.employeeId } : null,
         eps: o.eps || 0
       }));
 
@@ -9839,7 +9850,10 @@ kbd {
       }
 
       // Calculate satisfaction and efficiency modifier label
-      const avg = (dealer.needs.thirst + dealer.needs.hunger + dealer.needs.bio) / 3;
+      const needs = dealer.needs || { thirst: 100, hunger: 100, bio: 100 };
+      const avg = ((needs.thirst !== undefined ? needs.thirst : 100) + 
+                   (needs.hunger !== undefined ? needs.hunger : 100) + 
+                   (needs.bio !== undefined ? needs.bio : 100)) / 3;
       let label = "🤵 Dealer: OK";
       let color = '#00f0ff';
       let bg = 'rgba(0, 240, 255, 0.2)';
@@ -14645,11 +14659,7 @@ kbd {
                 matched.guests = updatedObj.guests;
                 matched.eps = updatedObj.eps; // Sync EPS!
                 if (updatedObj.dealerSeat !== undefined) {
-                  if (matched.dealerSeat && updatedObj.dealerSeat) {
-                    matched.dealerSeat.employeeId = updatedObj.dealerSeat.employeeId;
-                  } else {
-                    matched.dealerSeat = updatedObj.dealerSeat;
-                  }
+                  matched.dealerSeat = updatedObj.dealerSeat;
                 }
               }
             });

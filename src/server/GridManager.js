@@ -117,8 +117,12 @@
       }
 
       // 3. Verify dealer seat is walkable for table games
-      if (['roulette', 'blackjack', 'ride_the_bus', 'three_card_poker'].includes(type)) {
+      if (['roulette', 'blackjack', 'ride_the_bus', 'three_card_poker', 'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war'].includes(type)) {
         const dsX = gridX + 1;
+        const dsY = gridY - 1;
+        if (!this.isCellWalkable(dsX, dsY)) return false;
+      } else if (type === 'big_six') {
+        const dsX = gridX + 0;
         const dsY = gridY - 1;
         if (!this.isCellWalkable(dsX, dsY)) return false;
       } else if (type === 'craps') {

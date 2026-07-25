@@ -481,7 +481,10 @@
       }
 
       // Calculate satisfaction and efficiency modifier label
-      const avg = (dealer.needs.thirst + dealer.needs.hunger + dealer.needs.bio) / 3;
+      const needs = dealer.needs || { thirst: 100, hunger: 100, bio: 100 };
+      const avg = ((needs.thirst !== undefined ? needs.thirst : 100) + 
+                   (needs.hunger !== undefined ? needs.hunger : 100) + 
+                   (needs.bio !== undefined ? needs.bio : 100)) / 3;
       let label = "🤵 Dealer: OK";
       let color = '#00f0ff';
       let bg = 'rgba(0, 240, 255, 0.2)';

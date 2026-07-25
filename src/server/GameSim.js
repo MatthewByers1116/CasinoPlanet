@@ -1571,7 +1571,7 @@
       const objects = Array.from(this.gridManager.placedObjects.values()).map(o => ({
         id: o.id,
         guests: o.guests,
-        dealerSeat: o.dealerSeat ? { employeeId: o.dealerSeat.employeeId } : null,
+        dealerSeat: o.dealerSeat ? { rx: o.dealerSeat.rx, ry: o.dealerSeat.ry, employeeId: o.dealerSeat.employeeId } : null,
         eps: o.eps || 0
       }));
 
