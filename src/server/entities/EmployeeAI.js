@@ -70,6 +70,11 @@
       this.speedLvl = 1;
       this.capacityLvl = 1;
       this.needsLvl = 1;
+
+      // Janitor specific fields
+      this.targetTileX = null;
+      this.targetTileY = null;
+      this.cleanTimer = 0;
     }
 
     update(dt, gridManager, economyManager, sim) {
@@ -189,6 +194,9 @@
                 this.state = States.WANDERING;
                 this.wanderTimer = 500;
               }
+            } else if (this.role === 'janitor' && this.targetTileX !== null && this.targetTileY !== null) {
+              this.state = States.WORKING;
+              this.cleanTimer = 0;
             } else {
               this.state = States.WANDERING;
               this.wanderTimer = 1000;
@@ -232,6 +240,28 @@
               
               const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
               if (ui) ui.logDebug(`Mechanic ${this.id} successfully repaired "${obj.name}"!`, 'success');
+            }
+          } else if (this.role === 'janitor') {
+            const stillDirty = sim.dirtyTiles.some(t => t.x === this.targetTileX && t.y === this.targetTileY);
+            if (!stillDirty) {
+              this.targetTileX = null;
+              this.targetTileY = null;
+              this.state = States.WANDERING;
+              this.wanderTimer = 500;
+              break;
+            }
+            
+            this.cleanTimer += dt;
+            if (this.cleanTimer >= 2000) { // 2 seconds to clean
+              sim.dirtyTiles = sim.dirtyTiles.filter(t => !(t.x === this.targetTileX && t.y === this.targetTileY));
+              this.targetTileX = null;
+              this.targetTileY = null;
+              this.cleanTimer = 0;
+              this.state = States.WANDERING;
+              this.wanderTimer = 1000;
+              
+              const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+              if (ui) ui.logDebug(`Janitor ${this.id} cleaned up trash on floor!`, 'success');
             }
           }
           break;
@@ -779,6 +809,35 @@
               } else {
                 this.targetObjectId = null;
               }
+            }
+          }
+        }
+        this.state = States.WANDERING;
+        this.wanderTimer = 1000 + Math.random() * 1000;
+      } else if (this.role === 'janitor') {
+        // Find closest dirty tile
+        if (sim.dirtyTiles && sim.dirtyTiles.length > 0) {
+          let closestTile = null;
+          let minDist = Infinity;
+          sim.dirtyTiles.forEach(t => {
+            const dist = Math.sqrt((this.gridX - t.x)**2 + (this.gridY - t.y)**2);
+            if (dist < minDist) {
+              minDist = dist;
+              closestTile = t;
+            }
+          });
+          
+          if (closestTile) {
+            const path = window.Casino.Pathfinding.findPath(gridManager, this.gridX, this.gridY, closestTile.x, closestTile.y, false);
+            if (path && path.length > 0) {
+              this.targetTileX = closestTile.x;
+              this.targetTileY = closestTile.y;
+              this.cleanTimer = 0;
+              this.path = path;
+              this.pathIndex = 0;
+              this.moveProgress = 0;
+              this.state = States.WALKING;
+              return;
             }
           }
         }

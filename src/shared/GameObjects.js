@@ -741,6 +741,13 @@
         researchCost: 60,
         requiredRating: 1.5
       },
+      janitor: {
+        type: 'janitor',
+        name: 'Janitor Cleaner',
+        cost: 0,
+        researchCost: 40,
+        requiredRating: 1.0
+      },
     },
 
     // Factory method to instantiate a placed object

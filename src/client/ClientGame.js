@@ -631,6 +631,7 @@
       setupStaffHiringBtn('btn-hire-tech_support', 'tech_support', 'Tech Support Specialist', 2.5, 100);
       setupStaffHiringBtn('btn-hire-entertainer', 'entertainer', 'Stage Entertainer', 3.0, 120);
       setupStaffHiringBtn('btn-hire-stocker', 'stocker', 'Amenity Stocker', 1.5, 60);
+      setupStaffHiringBtn('btn-hire-janitor', 'janitor', 'Janitor Cleaner', 1.0, 40);
 
       const btnUpgrade = document.getElementById('btn-upgrade-size');
       if (btnUpgrade) {
@@ -1109,6 +1110,7 @@
       let tech_supportsCount = 0;
       let entertainersCount = 0;
       let stockersCount = 0;
+      let janitorsCount = 0;
       if (this.state.employees) {
         Object.values(this.state.employees).forEach(emp => {
           if (emp.role === 'dealer') dealersCount++;
@@ -1120,6 +1122,7 @@
           else if (emp.role === 'tech_support') tech_supportsCount++;
           else if (emp.role === 'entertainer') entertainersCount++;
           else if (emp.role === 'stocker') stockersCount++;
+          else if (emp.role === 'janitor') janitorsCount++;
         });
       }
 
@@ -1132,6 +1135,7 @@
       const tech_supportsCountEl = document.getElementById('staff-tech_supports-count');
       const entertainersCountEl = document.getElementById('staff-entertainers-count');
       const stockersCountEl = document.getElementById('staff-stockers-count');
+      const janitorsCountEl = document.getElementById('staff-janitors-count');
       if (dealersCountEl) dealersCountEl.innerText = dealersCount;
       if (waitressesCountEl) waitressesCountEl.innerText = waitressesCount;
       if (chefsCountEl) chefsCountEl.innerText = chefsCount;
@@ -1141,6 +1145,7 @@
       if (tech_supportsCountEl) tech_supportsCountEl.innerText = tech_supportsCount;
       if (entertainersCountEl) entertainersCountEl.innerText = entertainersCount;
       if (stockersCountEl) stockersCountEl.innerText = stockersCount;
+      if (janitorsCountEl) janitorsCountEl.innerText = janitorsCount;
 
       // Update staff hiring buttons styling (locked/unlocked)
       const unlocked = this.state.unlockedTechs || [];
@@ -1181,6 +1186,7 @@
       updateStaffBtnStyle('btn-hire-tech_support', 'tech_support', this.getDynamicStaffHiringCost('tech_support').toLocaleString(), '100 RP');
       updateStaffBtnStyle('btn-hire-entertainer', 'entertainer', this.getDynamicStaffHiringCost('entertainer').toLocaleString(), '120 RP');
       updateStaffBtnStyle('btn-hire-stocker', 'stocker', this.getDynamicStaffHiringCost('stocker').toLocaleString(), '60 RP');
+      updateStaffBtnStyle('btn-hire-janitor', 'janitor', this.getDynamicStaffHiringCost('janitor').toLocaleString(), '40 RP');
 
       // Update build buttons styling (locked/unlocked and dynamic cost titles)
       if (this.buildItems) {
@@ -1466,13 +1472,18 @@
       const oldPuzzleWrap = document.getElementById('qte-puzzle-wrap');
       if (oldPuzzleWrap) oldPuzzleWrap.classList.add('hidden');
       const oldWheelWrap = document.getElementById('qte-wheel-wrap');
-      if (oldWheelWrap) oldWheelWrap.classList.add('hidden');
+      const oldMashWrap = document.getElementById('qte-mash-wrap');
+      if (oldMashWrap) oldMashWrap.classList.add('hidden');
 
-      // Randomly select mode: slider, sequence, puzzle, or wheel
+      // Randomly select mode: slider, sequence, puzzle, wheel, or mash
       let mode = preferredMode;
       if (!mode) {
         const modeChoice = Math.random();
-        mode = modeChoice < 0.25 ? 'slider' : (modeChoice < 0.50 ? 'sequence' : (modeChoice < 0.75 ? 'puzzle' : 'wheel'));
+        if (modeChoice < 0.20) mode = 'slider';
+        else if (modeChoice < 0.40) mode = 'sequence';
+        else if (modeChoice < 0.60) mode = 'puzzle';
+        else if (modeChoice < 0.80) mode = 'wheel';
+        else mode = 'mash';
       }
 
       let cleanUp = null;
@@ -1529,6 +1540,7 @@
           container.classList.add('hidden');
           window.removeEventListener('keydown', handleKey);
           this.isInQTE = false;
+          if (this.inputHandler) this.inputHandler.keys = {};
         };
 
         const handleKey = (e) => {
@@ -1626,10 +1638,16 @@
           container.classList.add('hidden');
           window.removeEventListener('keydown', handleKeyPress);
           this.isInQTE = false;
+          if (this.inputHandler) this.inputHandler.keys = {};
         };
 
         const handleKeyPress = (e) => {
           const key = e.key.toLowerCase();
+          
+          if (possibleKeys.includes(key)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
           
           if (e.ctrlKey || e.altKey || e.metaKey) return;
           
@@ -1859,6 +1877,7 @@
           container.classList.add('hidden');
           puzzleWrap.classList.add('hidden');
           this.isInQTE = false;
+          if (this.inputHandler) this.inputHandler.keys = {};
         };
       } else if (mode === 'wheel') {
         // Dead by Daylight Circular Skill Check Wheel Mode
@@ -1971,6 +1990,7 @@
           window.removeEventListener('keydown', handleInput);
           canvas.removeEventListener('click', triggerClick);
           this.isInQTE = false;
+          if (this.inputHandler) this.inputHandler.keys = {};
         };
 
         const resolveQTE = () => {
@@ -2009,6 +2029,137 @@
 
         window.addEventListener('keydown', handleInput);
         canvas.addEventListener('click', triggerClick);
+      } else if (mode === 'mash') {
+        let mashWrap = document.getElementById('qte-mash-wrap');
+        if (!mashWrap) {
+          mashWrap = document.createElement('div');
+          mashWrap.id = 'qte-mash-wrap';
+          mashWrap.style.marginBottom = '16px';
+          
+          const progressContainer = document.createElement('div');
+          progressContainer.style.position = 'relative';
+          progressContainer.style.width = '100%';
+          progressContainer.style.height = '24px';
+          progressContainer.style.background = '#222';
+          progressContainer.style.borderRadius = '6px';
+          progressContainer.style.overflow = 'hidden';
+          progressContainer.style.marginBottom = '8px';
+          
+          const progressFill = document.createElement('div');
+          progressFill.id = 'qte-mash-fill';
+          progressFill.style.position = 'absolute';
+          progressFill.style.top = '0';
+          progressFill.style.left = '0';
+          progressFill.style.height = '100%';
+          progressFill.style.width = '0%';
+          progressFill.style.background = 'linear-gradient(90deg, #ff007f, #39ff14)';
+          progressFill.style.boxShadow = '0 0 10px #39ff14';
+          progressFill.style.transition = 'width 0.05s ease';
+          
+          progressContainer.appendChild(progressFill);
+          
+          const timerContainer = document.createElement('div');
+          timerContainer.style.position = 'relative';
+          timerContainer.style.width = '100%';
+          timerContainer.style.height = '6px';
+          timerContainer.style.background = '#222';
+          timerContainer.style.borderRadius = '3px';
+          timerContainer.style.overflow = 'hidden';
+          
+          const timerFill = document.createElement('div');
+          timerFill.id = 'qte-mash-timer';
+          timerFill.style.position = 'absolute';
+          timerFill.style.top = '0';
+          timerFill.style.left = '0';
+          timerFill.style.height = '100%';
+          timerFill.style.width = '100%';
+          timerFill.style.background = '#ffaa00';
+          
+          timerContainer.appendChild(timerFill);
+          
+          mashWrap.appendChild(progressContainer);
+          mashWrap.appendChild(timerContainer);
+          
+          container.insertBefore(mashWrap, footerTip);
+        }
+        
+        mashWrap.classList.remove('hidden');
+        instrEl.innerText = instructions + " (Mash rapidly!)";
+        if (footerTip) footerTip.innerText = "PRESS [SPACE], [E], OR CLICK RAPIDLY!";
+        
+        const progressFillEl = document.getElementById('qte-mash-fill');
+        const timerFillEl = document.getElementById('qte-mash-timer');
+        progressFillEl.style.width = '0%';
+        timerFillEl.style.width = '100%';
+        
+        let progress = 0;
+        const totalDuration = 4000; // 4 seconds
+        const startTime = performance.now();
+        let lastTick = performance.now();
+        
+        const tick = () => {
+          if (!active) return;
+          const now = performance.now();
+          const dt = (now - lastTick) / 1000;
+          lastTick = now;
+          
+          // Decay progress
+          progress = Math.max(0, progress - 18 * dt);
+          progressFillEl.style.width = progress + '%';
+          
+          // Timer
+          const elapsed = now - startTime;
+          const remainingPct = Math.max(0, 100 - (elapsed / totalDuration) * 100);
+          timerFillEl.style.width = remainingPct + '%';
+          
+          if (progress >= 100) {
+            cleanUp();
+            window.Casino.SoundManager.playWin();
+            successCallback();
+          } else if (elapsed >= totalDuration) {
+            cleanUp();
+            window.Casino.SoundManager.playLose();
+            if (failureCallback) {
+              failureCallback();
+            } else {
+              this.showNotification("Time ran out! QTE Failed.", "error");
+            }
+          } else {
+            animId = requestAnimationFrame(tick);
+          }
+        };
+        animId = requestAnimationFrame(tick);
+        
+        cleanUp = () => {
+          active = false;
+          cancelAnimationFrame(animId);
+          container.classList.add('hidden');
+          mashWrap.classList.add('hidden');
+          window.removeEventListener('keydown', handleInput);
+          window.removeEventListener('click', triggerClick);
+          this.isInQTE = false;
+          if (this.inputHandler) this.inputHandler.keys = {};
+        };
+        
+        const handleInput = (e) => {
+          const key = e.key.toLowerCase();
+          if (key === ' ' || key === 'e') {
+            e.preventDefault();
+            e.stopPropagation();
+            window.Casino.SoundManager.playBeep();
+            progress = Math.min(100, progress + 12);
+            progressFillEl.style.width = progress + '%';
+          }
+        };
+        
+        const triggerClick = (e) => {
+          window.Casino.SoundManager.playBeep();
+          progress = Math.min(100, progress + 12);
+          progressFillEl.style.width = progress + '%';
+        };
+        
+        window.addEventListener('keydown', handleInput);
+        window.addEventListener('click', triggerClick);
       }
     }
 
@@ -2063,7 +2214,9 @@
         if (obj) {
           this.showTableUpgradeDialog(obj);
         } else {
-          this.movePlayerTo(gridX, gridY);
+          if (window.isMobile) {
+            this.movePlayerTo(gridX, gridY);
+          }
         }
       }
     }

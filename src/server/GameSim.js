@@ -216,9 +216,36 @@
         }
       }
 
-      // Update player buffs
+      // Update player buffs and process automatic guest serving
       for (const player of this.players.values()) {
         if (player.tickBuffs) player.tickBuffs(dt);
+
+        if (player.holdingDrink || player.holdingMeal) {
+          for (const guest of this.guests.values()) {
+            if (guest.state !== 'LEAVING') {
+              const dist = Math.sqrt((player.gridX - guest.gridX)**2 + (player.gridY - guest.gridY)**2);
+              if (dist <= 1.5) {
+                if (player.holdingDrink && guest.thirst < 85) {
+                  guest.thirst = 100;
+                  player.holdingDrink = false;
+                  this.economyManager.addChips(20); // Tip!
+                  this.recordDayStat('tips', 20);
+                  this.broadcast(window.Casino.Protocol.Events.SOUND_TRIGGER, { type: 'win' });
+                  this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+                  break;
+                } else if (player.holdingMeal && guest.hunger < 85) {
+                  guest.hunger = 100;
+                  player.holdingMeal = false;
+                  this.economyManager.addChips(20); // Tip!
+                  this.recordDayStat('tips', 20);
+                  this.broadcast(window.Casino.Protocol.Events.SOUND_TRIGGER, { type: 'win' });
+                  this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+                  break;
+                }
+              }
+            }
+          }
+        }
       }
 
       // Update employee AI entities
@@ -1226,7 +1253,7 @@
       const { role } = payload;
 
       // Verify unlocked state for research-gated roles
-      if (['chef', 'scientist', 'manager', 'security', 'tech_support', 'entertainer', 'stocker'].includes(role)) {
+      if (['chef', 'scientist', 'manager', 'security', 'tech_support', 'entertainer', 'stocker', 'janitor'].includes(role)) {
         if (!this.unlockedTechs.includes(role)) {
           console.warn(`[Server:GameSim] Hiring employee "${role}" rejected: Role not unlocked yet.`);
           return;
