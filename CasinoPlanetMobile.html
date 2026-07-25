@@ -1506,9 +1506,21 @@ kbd {
           <h1 style="margin: 0; font-size: 32px; font-weight: 800; background: linear-gradient(45deg, #00f0ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px rgba(0,240,255,0.2);">CASINO PLANET</h1>
         </div>
         
-        <div style="margin-bottom: 20px; text-align: left; width: 280px;">
-          <label for="player-name-input" style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 6px; font-weight: bold;">MANAGER NAME:</label>
-          <input type="text" id="player-name-input" placeholder="Enter your name..." value="Manager" style="width: 100%; padding: 10px; border: 2px solid rgba(0, 240, 255, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 13px; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+        <div style="margin-bottom: 20px; text-align: left; width: 280px; display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <label for="player-name-input" style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 6px; font-weight: bold;">MANAGER NAME:</label>
+            <input type="text" id="player-name-input" placeholder="Enter your name..." value="Manager" style="width: 100%; padding: 10px; border: 2px solid rgba(0, 240, 255, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 13px; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <div style="flex: 1;">
+              <label for="player-suit-color" style="font-size: 10px; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: bold;">SUIT:</label>
+              <input type="color" id="player-suit-color" value="#00f0ff" style="width: 100%; height: 36px; border: 2px solid rgba(255,255,255,0.1); background: #111; border-radius: 8px; cursor: pointer; padding: 2px; box-sizing: border-box;">
+            </div>
+            <div style="flex: 1;">
+              <label for="player-hair-color" style="font-size: 10px; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: bold;">HAIR:</label>
+              <input type="color" id="player-hair-color" value="#ffb300" style="width: 100%; height: 36px; border: 2px solid rgba(255,255,255,0.1); background: #111; border-radius: 8px; cursor: pointer; padding: 2px; box-sizing: border-box;">
+            </div>
+          </div>
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 14px; width: 280px;">
@@ -1621,10 +1633,10 @@ kbd {
 
       <!-- Character details card / upgrades -->
       <div id="character-details-modal" class="custom-dialog-overlay hidden">
-        <div class="custom-dialog-card" style="max-width: 320px; padding: 20px; gap: 12px;">
-          <div class="modal-header" style="margin-bottom: 4px;">
+        <div class="custom-dialog-card glass-panel" style="max-width: 320px; padding: 20px; gap: 12px;">
+          <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 4px;">
             <h2 id="char-name" style="margin: 0; font-size: 16px;">Dealer #12</h2>
-            <button id="btn-close-char-modal" class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">&times;</button>
+            <button id="btn-close-char-modal" class="close-btn" style="background: none; border: none; color: var(--text-secondary); font-size: 20px; cursor: pointer;">&times;</button>
           </div>
           <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px; text-align: left; font-size: 12px;">
             <div style="display: flex; justify-content: space-between;">
@@ -3403,6 +3415,8 @@ kbd {
       this.buffs = {}; // Active temporary buffs
       this.holdingDrink = false;
       this.holdingMeal = false;
+      this.color = '#00f0ff';
+      this.hairColor = '#ffb300';
     }
 
     move(gridX, gridY, gridManager) {
@@ -3442,7 +3456,9 @@ kbd {
         interactingObjectId: this.interactingObjectId,
         buffs: this.buffs,
         holdingDrink: this.holdingDrink || false,
-        holdingMeal: this.holdingMeal || false
+        holdingMeal: this.holdingMeal || false,
+        color: this.color || '#00f0ff',
+        hairColor: this.hairColor || '#ffb300'
       };
     }
 
@@ -3456,6 +3472,8 @@ kbd {
       this.buffs = data.buffs || this.buffs || {};
       this.holdingDrink = data.holdingDrink || false;
       this.holdingMeal = data.holdingMeal || false;
+      this.color = data.color || this.color || '#00f0ff';
+      this.hairColor = data.hairColor || this.hairColor || '#ffb300';
     }
   }
 
@@ -5133,7 +5151,7 @@ kbd {
       ];
     }
 
-    addPlayer(playerId, playerName = null) {
+    addPlayer(playerId, playerName = null, suitColor = null, hairColor = null) {
       // Spawn player near center
       const startX = Math.floor(this.gridManager.cols / 2);
       const startY = Math.floor(this.gridManager.rows / 2);
@@ -5141,6 +5159,8 @@ kbd {
       if (playerName) {
         newPlayer.name = playerName;
       }
+      if (suitColor) newPlayer.color = suitColor;
+      if (hairColor) newPlayer.hairColor = hairColor;
       
       // Bind chips property directly to economyManager to prevent synchronization drift and NaNs
       Object.defineProperty(newPlayer, 'chips', {
@@ -6399,8 +6419,10 @@ kbd {
     }
 
     handleSetPlayerName(player, payload) {
-      if (player && payload && payload.name) {
-        player.name = payload.name;
+      if (player && payload) {
+        if (payload.name) player.name = payload.name;
+        if (payload.color) player.color = payload.color;
+        if (payload.hairColor) player.hairColor = payload.hairColor;
         this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
       }
     }
@@ -9352,7 +9374,7 @@ kbd {
         this.ctx.fillRect(xPx - 5, yPx - 14 + bob, 10, 4);
 
         // Name tag
-        this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#e0e0ff';
+        this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#39ff14';
         this.ctx.font = 'bold 9px "Outfit", sans-serif';
         const label = isMainPlayer ? `${p.name || "MANAGER"} (YOU)` : (p.name || `P_${p.id.substring(0,4)}`);
         this.ctx.fillText(label, xPx, yPx - 22);
@@ -14061,12 +14083,38 @@ kbd {
       // PeerJS multiplayer fields
       this.peer = null;
       this.playerName = 'Manager';
+      this.playerSuitColor = '#00f0ff';
+      this.playerHairColor = '#ffb300';
       const nameInput = document.getElementById('player-name-input');
+      const suitColorInput = document.getElementById('player-suit-color');
+      const hairColorInput = document.getElementById('player-hair-color');
       if (nameInput) {
         const savedName = localStorage.getItem('casino_player_name');
         if (savedName) nameInput.value = savedName;
         nameInput.addEventListener('input', () => {
           localStorage.setItem('casino_player_name', nameInput.value);
+        });
+      }
+      if (suitColorInput) {
+        const savedSuit = localStorage.getItem('casino_player_suit');
+        if (savedSuit) {
+          suitColorInput.value = savedSuit;
+          this.playerSuitColor = savedSuit;
+        }
+        suitColorInput.addEventListener('input', () => {
+          this.playerSuitColor = suitColorInput.value;
+          localStorage.setItem('casino_player_suit', suitColorInput.value);
+        });
+      }
+      if (hairColorInput) {
+        const savedHair = localStorage.getItem('casino_player_hair');
+        if (savedHair) {
+          hairColorInput.value = savedHair;
+          this.playerHairColor = savedHair;
+        }
+        hairColorInput.addEventListener('input', () => {
+          this.playerHairColor = hairColorInput.value;
+          localStorage.setItem('casino_player_hair', hairColorInput.value);
         });
       }
       this.peerConn = null; // Used in Guest mode
@@ -14087,7 +14135,7 @@ kbd {
       };
 
       // Join the game!
-      sim.addPlayer(this.playerId, this.playerName);
+      sim.addPlayer(this.playerId, this.playerName, this.playerSuitColor, this.playerHairColor);
 
       // Initialize state cache
       const fullState = sim.getFullState();
@@ -14124,6 +14172,10 @@ kbd {
         const readPlayerName = () => {
           const nameInput = document.getElementById('player-name-input');
           this.playerName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : `Manager_${Math.floor(1000 + Math.random() * 9000)}`;
+          const suitColorInput = document.getElementById('player-suit-color');
+          const hairColorInput = document.getElementById('player-hair-color');
+          if (suitColorInput) this.playerSuitColor = suitColorInput.value;
+          if (hairColorInput) this.playerHairColor = hairColorInput.value;
         };
 
         if (soloBtn) {
@@ -15490,18 +15542,22 @@ kbd {
       const oldPuzzleWrap = document.getElementById('qte-puzzle-wrap');
       if (oldPuzzleWrap) oldPuzzleWrap.classList.add('hidden');
       const oldWheelWrap = document.getElementById('qte-wheel-wrap');
+      if (oldWheelWrap) oldWheelWrap.classList.add('hidden');
       const oldMashWrap = document.getElementById('qte-mash-wrap');
       if (oldMashWrap) oldMashWrap.classList.add('hidden');
+      const oldMicrogameWrap = document.getElementById('qte-microgame-wrap');
+      if (oldMicrogameWrap) oldMicrogameWrap.classList.add('hidden');
 
-      // Randomly select mode: slider, sequence, puzzle, wheel, or mash
+      // Randomly select mode: slider, sequence, puzzle, wheel, mash, or microgame
       let mode = preferredMode;
       if (!mode) {
         const modeChoice = Math.random();
-        if (modeChoice < 0.20) mode = 'slider';
-        else if (modeChoice < 0.40) mode = 'sequence';
-        else if (modeChoice < 0.60) mode = 'puzzle';
-        else if (modeChoice < 0.80) mode = 'wheel';
-        else mode = 'mash';
+        if (modeChoice < 0.16) mode = 'slider';
+        else if (modeChoice < 0.32) mode = 'sequence';
+        else if (modeChoice < 0.48) mode = 'puzzle';
+        else if (modeChoice < 0.64) mode = 'wheel';
+        else if (modeChoice < 0.80) mode = 'mash';
+        else mode = 'microgame';
       }
 
       let cleanUp = null;
@@ -16940,7 +16996,11 @@ kbd {
 
           this.playerId = myId;
           this.showNotification("Successfully joined casino lobby!", "success");
-          this.sendAction(window.Casino.Protocol.Commands.SET_PLAYER_NAME, { name: this.playerName });
+          this.sendAction(window.Casino.Protocol.Commands.SET_PLAYER_NAME, {
+            name: this.playerName,
+            color: this.playerSuitColor,
+            hairColor: this.playerHairColor
+          });
         });
 
         conn.on('data', (dataStr) => {

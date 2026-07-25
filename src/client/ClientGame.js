@@ -43,12 +43,38 @@
       // PeerJS multiplayer fields
       this.peer = null;
       this.playerName = 'Manager';
+      this.playerSuitColor = '#00f0ff';
+      this.playerHairColor = '#ffb300';
       const nameInput = document.getElementById('player-name-input');
+      const suitColorInput = document.getElementById('player-suit-color');
+      const hairColorInput = document.getElementById('player-hair-color');
       if (nameInput) {
         const savedName = localStorage.getItem('casino_player_name');
         if (savedName) nameInput.value = savedName;
         nameInput.addEventListener('input', () => {
           localStorage.setItem('casino_player_name', nameInput.value);
+        });
+      }
+      if (suitColorInput) {
+        const savedSuit = localStorage.getItem('casino_player_suit');
+        if (savedSuit) {
+          suitColorInput.value = savedSuit;
+          this.playerSuitColor = savedSuit;
+        }
+        suitColorInput.addEventListener('input', () => {
+          this.playerSuitColor = suitColorInput.value;
+          localStorage.setItem('casino_player_suit', suitColorInput.value);
+        });
+      }
+      if (hairColorInput) {
+        const savedHair = localStorage.getItem('casino_player_hair');
+        if (savedHair) {
+          hairColorInput.value = savedHair;
+          this.playerHairColor = savedHair;
+        }
+        hairColorInput.addEventListener('input', () => {
+          this.playerHairColor = hairColorInput.value;
+          localStorage.setItem('casino_player_hair', hairColorInput.value);
         });
       }
       this.peerConn = null; // Used in Guest mode
@@ -69,7 +95,7 @@
       };
 
       // Join the game!
-      sim.addPlayer(this.playerId, this.playerName);
+      sim.addPlayer(this.playerId, this.playerName, this.playerSuitColor, this.playerHairColor);
 
       // Initialize state cache
       const fullState = sim.getFullState();
@@ -106,6 +132,10 @@
         const readPlayerName = () => {
           const nameInput = document.getElementById('player-name-input');
           this.playerName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : `Manager_${Math.floor(1000 + Math.random() * 9000)}`;
+          const suitColorInput = document.getElementById('player-suit-color');
+          const hairColorInput = document.getElementById('player-hair-color');
+          if (suitColorInput) this.playerSuitColor = suitColorInput.value;
+          if (hairColorInput) this.playerHairColor = hairColorInput.value;
         };
 
         if (soloBtn) {
@@ -1472,18 +1502,22 @@
       const oldPuzzleWrap = document.getElementById('qte-puzzle-wrap');
       if (oldPuzzleWrap) oldPuzzleWrap.classList.add('hidden');
       const oldWheelWrap = document.getElementById('qte-wheel-wrap');
+      if (oldWheelWrap) oldWheelWrap.classList.add('hidden');
       const oldMashWrap = document.getElementById('qte-mash-wrap');
       if (oldMashWrap) oldMashWrap.classList.add('hidden');
+      const oldMicrogameWrap = document.getElementById('qte-microgame-wrap');
+      if (oldMicrogameWrap) oldMicrogameWrap.classList.add('hidden');
 
-      // Randomly select mode: slider, sequence, puzzle, wheel, or mash
+      // Randomly select mode: slider, sequence, puzzle, wheel, mash, or microgame
       let mode = preferredMode;
       if (!mode) {
         const modeChoice = Math.random();
-        if (modeChoice < 0.20) mode = 'slider';
-        else if (modeChoice < 0.40) mode = 'sequence';
-        else if (modeChoice < 0.60) mode = 'puzzle';
-        else if (modeChoice < 0.80) mode = 'wheel';
-        else mode = 'mash';
+        if (modeChoice < 0.16) mode = 'slider';
+        else if (modeChoice < 0.32) mode = 'sequence';
+        else if (modeChoice < 0.48) mode = 'puzzle';
+        else if (modeChoice < 0.64) mode = 'wheel';
+        else if (modeChoice < 0.80) mode = 'mash';
+        else mode = 'microgame';
       }
 
       let cleanUp = null;
@@ -2922,7 +2956,11 @@
 
           this.playerId = myId;
           this.showNotification("Successfully joined casino lobby!", "success");
-          this.sendAction(window.Casino.Protocol.Commands.SET_PLAYER_NAME, { name: this.playerName });
+          this.sendAction(window.Casino.Protocol.Commands.SET_PLAYER_NAME, {
+            name: this.playerName,
+            color: this.playerSuitColor,
+            hairColor: this.playerHairColor
+          });
         });
 
         conn.on('data', (dataStr) => {

@@ -70,7 +70,7 @@
       ];
     }
 
-    addPlayer(playerId, playerName = null) {
+    addPlayer(playerId, playerName = null, suitColor = null, hairColor = null) {
       // Spawn player near center
       const startX = Math.floor(this.gridManager.cols / 2);
       const startY = Math.floor(this.gridManager.rows / 2);
@@ -78,6 +78,8 @@
       if (playerName) {
         newPlayer.name = playerName;
       }
+      if (suitColor) newPlayer.color = suitColor;
+      if (hairColor) newPlayer.hairColor = hairColor;
       
       // Bind chips property directly to economyManager to prevent synchronization drift and NaNs
       Object.defineProperty(newPlayer, 'chips', {
@@ -1336,8 +1338,10 @@
     }
 
     handleSetPlayerName(player, payload) {
-      if (player && payload && payload.name) {
-        player.name = payload.name;
+      if (player && payload) {
+        if (payload.name) player.name = payload.name;
+        if (payload.color) player.color = payload.color;
+        if (payload.hairColor) player.hairColor = payload.hairColor;
         this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
       }
     }

@@ -501,7 +501,7 @@
         this.ctx.fillRect(xPx - 5, yPx - 14 + bob, 10, 4);
 
         // Name tag
-        this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#e0e0ff';
+        this.ctx.fillStyle = isMainPlayer ? '#00f0ff' : '#39ff14';
         this.ctx.font = 'bold 9px "Outfit", sans-serif';
         const label = isMainPlayer ? `${p.name || "MANAGER"} (YOU)` : (p.name || `P_${p.id.substring(0,4)}`);
         this.ctx.fillText(label, xPx, yPx - 22);

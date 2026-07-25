@@ -12,6 +12,8 @@
       this.buffs = {}; // Active temporary buffs
       this.holdingDrink = false;
       this.holdingMeal = false;
+      this.color = '#00f0ff';
+      this.hairColor = '#ffb300';
     }
 
     move(gridX, gridY, gridManager) {
@@ -51,7 +53,9 @@
         interactingObjectId: this.interactingObjectId,
         buffs: this.buffs,
         holdingDrink: this.holdingDrink || false,
-        holdingMeal: this.holdingMeal || false
+        holdingMeal: this.holdingMeal || false,
+        color: this.color || '#00f0ff',
+        hairColor: this.hairColor || '#ffb300'
       };
     }
 
@@ -65,6 +69,8 @@
       this.buffs = data.buffs || this.buffs || {};
       this.holdingDrink = data.holdingDrink || false;
       this.holdingMeal = data.holdingMeal || false;
+      this.color = data.color || this.color || '#00f0ff';
+      this.hairColor = data.hairColor || this.hairColor || '#ffb300';
     }
   }
 
