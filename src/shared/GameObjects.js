@@ -138,6 +138,21 @@
         tickIncome: 15,        // Cover charge!
         useTime: 3000
       },
+      minigame_machine: {
+        researchCost: 50,
+        requiredRating: 1.0,
+        type: 'minigame_machine',
+        name: 'Retro Arcade Cabinet',
+        width: 1,
+        height: 1,
+        cost: 350,
+        color: '#1a1a3a',      // Dark arcade casing
+        accentColor: '#39ff14', // Neon green screen glow
+        icon: '🕹️',
+        guestCapacity: 1,
+        tickIncome: 2,
+        useTime: 2000
+      },
       blackjack: {
         researchCost: 15,
         requiredRating: 1.8,

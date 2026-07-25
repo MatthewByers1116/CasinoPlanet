@@ -138,6 +138,7 @@
           else if (obj.type === 'popcorn_cart') labelName = 'POPCORN';
           else if (obj.type === 'gold_statue') labelName = 'STATUE';
           else if (obj.type === 'hologram') labelName = 'HOLOGRAM';
+          else if (obj.type === 'minigame_machine') labelName = 'ARCADE';
           else if (obj.type === 'massage_chair') labelName = 'MASSAGE';
           this.ctx.font = 'bold 8px "Outfit", sans-serif';
         } else {

@@ -1786,6 +1786,10 @@ kbd {
             <span class="mobile-item-name">Slot Machine</span>
             <span class="mobile-item-cost">200c</span>
           </button>
+          <button id="btn-build-minigame-machine" class="dropdown-item mobile-grid-item cat-games" title="Build Retro Arcade Cabinet (Cost: 350 Chips)">
+            <span class="mobile-item-name">Arcade Cabinet</span>
+            <span class="mobile-item-cost">50 RP</span>
+          </button>
           <button id="btn-build-roulette" class="dropdown-item mobile-grid-item cat-games" title="Build Roulette Table (Cost: 500 Chips)">
             <span class="mobile-item-name">Roulette Table</span>
             <span class="mobile-item-cost">500c</span>
@@ -2209,6 +2213,21 @@ kbd {
         guestCapacity: 3,
         tickIncome: 15,        // Cover charge!
         useTime: 3000
+      },
+      minigame_machine: {
+        researchCost: 50,
+        requiredRating: 1.0,
+        type: 'minigame_machine',
+        name: 'Retro Arcade Cabinet',
+        width: 1,
+        height: 1,
+        cost: 350,
+        color: '#1a1a3a',      // Dark arcade casing
+        accentColor: '#39ff14', // Neon green screen glow
+        icon: '🕹️',
+        guestCapacity: 1,
+        tickIncome: 2,
+        useTime: 2000
       },
       blackjack: {
         researchCost: 15,
@@ -5848,6 +5867,8 @@ kbd {
         this.runPlinkoGame(player, tableId, payload.betAmount);
       } else if (gameType === 'lottery') {
         this.runLotteryGame(player, tableId, payload.betAmount, payload.selectedNumbers);
+      } else if (gameType === 'minigame_machine') {
+        this.runMinigameMachineGame(player, tableId, payload.action, payload.betAmount, payload.outcome);
       }
     }
 
@@ -8548,6 +8569,41 @@ kbd {
         matches,
         multiplier: mult
       });
+    /* ==========================================================================
+       PLANET ARCADE CABINET GAME ENGINE
+       ========================================================================== */
+    runMinigameMachineGame(player, tableId, action, betAmount, outcome) {
+      if (action === 'bet') {
+        if (!this.economyManager.canAfford(betAmount)) {
+          const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+          if (ui) ui.logDebug(`Arcade play rejected: Insufficient chips!`, 'error');
+          return;
+        }
+        this.economyManager.deductChips(betAmount);
+        
+        this.sendPayout(player, 'minigame_machine', -betAmount, 0, {
+          tableId: tableId,
+          action: 'bet_ack',
+          betAmount: betAmount
+        });
+      } else if (action === 'outcome') {
+        if (outcome === 'win') {
+          const totalWin = betAmount * 2;
+          this.economyManager.addChips(totalWin);
+          
+          this.sendPayout(player, 'minigame_machine', betAmount, totalWin, {
+            tableId: tableId,
+            action: 'win',
+            betAmount: betAmount
+          });
+        } else {
+          this.sendPayout(player, 'minigame_machine', -betAmount, 0, {
+            tableId: tableId,
+            action: 'lose',
+            betAmount: betAmount
+          });
+        }
+      }
     }
 
     sendPayout(player, gameType, netPayout, totalWin, extraData) {
@@ -9011,6 +9067,7 @@ kbd {
           else if (obj.type === 'popcorn_cart') labelName = 'POPCORN';
           else if (obj.type === 'gold_statue') labelName = 'STATUE';
           else if (obj.type === 'hologram') labelName = 'HOLOGRAM';
+          else if (obj.type === 'minigame_machine') labelName = 'ARCADE';
           else if (obj.type === 'massage_chair') labelName = 'MASSAGE';
           this.ctx.font = 'bold 8px "Outfit", sans-serif';
         } else {
@@ -9810,6 +9867,9 @@ kbd {
       } else if (gameType === 'slots') {
         this.modalTitle.innerText = "🎰 Cosmic Slot Machine";
         this.renderSlots();
+      } else if (gameType === 'minigame_machine') {
+        this.modalTitle.innerText = "🕹️ Planet Micro-Arcade Cabinet";
+        this.renderMinigameMachine();
       } else if (gameType === 'blackjack' || gameType === 'elec_blackjack') {
         this.modalTitle.innerText = gameType === 'elec_blackjack' ? "🃏 Electronic Blackjack Terminal" : "🃏 Classic Blackjack Table";
         this.renderBlackjack(gameType === 'elec_blackjack');
@@ -11101,6 +11161,132 @@ kbd {
           this.updateBalance();
         }
       }, 80);
+    }
+
+    /* ==========================================================================
+       PLANET ARCADE CABINET LAYOUT & INTERACTIVE LOGIC
+       ========================================================================== */
+    renderMinigameMachine() {
+      const self = this;
+      this.modalBody.innerHTML = `
+        <div class="arcade-container" style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px; text-align:center;">
+          <div class="arcade-cabinet" style="width:280px; height:180px; background:#1a1a2e; border:4px solid var(--accent-gold); border-radius:12px; box-shadow:0 0 25px rgba(255, 215, 0, 0.2); display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; overflow:hidden;">
+            <!-- Neon Header -->
+            <div style="background:#ff007f; color:#fff; font-weight:bold; font-size:12px; padding:4px 0; width:100%; border-bottom:2px solid var(--accent-gold); letter-spacing:2px; text-shadow:0 0 6px #fff;">PLANET MICRO-ARCADE</div>
+            
+            <!-- Video Screen area -->
+            <div style="flex-grow:1; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; position:relative;">
+              <div id="arcade-screen-text" style="color:#39ff14; font-family:'Press Start 2P', monospace; font-size:9px; line-height:1.8; text-shadow:0 0 4px #39ff14; padding:20px;">
+                READY TO PLAY?<br>SELECT BET AND<br>PRESS INSERT COIN!
+              </div>
+            </div>
+            
+            <!-- Cabinet controls bar -->
+            <div style="background:#111; height:24px; width:100%; border-top:2px solid var(--accent-gold); display:flex; justify-content:space-around; align-items:center; padding:4px 0;">
+              <div style="width:12px; height:12px; background:#ff0000; border-radius:50%;"></div>
+              <div style="width:24px; height:6px; background:#fff; border-radius:3px;"></div>
+              <div style="width:12px; height:12px; background:#0000ff; border-radius:50%;"></div>
+            </div>
+          </div>
+          
+          <div id="arcade-stats-bar" style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:280px; background:rgba(0,0,0,0.3); padding:8px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); font-size:12px;">
+            <div>Bet: <span id="arcade-total-bet-val" style="color:var(--accent-gold); font-weight:800;">10</span> Chips</div>
+            <div>Session Profit: <span id="minigame-session-profit" style="font-weight:800; color:#ffffff;">0</span> Chips</div>
+          </div>
+          
+          <div class="controls-wrapper" style="display:flex; justify-content:space-between; align-items:center; gap:16px; width:100%; max-width:280px;">
+            <div class="chip-selector" style="display:flex; gap:6px;">
+              <div class="picker-chip active" data-value="10">10</div>
+              <div class="picker-chip" data-value="50">50</div>
+              <div class="picker-chip" data-value="100">100</div>
+              <div class="picker-chip" data-value="250">250</div>
+              <div class="picker-chip" data-value="500">500</div>
+            </div>
+            <button id="arcade-play-btn" class="action-btn primary" style="padding:10px 20px; font-size:12px; font-weight:bold;">INSERT COIN</button>
+          </div>
+          
+          <div id="arcade-result-log" class="minigame-log-feed" style="width:100%; max-width:280px; font-size:11px;">
+            <div class="log-line info">Win Planet Micro-games to win 2X payout!</div>
+          </div>
+        </div>
+      `;
+      
+      this.updateSessionProfit(0);
+      
+      const playBtn = document.getElementById('arcade-play-btn');
+      const logFeed = document.getElementById('arcade-result-log');
+      const betValSpan = document.getElementById('arcade-total-bet-val');
+      
+      let betAmount = 10;
+      
+      const chipsPicker = this.modalBody.querySelectorAll('.picker-chip');
+      chipsPicker.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chipsPicker.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          betAmount = parseInt(chip.getAttribute('data-value'));
+          if (betValSpan) betValSpan.innerText = betAmount;
+          window.Casino.SoundManager.playBeep();
+        });
+      });
+      
+      if (playBtn) {
+        playBtn.addEventListener('click', () => {
+          const client = window.Casino.clientInstance;
+          if (!client) return;
+          
+          if (client.chips < betAmount) {
+            this.logDebug("Insufficient chips to play!", "error");
+            window.Casino.SoundManager.playLose();
+            return;
+          }
+          
+          this.overlayEl.classList.add('hidden');
+          
+          client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+            gameType: 'minigame_machine',
+            tableId: this.activeTableId,
+            action: 'bet',
+            betAmount: betAmount
+          });
+          
+          client.startQTEMinigame(
+            "🕹️ ARCADE CHALLENGE",
+            "Succeed the microgame to win 2X payout!",
+            () => {
+              client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+                gameType: 'minigame_machine',
+                tableId: this.activeTableId,
+                action: 'outcome',
+                outcome: 'win',
+                betAmount: betAmount
+              });
+              
+              this.overlayEl.classList.remove('hidden');
+              this.logDebug(`CONGRATULATIONS! You won the microgame! Payout: +${betAmount * 2} Chips`, 'success');
+              this.sessionProfit += betAmount;
+              this.updateSessionProfit(this.sessionProfit);
+              this.updateBalance();
+            },
+            () => {
+              client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+                gameType: 'minigame_machine',
+                tableId: this.activeTableId,
+                action: 'outcome',
+                outcome: 'lose',
+                betAmount: betAmount
+              });
+              
+              this.overlayEl.classList.remove('hidden');
+              this.logDebug(`GAME OVER! You failed the microgame. Lost ${betAmount} Chips`, 'error');
+              this.sessionProfit -= betAmount;
+              this.updateSessionProfit(this.sessionProfit);
+              this.updateBalance();
+            },
+            'microgame'
+          );
+        });
+      }
     }
 
     /* ==========================================================================
@@ -14548,7 +14734,7 @@ kbd {
         'slots', 'roulette', 'craps', 'bar', 'restaurant', 'bathroom',
         'soda_machine', 'vending_machine', 'bathroom_stall', 'jazz_band',
         'blackjack', 'ride_the_bus', 'three_card_poker', 'elec_roulette',
-        'elec_blackjack', 'bubble_craps', 'atm',
+        'elec_blackjack', 'bubble_craps', 'atm', 'minigame_machine',
         'baccarat', 'texas_holdem', 'pai_gow', 'sic_bo', 'caribbean_stud',
         'big_six', 'let_it_ride', 'red_dog', 'spanish_21', 'casino_war',
         'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery',
@@ -16234,6 +16420,1357 @@ kbd {
         
         window.addEventListener('keydown', handleInput);
         window.addEventListener('click', triggerClick);
+      } else if (mode === 'microgame') {
+        let microgameWrap = document.getElementById('qte-microgame-wrap');
+        if (!microgameWrap) {
+          microgameWrap = document.createElement('div');
+          microgameWrap.id = 'qte-microgame-wrap';
+          microgameWrap.style.marginBottom = '16px';
+          
+          const canvas = document.createElement('canvas');
+          canvas.id = 'qte-microgame-canvas';
+          canvas.width = 280;
+          canvas.height = 160;
+          canvas.style.background = '#121224';
+          canvas.style.borderRadius = '8px';
+          canvas.style.border = '2px solid rgba(255,255,255,0.1)';
+          canvas.style.cursor = 'pointer';
+          canvas.style.display = 'block';
+          canvas.style.margin = '0 auto 8px auto';
+          
+          const timerContainer = document.createElement('div');
+          timerContainer.style.position = 'relative';
+          timerContainer.style.width = '100%';
+          timerContainer.style.height = '6px';
+          timerContainer.style.background = '#222';
+          timerContainer.style.borderRadius = '3px';
+          timerContainer.style.overflow = 'hidden';
+          
+          const timerFill = document.createElement('div');
+          timerFill.id = 'qte-microgame-timer';
+          timerFill.style.position = 'absolute';
+          timerFill.style.top = '0';
+          timerFill.style.left = '0';
+          timerFill.style.height = '100%';
+          timerFill.style.width = '100%';
+          timerFill.style.background = '#ff007f';
+          
+          timerContainer.appendChild(timerFill);
+          microgameWrap.appendChild(canvas);
+          microgameWrap.appendChild(timerContainer);
+          
+          container.insertBefore(microgameWrap, footerTip);
+        }
+        
+        microgameWrap.classList.remove('hidden');
+        
+        const canvas = document.getElementById('qte-microgame-canvas');
+        const ctx = canvas.getContext('2d');
+        const timerFillEl = document.getElementById('qte-microgame-timer');
+        timerFillEl.style.width = '100%';
+        
+        // Random subgame choice from expanded Planet-inspired list
+        const subgames = [
+          'parry', 'crazy_cars', 'wario_whirled', 'diamond_dig', 'dodge_balls', 'log_chop', 'fruit_shoot', 'batter_up',
+          'heads_up', 'boing', 'spare_me', 'baseline_bash', 'butterfly_stroke', 'hammer_toss', 'balancing_act',
+          'putt_for_dough', 'ski_jump', 'mountain_mountin', 'guy_scraper', 'space_fighter', 'ninja_pipe_cleaner', 'bam_fu'
+        ];
+        const subgame = subgames[Math.floor(Math.random() * subgames.length)];
+        
+        let subgameTitle = "MICROGAME";
+        let subgameInstructions = "Prepare!";
+        
+        if (subgame === 'parry') {
+          subgameTitle = "⚡ PARRY!";
+          subgameInstructions = "Press SPACE/E exactly when rings overlap!";
+        } else if (subgame === 'crazy_cars') {
+          subgameTitle = "🚗 JUMP!";
+          subgameInstructions = "Press SPACE/E/Click to jump over the car!";
+        } else if (subgame === 'wario_whirled') {
+          subgameTitle = "🎯 STOP!";
+          subgameInstructions = "Press SPACE/E/Click when pointing at the green zone!";
+        } else if (subgame === 'diamond_dig') {
+          subgameTitle = "💎 DIG!";
+          subgameInstructions = "Mash SPACE/E/Click to find the diamond!";
+        } else if (subgame === 'dodge_balls') {
+          subgameTitle = "🎾 DODGE!";
+          subgameInstructions = "Use A/D or LEFT/RIGHT to dodge balls!";
+        } else if (subgame === 'log_chop') {
+          subgameTitle = "🪓 CHOP!";
+          subgameInstructions = "Press SPACE/E/Click when log matches the line!";
+        } else if (subgame === 'fruit_shoot') {
+          subgameTitle = "🍎 SHOOT!";
+          subgameInstructions = "Press SPACE/E/Click to shoot the moving apple!";
+        } else if (subgame === 'batter_up') {
+          subgameTitle = "⚾ SWING!";
+          subgameInstructions = "Press SPACE/E/Click when ball hits the sweet spot!";
+        } else if (subgame === 'heads_up') {
+          subgameTitle = "🍗 CATCH!";
+          subgameInstructions = "Use A/D or LEFT/RIGHT to catch the chicken wing!";
+        } else if (subgame === 'boing') {
+          subgameTitle = "🎪 BOING!";
+          subgameInstructions = "Use A/D or LEFT/RIGHT to slide the trampoline!";
+        } else if (subgame === 'spare_me') {
+          subgameTitle = "🎳 BOWL!";
+          subgameInstructions = "Press SPACE/E/Click when aiming at pins!";
+        } else if (subgame === 'baseline_bash') {
+          subgameTitle = "🎾 RETURN!";
+          subgameInstructions = "Press SPACE/E/Click when ball hits baseline!";
+        } else if (subgame === 'butterfly_stroke') {
+          subgameTitle = "🏊 SWIM!";
+          subgameInstructions = "Mash SPACE/E/Click to swim to the wall!";
+        } else if (subgame === 'hammer_toss') {
+          subgameTitle = "☄️ FLING!";
+          subgameInstructions = "Press SPACE/E/Click to launch into orange slice!";
+        } else if (subgame === 'balancing_act') {
+          subgameTitle = "⚖️ BALANCE!";
+          subgameInstructions = "Use A/D or LEFT/RIGHT to keep stack balanced!";
+        } else if (subgame === 'putt_for_dough') {
+          subgameTitle = "⛳ PUTT!";
+          subgameInstructions = "Press SPACE/E/Click when power is in green!";
+        } else if (subgame === 'ski_jump') {
+          subgameTitle = "⛷️ SKI JUMP!";
+          subgameInstructions = "Press SPACE/E/Click exactly at edge of ramp!";
+        } else if (subgame === 'mountain_mountin') {
+          subgameTitle = "☁️ SUMMIT!";
+          subgameInstructions = "Use A/D or LEFT/RIGHT to steer onto clouds!";
+        } else if (subgame === 'guy_scraper') {
+          subgameTitle = "🏢 LAND!";
+          subgameInstructions = "Press SPACE/E/Click to drop onto scraper!";
+        } else if (subgame === 'space_fighter') {
+          subgameTitle = "🚀 BLAST!";
+          subgameInstructions = "Press SPACE/E/Click when locked on target!";
+        } else if (subgame === 'ninja_pipe_cleaner') {
+          subgameTitle = "⚔️ SLASH!";
+          subgameInstructions = "Press corresponding arrow or key to strike ninja!";
+        } else if (subgame === 'bam_fu') {
+          subgameTitle = "🪓 CHOP!";
+          subgameInstructions = "Chop wood! DO NOT chop raccoon!";
+        }
+        
+        instrEl.innerText = subgameInstructions;
+        if (footerTip) footerTip.innerText = "GET READY!";
+        
+        let animId = null;
+        const totalDuration = 3500; // 3.5 seconds
+        const startTime = performance.now();
+        
+        // Subgame state variables
+        let gameScore = 0;
+        let gameOver = false;
+        
+        // State initializations
+        let parryRingRadius = 55;
+        let parryWindowMin = 13;
+        let parryWindowMax = 18;
+        let parFlashed = 0;
+        
+        let playerX = 40;
+        let playerY = 120;
+        let playerVy = 0;
+        let carX = 280;
+        let carY = 122;
+        let carPassed = false;
+        
+        let wheelAngle = 0;
+        let wheelTargetStart = -0.5;
+        let wheelTargetEnd = 0.5;
+        let wheelStopped = false;
+        
+        let digCount = 0;
+        let digRequired = 8;
+        
+        let dodgePlayerX = 140;
+        let balls = [];
+        let nextBallSpawn = 0;
+        
+        let logX = -30;
+        let logChopTargetX = 140;
+        let axeY = 30;
+        let axeChopped = false;
+        let logChopped = false;
+        
+        let fruitX = 140;
+        let fruitDir = 1;
+        let arrowX = 140;
+        let arrowY = 140;
+        let arrowFired = false;
+        let fruitHit = false;
+        let shootAngle = 0;
+        let shootAngleDir = 1;
+        
+        let ballX = 140;
+        let ballY = 60;
+        let ballRadius = 2;
+        let batterSwung = false;
+        let batterHit = false;
+        
+        let catchPlayerX = 140;
+        let wingX = 40 + Math.random() * 200;
+        let wingY = 0;
+        let wingVy = 130;
+        
+        let trampX = 140;
+        let jumperX = 140;
+        let jumperY = 30;
+        let jumperVx = 60 + Math.random() * 60;
+        let jumperVy = 0;
+        let jumperBounces = 0;
+        
+        let bowlBallX = 140;
+        let bowlBallY = 130;
+        let bowlBallFired = false;
+        let pinAngle = 0;
+        let pinAngleDir = 1;
+        
+        let tennisBallX = 140;
+        let tennisBallY = 20;
+        let tennisBallRadius = 1;
+        let playerSwung = false;
+        let playerHit = false;
+        
+        let swimX = 20;
+        let swimRequired = 10;
+        
+        let hammerAngle = 0;
+        let hammerReleased = false;
+        let hammerTargetAngleStart = 4.2;
+        let hammerTargetAngleEnd = 5.2;
+        
+        let balanceX = 140;
+        let balanceAngle = 0;
+        let balanceDrift = 1.2;
+        
+        let golfBallX = 40;
+        let golfPuttSuccess = false;
+        let powerMeterVal = 0;
+        let powerMeterDir = 1;
+        let puttFired = false;
+        
+        let skierY = 30;
+        let skierX = 30;
+        let skierJumped = false;
+        
+        let mountPlayerX = 140;
+        let mountPlayerY = 130;
+        let mountPlayerVy = 0;
+        let clouds = [
+          { x: 100, y: 100, w: 40 },
+          { x: 160, y: 70, w: 40 },
+          { x: 110, y: 40, w: 40 }
+        ];
+        
+        let guyX = 140;
+        let guyY = 20;
+        let guyDropped = false;
+        let buildingX = 30;
+        let buildingDir = 1;
+        
+        let targetX = 30;
+        let targetY = 30;
+        let targetVx = 100;
+        let targetVy = 60;
+        let crosshairLocked = false;
+        
+        let ninjaIncoming = [];
+        let nextNinjaSpawn = 0;
+        let ninjaKills = 0;
+        let ninjaRequired = 3;
+        
+        let bamItemX = -30;
+        let bamItemType = 'wood';
+        let bamChopped = false;
+        let bamAxeY = 30;
+        let bamAxeChopped = false;
+        
+        const tick = () => {
+          if (!active) return;
+          const now = performance.now();
+          const elapsed = now - startTime;
+          const remainingPct = Math.max(0, 100 - (elapsed / totalDuration) * 100);
+          timerFillEl.style.width = remainingPct + '%';
+          
+          ctx.fillStyle = '#121224';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.font = 'bold 22px "Outfit", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(subgameTitle, 140, 80);
+          
+          if (subgame === 'parry') {
+            ctx.beginPath();
+            ctx.arc(140, 80, 15, 0, Math.PI * 2);
+            ctx.fillStyle = parFlashed > 0 ? '#39ff14' : '#ff007f';
+            ctx.shadowBlur = parFlashed > 0 ? 15 : 0;
+            ctx.shadowColor = '#39ff14';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            if (!gameOver) {
+              parryRingRadius = Math.max(5, parryRingRadius - 40 * 0.016);
+              if (parryRingRadius <= 5) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.beginPath();
+            ctx.arc(140, 80, parryRingRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(140, 80, 15, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(57, 255, 20, 0.4)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+          } else if (subgame === 'crazy_cars') {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.beginPath();
+            ctx.moveTo(0, 130);
+            ctx.lineTo(280, 130);
+            ctx.stroke();
+            
+            if (!gameOver) {
+              playerVy += 650 * 0.016;
+              playerY += playerVy * 0.016;
+              if (playerY >= 120) {
+                playerY = 120;
+                playerVy = 0;
+              }
+              
+              carX -= 210 * 0.016;
+              
+              const playerWidth = 14;
+              const playerHeight = 20;
+              const carWidth = 24;
+              const carHeight = 14;
+              
+              if (Math.abs((playerX + playerWidth/2) - (carX + carWidth/2)) < (playerWidth + carWidth)/2 &&
+                  Math.abs((playerY + playerHeight/2) - (carY + carHeight/2)) < (playerHeight + carHeight)/2) {
+                gameOver = true;
+                gameScore = -1;
+              }
+              
+              if (carX < -30 && !carPassed) {
+                carPassed = true;
+                gameScore = 1;
+              }
+            }
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(playerX, playerY, 14, 20);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(playerX + 4, playerY + 3, 6, 6);
+            
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(carX, carY, 24, 14);
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(carX + 5, carY + 14, 3, 0, Math.PI * 2);
+            ctx.arc(carX + 19, carY + 14, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+          } else if (subgame === 'wario_whirled') {
+            ctx.beginPath();
+            ctx.arc(140, 80, 45, 0, Math.PI * 2);
+            ctx.fillStyle = '#222';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(140, 80);
+            ctx.arc(140, 80, 45, -Math.PI/2 + wheelTargetStart, -Math.PI/2 + wheelTargetEnd);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(57, 255, 20, 0.4)';
+            ctx.fill();
+            
+            if (!wheelStopped) {
+              wheelAngle += 4.5 * 0.016;
+            }
+            
+            ctx.save();
+            ctx.translate(140, 80);
+            ctx.rotate(wheelAngle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -42);
+            ctx.strokeStyle = '#ff007f';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(-5, -35);
+            ctx.lineTo(0, -45);
+            ctx.lineTo(5, -35);
+            ctx.closePath();
+            ctx.fillStyle = '#ff007f';
+            ctx.fill();
+            ctx.restore();
+            
+          } else if (subgame === 'diamond_dig') {
+            ctx.fillStyle = '#3e2723';
+            ctx.fillRect(20, 30, 240, 110);
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.beginPath();
+            ctx.moveTo(140, 115);
+            ctx.lineTo(146, 122);
+            ctx.lineTo(140, 130);
+            ctx.lineTo(134, 122);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#222';
+            ctx.fillRect(40, 15, 200, 10);
+            const progressWidth = (digCount / digRequired) * 200;
+            ctx.fillStyle = '#39ff14';
+            ctx.fillRect(40, 15, progressWidth, 10);
+            
+            ctx.fillStyle = '#bbb';
+            const currentShovelY = 30 + (digCount / digRequired) * 70;
+            ctx.fillRect(135, currentShovelY, 10, 12);
+            ctx.fillStyle = '#8d6e63';
+            ctx.fillRect(139, currentShovelY - 20, 2, 20);
+            
+          } else if (subgame === 'dodge_balls') {
+            if (!gameOver) {
+              if (this.inputHandler && (this.inputHandler.keys['arrowleft'] || this.inputHandler.keys['a'])) {
+                dodgePlayerX = Math.max(30, dodgePlayerX - 160 * 0.016);
+              }
+              if (this.inputHandler && (this.inputHandler.keys['arrowright'] || this.inputHandler.keys['d'])) {
+                dodgePlayerX = Math.min(250, dodgePlayerX + 160 * 0.016);
+              }
+              
+              if (now > nextBallSpawn) {
+                balls.push({
+                  x: 30 + Math.random() * 220,
+                  y: 10,
+                  vy: 90 + Math.random() * 50
+                });
+                nextBallSpawn = now + 600 + Math.random() * 400;
+              }
+              
+              balls.forEach(ball => {
+                ball.y += ball.vy * 0.016;
+                
+                const dx = ball.x - dodgePlayerX;
+                const dy = ball.y - 125;
+                if (Math.sqrt(dx*dx + dy*dy) < 14) {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              });
+              
+              balls = balls.filter(b => b.y < 170);
+            }
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(dodgePlayerX - 8, 120, 16, 16);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(dodgePlayerX - 4, 124, 8, 4);
+            
+            ctx.fillStyle = '#ff007f';
+            balls.forEach(b => {
+              ctx.beginPath();
+              ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+              ctx.fill();
+            });
+            
+          } else if (subgame === 'log_chop') {
+            ctx.strokeStyle = '#39ff14';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(logChopTargetX, 40);
+            ctx.lineTo(logChopTargetX, 130);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            if (!gameOver && !axeChopped) {
+              logX += 130 * 0.016;
+              if (logX > 290) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.fillStyle = '#555';
+            ctx.fillRect(10, 115, 260, 10);
+            
+            ctx.fillStyle = '#8d6e63';
+            ctx.fillRect(logX - 18, 95, 36, 20);
+            ctx.strokeStyle = '#ffe0b2';
+            ctx.beginPath();
+            ctx.arc(logX, 105, 7, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            if (axeChopped && axeY < 90) {
+              axeY += 500 * 0.016;
+              if (axeY >= 90) {
+                axeY = 90;
+                if (Math.abs(logX - logChopTargetX) < 18) {
+                  logChopped = true;
+                  gameScore = 1;
+                } else {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              }
+            }
+            
+            ctx.fillStyle = '#bbb';
+            ctx.fillRect(138, axeY, 4, 20);
+            ctx.fillStyle = '#777';
+            ctx.fillRect(133, axeY + 16, 14, 6);
+            
+          } else if (subgame === 'fruit_shoot') {
+            if (!gameOver && !fruitHit) {
+              fruitX += fruitDir * 110 * 0.016;
+              if (fruitX > 250) {
+                fruitX = 250;
+                fruitDir = -1;
+              } else if (fruitX < 30) {
+                fruitX = 30;
+                fruitDir = 1;
+              }
+            }
+            
+            if (!arrowFired) {
+              shootAngle += shootAngleDir * 2.5 * 0.016;
+              if (shootAngle > 0.8) {
+                shootAngle = 0.8;
+                shootAngleDir = -1;
+              } else if (shootAngle < -0.8) {
+                shootAngle = -0.8;
+                shootAngleDir = 1;
+              }
+            } else {
+              arrowX += Math.sin(shootAngle) * 320 * 0.016;
+              arrowY -= Math.cos(shootAngle) * 320 * 0.016;
+              
+              const dx = arrowX - fruitX;
+              const dy = arrowY - 40;
+              if (Math.sqrt(dx*dx + dy*dy) < 15) {
+                fruitHit = true;
+                gameScore = 1;
+              }
+              
+              if (arrowY < -20) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.fillStyle = fruitHit ? '#ffe0b2' : '#ff0000';
+            ctx.beginPath();
+            ctx.arc(fruitX, 40, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#8d6e63';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(fruitX, 30);
+            ctx.lineTo(fruitX + 3, 24);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            ctx.save();
+            ctx.translate(140, 145);
+            ctx.rotate(shootAngle);
+            
+            ctx.strokeStyle = '#bbb';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -18);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            ctx.strokeStyle = '#ffa726';
+            ctx.beginPath();
+            ctx.arc(0, 5, 12, Math.PI, 0);
+            ctx.stroke();
+            ctx.restore();
+            
+          } else if (subgame === 'batter_up') {
+            if (!gameOver && !batterHit) {
+              const progress = elapsed / 2200;
+              ballX = 140;
+              ballY = 40 + progress * 80;
+              ballRadius = 1 + progress * 9;
+              
+              if (ballY > 140) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.strokeStyle = '#39ff14';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(140, 120, 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#8d6e63';
+            ctx.lineWidth = 4;
+            ctx.save();
+            ctx.translate(140, 120);
+            if (batterSwung) {
+              ctx.rotate(Math.PI / 4);
+            } else {
+              ctx.rotate(-Math.PI / 3);
+            }
+            ctx.beginPath();
+            ctx.moveTo(-10, 0);
+            ctx.lineTo(16, 0);
+            ctx.stroke();
+            ctx.restore();
+            ctx.lineWidth = 1;
+            
+          } else if (subgame === 'heads_up') {
+            if (!gameOver) {
+              if (this.inputHandler && (this.inputHandler.keys['arrowleft'] || this.inputHandler.keys['a'])) {
+                catchPlayerX = Math.max(30, catchPlayerX - 160 * 0.016);
+              }
+              if (this.inputHandler && (this.inputHandler.keys['arrowright'] || this.inputHandler.keys['d'])) {
+                catchPlayerX = Math.min(250, catchPlayerX + 160 * 0.016);
+              }
+              
+              wingY += wingVy * 0.016;
+              
+              if (wingY >= 130) {
+                if (Math.abs(wingX - catchPlayerX) < 18) {
+                  gameScore = 1;
+                } else {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              }
+            }
+            
+            ctx.fillStyle = '#ffa726';
+            ctx.fillRect(catchPlayerX - 15, 130, 30, 6);
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(catchPlayerX - 4, 136, 8, 10);
+            
+            ctx.fillStyle = '#ff5722';
+            ctx.beginPath();
+            ctx.arc(wingX, wingY, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+          } else if (subgame === 'boing') {
+            if (!gameOver) {
+              if (this.inputHandler && (this.inputHandler.keys['arrowleft'] || this.inputHandler.keys['a'])) {
+                trampX = Math.max(35, trampX - 180 * 0.016);
+              }
+              if (this.inputHandler && (this.inputHandler.keys['arrowright'] || this.inputHandler.keys['d'])) {
+                trampX = Math.min(245, trampX + 180 * 0.016);
+              }
+              
+              jumperY += jumperVy * 0.016;
+              jumperVy += 400 * 0.016;
+              jumperX += jumperVx * 0.016;
+              
+              if (jumperX > 260) {
+                jumperX = 260;
+                jumperVx = -Math.abs(jumperVx);
+              } else if (jumperX < 20) {
+                jumperX = 20;
+                jumperVx = Math.abs(jumperVx);
+              }
+              
+              if (jumperY >= 120 && jumperVy > 0) {
+                if (Math.abs(jumperX - trampX) < 25) {
+                  jumperY = 120;
+                  jumperVy = -220;
+                  jumperBounces++;
+                  window.Casino.SoundManager.playBeep();
+                  if (jumperBounces >= 2) {
+                    gameScore = 1;
+                  }
+                } else {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              }
+            }
+            
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(trampX - 25, 126);
+            ctx.lineTo(trampX + 25, 126);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            ctx.fillStyle = '#39ff14';
+            ctx.beginPath();
+            ctx.arc(jumperX, jumperY, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+          } else if (subgame === 'spare_me') {
+            if (!gameOver) {
+              if (!bowlBallFired) {
+                pinAngle += pinAngleDir * 3 * 0.016;
+                if (pinAngle > 0.8) {
+                  pinAngle = 0.8;
+                  pinAngleDir = -1;
+                } else if (pinAngle < -0.8) {
+                  pinAngle = -0.8;
+                  pinAngleDir = 1;
+                }
+              } else {
+                bowlBallY -= 200 * 0.016;
+                bowlBallX += Math.sin(pinAngle) * 200 * 0.016;
+                
+                if (bowlBallY <= 40) {
+                  if (Math.abs(bowlBallX - 140) < 14) {
+                    gameScore = 1;
+                  } else {
+                    gameOver = true;
+                    gameScore = -1;
+                  }
+                }
+              }
+            }
+            
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(130, 36, 4, 0, Math.PI * 2);
+            ctx.arc(140, 36, 4, 0, Math.PI * 2);
+            ctx.arc(150, 36, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            if (!bowlBallFired) {
+              ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+              ctx.beginPath();
+              ctx.moveTo(140, 130);
+              ctx.lineTo(140 + Math.sin(pinAngle) * 80, 130 - Math.cos(pinAngle) * 80);
+              ctx.stroke();
+            }
+            
+            ctx.fillStyle = '#9c27b0';
+            ctx.beginPath();
+            ctx.arc(bowlBallX, bowlBallY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+          } else if (subgame === 'baseline_bash') {
+            if (!gameOver && !playerHit) {
+              const progress = elapsed / 2200;
+              tennisBallX = 140;
+              tennisBallY = 30 + progress * 90;
+              tennisBallRadius = 1 + progress * 8;
+              
+              if (tennisBallY > 140) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.fillStyle = 'rgba(57, 255, 20, 0.2)';
+            ctx.fillRect(80, 110, 120, 15);
+            ctx.strokeStyle = '#39ff14';
+            ctx.strokeRect(80, 110, 120, 15);
+            
+            ctx.fillStyle = '#ccff00';
+            ctx.beginPath();
+            ctx.arc(tennisBallX, tennisBallY, tennisBallRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#ffaa00';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(140, 125);
+            if (playerSwung) {
+              ctx.lineTo(165, 110);
+            } else {
+              ctx.lineTo(115, 135);
+            }
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+          } else if (subgame === 'butterfly_stroke') {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.moveTo(0, 50); ctx.lineTo(280, 50);
+            ctx.moveTo(0, 110); ctx.lineTo(280, 110);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(250, 40, 10, 80);
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(swimX, 75, 18, 10);
+            ctx.fillStyle = '#ffe0bd';
+            ctx.beginPath();
+            ctx.arc(swimX + 18, 80, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            if (swimX >= 232) {
+              gameScore = 1;
+            }
+            
+          } else if (subgame === 'hammer_toss') {
+            if (!hammerReleased) {
+              hammerAngle += 6 * 0.016;
+            }
+            
+            ctx.beginPath();
+            ctx.moveTo(140, 80);
+            ctx.arc(140, 80, 45, hammerTargetAngleStart, hammerTargetAngleEnd);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255, 170, 0, 0.4)';
+            ctx.fill();
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.beginPath();
+            ctx.arc(140, 80, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const hx = 140 + Math.cos(hammerAngle) * 35;
+            const hy = 80 + Math.sin(hammerAngle) * 35;
+            ctx.strokeStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(140, 80);
+            ctx.lineTo(hx, hy);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#ff007f';
+            ctx.beginPath();
+            ctx.arc(hx, hy, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+          } else if (subgame === 'balancing_act') {
+            if (!gameOver) {
+              if (this.inputHandler && (this.inputHandler.keys['arrowleft'] || this.inputHandler.keys['a'])) {
+                balanceAngle -= 0.04;
+              }
+              if (this.inputHandler && (this.inputHandler.keys['arrowright'] || this.inputHandler.keys['d'])) {
+                balanceAngle += 0.04;
+              }
+              
+              balanceAngle += (Math.random() - 0.5) * 0.02 + Math.sign(balanceAngle) * balanceDrift * 0.016;
+              balanceDrift += 0.05 * 0.016;
+              
+              if (Math.abs(balanceAngle) > 0.6) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(140, 130, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.save();
+            ctx.translate(140, 122);
+            ctx.rotate(balanceAngle);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -60);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(-15, -70, 30, 10);
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(-10, -80, 20, 10);
+            ctx.restore();
+            ctx.lineWidth = 1;
+            
+          } else if (subgame === 'putt_for_dough') {
+            if (!puttFired) {
+              powerMeterVal += powerMeterDir * 160 * 0.016;
+              if (powerMeterVal > 100) {
+                powerMeterVal = 100;
+                powerMeterDir = -1;
+              } else if (powerMeterVal < 0) {
+                powerMeterVal = 0;
+                powerMeterDir = 1;
+              }
+            } else {
+              golfBallX += 160 * 0.016;
+              if (golfBallX >= 220) {
+                golfBallX = 220;
+                if (golfPuttSuccess) {
+                  gameScore = 1;
+                } else {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              }
+            }
+            
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(220, 110, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(golfBallX, 110, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#222';
+            ctx.fillRect(40, 40, 200, 12);
+            
+            ctx.fillStyle = '#39ff14';
+            ctx.fillRect(40 + 140, 40, 30, 12);
+            
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(40 + powerMeterVal * 2 - 2, 38, 4, 16);
+            
+          } else if (subgame === 'ski_jump') {
+            if (!gameOver && !skierJumped) {
+              skierX += 90 * 0.016;
+              skierY += 50 * 0.016;
+              
+              if (skierX > 180) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            } else if (skierJumped) {
+              skierX += 120 * 0.016;
+              skierY -= 15 * 0.016;
+              if (skierX >= 260) {
+                gameScore = 1;
+              }
+            }
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(10, 20);
+            ctx.lineTo(160, 100);
+            ctx.lineTo(180, 100);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            ctx.fillStyle = 'rgba(57,255,20,0.3)';
+            ctx.fillRect(160, 96, 20, 8);
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(skierX - 4, skierY - 10, 8, 10);
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(skierX - 8, skierY, 16, 2);
+            
+          } else if (subgame === 'mountain_mountin') {
+            if (!gameOver) {
+              if (this.inputHandler && (this.inputHandler.keys['arrowleft'] || this.inputHandler.keys['a'])) {
+                mountPlayerX = Math.max(30, mountPlayerX - 160 * 0.016);
+              }
+              if (this.inputHandler && (this.inputHandler.keys['arrowright'] || this.inputHandler.keys['d'])) {
+                mountPlayerX = Math.min(250, mountPlayerX + 160 * 0.016);
+              }
+              
+              mountPlayerVy += 500 * 0.016;
+              mountPlayerY += mountPlayerVy * 0.016;
+              
+              clouds.forEach(cloud => {
+                if (mountPlayerVy > 0 &&
+                    Math.abs(mountPlayerY - cloud.y) < 6 &&
+                    mountPlayerX >= cloud.x && mountPlayerX <= cloud.x + cloud.w) {
+                  mountPlayerY = cloud.y;
+                  mountPlayerVy = -250;
+                  window.Casino.SoundManager.playBeep();
+                }
+              });
+              
+              if (mountPlayerY < 35) {
+                gameScore = 1;
+              }
+              
+              if (mountPlayerY > 165) {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+            
+            ctx.fillStyle = '#fff';
+            clouds.forEach(c => {
+              ctx.beginPath();
+              ctx.arc(c.x + 8, c.y, 10, 0, Math.PI * 2);
+              ctx.arc(c.x + 20, c.y - 4, 12, 0, Math.PI * 2);
+              ctx.arc(c.x + 32, c.y, 10, 0, Math.PI * 2);
+              ctx.fill();
+            });
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(mountPlayerX - 5, mountPlayerY - 12, 10, 12);
+            
+          } else if (subgame === 'guy_scraper') {
+            if (!gameOver) {
+              if (!guyDropped) {
+                guyX += 130 * 0.016;
+                if (guyX > 250) {
+                  guyX = 250;
+                  guyDropped = true;
+                }
+              } else {
+                guyY += 210 * 0.016;
+                if (guyY >= 120) {
+                  if (Math.abs(guyX - buildingX) < 22) {
+                    gameScore = 1;
+                  } else {
+                    gameOver = true;
+                    gameScore = -1;
+                  }
+                }
+              }
+              
+              buildingX += buildingDir * 90 * 0.016;
+              if (buildingX > 200) {
+                buildingX = 200;
+                buildingDir = -1;
+              } else if (buildingX < 40) {
+                buildingX = 40;
+                buildingDir = 1;
+              }
+            }
+            
+            ctx.fillStyle = '#455a64';
+            ctx.fillRect(buildingX - 20, 130, 40, 30);
+            ctx.fillStyle = '#ffeb3b';
+            ctx.fillRect(buildingX - 10, 135, 6, 6);
+            ctx.fillRect(buildingX + 4, 135, 6, 6);
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(guyX - 5, guyY - 12, 10, 12);
+            
+          } else if (subgame === 'space_fighter') {
+            if (!gameOver && !crosshairLocked) {
+              targetX += targetVx * 0.016;
+              targetY += targetVy * 0.016;
+              
+              if (targetX > 240 || targetX < 40) targetVx = -targetVx;
+              if (targetY > 110 || targetY < 30) targetVy = -targetVy;
+            }
+            
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(140 - 15, 70, 30, 10);
+            ctx.fillStyle = '#39ff14';
+            ctx.fillRect(140 - 5, 66, 10, 4);
+            
+            ctx.strokeStyle = '#00f0ff';
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, 12, 0, Math.PI * 2);
+            ctx.moveTo(targetX - 18, targetY); ctx.lineTo(targetX + 18, targetY);
+            ctx.moveTo(targetX, targetY - 18); ctx.lineTo(targetX, targetY + 18);
+            ctx.stroke();
+            
+          } else if (subgame === 'ninja_pipe_cleaner') {
+            if (!gameOver) {
+              if (now > nextNinjaSpawn && ninjaIncoming.length < 1) {
+                const dir = Math.random() < 0.4 ? 'left' : (Math.random() < 0.8 ? 'right' : 'up');
+                ninjaIncoming.push({
+                  dir: dir,
+                  dist: 130,
+                  speed: 75
+                });
+                nextNinjaSpawn = now + 900 + Math.random() * 500;
+              }
+              
+              ninjaIncoming.forEach(ninja => {
+                ninja.dist -= ninja.speed * 0.016;
+                if (ninja.dist <= 15) {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              });
+            }
+            
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(140 - 8, 80 - 8, 16, 16);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(140 - 8, 80 - 8, 16, 16);
+            
+            ninjaIncoming.forEach(ninja => {
+              let nx = 140;
+              let ny = 80;
+              if (ninja.dir === 'left') nx = 140 - ninja.dist;
+              else if (ninja.dir === 'right') nx = 140 + ninja.dist;
+              else if (ninja.dir === 'up') ny = 80 - ninja.dist;
+              
+              ctx.fillStyle = '#ff0000';
+              ctx.beginPath();
+              ctx.arc(nx, ny, 6, 0, Math.PI * 2);
+              ctx.fill();
+            });
+            
+          } else if (subgame === 'bam_fu') {
+            if (!gameOver && !bamChopped) {
+              bamItemX += 130 * 0.016;
+              if (bamItemX > 290) {
+                if (bamItemType === 'raccoon') {
+                  bamItemX = -30;
+                  bamItemType = Math.random() < 0.65 ? 'wood' : 'raccoon';
+                } else {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              }
+            }
+            
+            ctx.strokeStyle = '#ff007f';
+            ctx.beginPath();
+            ctx.moveTo(140, 50); ctx.lineTo(140, 130);
+            ctx.stroke();
+            
+            if (bamItemType === 'wood') {
+              ctx.fillStyle = '#8d6e63';
+              ctx.fillRect(bamItemX - 10, 95, 20, 20);
+            } else {
+              ctx.fillStyle = '#757575';
+              ctx.fillRect(bamItemX - 10, 95, 20, 20);
+              ctx.fillStyle = '#000';
+              ctx.fillRect(bamItemX - 8, 91, 4, 4);
+              ctx.fillRect(bamItemX + 4, 91, 4, 4);
+            }
+            
+            if (bamAxeChopped && bamAxeY < 95) {
+              bamAxeY += 600 * 0.016;
+              if (bamAxeY >= 95) {
+                bamAxeY = 95;
+                if (Math.abs(bamItemX - 140) < 16) {
+                  if (bamItemType === 'wood') {
+                    gameScore = 1;
+                  } else {
+                    gameOver = true;
+                    gameScore = -1;
+                  }
+                } else {
+                  gameOver = true;
+                  gameScore = -1;
+                }
+              }
+            }
+            
+            ctx.fillStyle = '#ffea00';
+            ctx.fillRect(135, bamAxeY, 10, 14);
+          }
+          
+          if (elapsed >= totalDuration) {
+            cleanUp();
+            if (gameScore > 0 || (['dodge_balls', 'balancing_act'].includes(subgame) && !gameOver)) {
+              window.Casino.SoundManager.playWin();
+              successCallback();
+            } else {
+              window.Casino.SoundManager.playLose();
+              if (failureCallback) {
+                failureCallback();
+              } else {
+                this.showNotification("Time ran out! Microgame Failed.", "error");
+              }
+            }
+          } else if (gameOver) {
+            cleanUp();
+            window.Casino.SoundManager.playLose();
+            if (failureCallback) {
+              failureCallback();
+            } else {
+              this.showNotification("Failed the microgame check!", "error");
+            }
+          } else if (gameScore > 0 && !['crazy_cars', 'log_chop', 'fruit_shoot', 'spare_me', 'butterfly_stroke', 'putt_for_dough', 'ski_jump', 'guy_scraper', 'bam_fu'].includes(subgame)) {
+            cleanUp();
+            window.Casino.SoundManager.playWin();
+            successCallback();
+          } else {
+            animId = requestAnimationFrame(tick);
+          }
+        };
+        animId = requestAnimationFrame(tick);
+        
+        cleanUp = () => {
+          active = false;
+          cancelAnimationFrame(animId);
+          container.classList.add('hidden');
+          microgameWrap.classList.add('hidden');
+          window.removeEventListener('keydown', handleInput);
+          canvas.removeEventListener('click', triggerClick);
+          this.isInQTE = false;
+          if (this.inputHandler) this.inputHandler.keys = {};
+        };
+        
+        const triggerAction = () => {
+          if (gameOver || gameScore > 0) return;
+          window.Casino.SoundManager.playBeep();
+          
+          if (subgame === 'parry') {
+            if (parryRingRadius >= parryWindowMin && parryRingRadius <= parryWindowMax) {
+              gameScore = 1;
+              parFlashed = 15;
+            } else {
+              gameOver = true;
+              gameScore = -1;
+            }
+          } else if (subgame === 'crazy_cars') {
+            if (playerY === 120) {
+              playerVy = -270;
+            }
+          } else if (subgame === 'wario_whirled') {
+            wheelStopped = true;
+            const norm = ((wheelAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            const targetCenter = 1.5 * Math.PI;
+            const diff = Math.abs(norm - targetCenter);
+            const wrappedDiff = Math.min(diff, 2 * Math.PI - diff);
+            if (wrappedDiff <= 0.5) {
+              gameScore = 1;
+            } else {
+              gameOver = true;
+              gameScore = -1;
+            }
+          } else if (subgame === 'diamond_dig') {
+            digCount++;
+            if (digCount >= digRequired) {
+              gameScore = 1;
+            }
+          } else if (subgame === 'log_chop') {
+            axeChopped = true;
+          } else if (subgame === 'fruit_shoot') {
+            if (!arrowFired) {
+              arrowFired = true;
+              arrowX = 140;
+              arrowY = 140;
+            }
+          } else if (subgame === 'batter_up') {
+            batterSwung = true;
+            if (ballY >= 108 && ballY <= 132) {
+              batterHit = true;
+              gameScore = 1;
+            } else {
+              gameOver = true;
+              gameScore = -1;
+            }
+          } else if (subgame === 'heads_up') {
+            // Steering A/D
+          } else if (subgame === 'boing') {
+            // Trampoline A/D
+          } else if (subgame === 'spare_me') {
+            if (!bowlBallFired) {
+              bowlBallFired = true;
+            }
+          } else if (subgame === 'baseline_bash') {
+            playerSwung = true;
+            if (tennisBallY >= 110 && tennisBallY <= 125) {
+              playerHit = true;
+              gameScore = 1;
+            } else {
+              gameOver = true;
+              gameScore = -1;
+            }
+          } else if (subgame === 'butterfly_stroke') {
+            swimX += 22;
+          } else if (subgame === 'hammer_toss') {
+            hammerReleased = true;
+            const norm = ((hammerAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            if (norm >= hammerTargetAngleStart && norm <= hammerTargetAngleEnd) {
+              gameScore = 1;
+            } else {
+              gameOver = true;
+              gameScore = -1;
+            }
+          } else if (subgame === 'balancing_act') {
+            // Balance A/D
+          } else if (subgame === 'putt_for_dough') {
+            if (!puttFired) {
+              puttFired = true;
+              if (powerMeterVal >= 70 && powerMeterVal <= 85) {
+                golfPuttSuccess = true;
+              }
+            }
+          } else if (subgame === 'ski_jump') {
+            if (!skierJumped) {
+              if (skierX >= 155 && skierX <= 180) {
+                skierJumped = true;
+              } else {
+                gameOver = true;
+                gameScore = -1;
+              }
+            }
+          } else if (subgame === 'mountain_mountin') {
+            // Cloud jumper A/D
+          } else if (subgame === 'guy_scraper') {
+            if (!guyDropped) {
+              guyDropped = true;
+            }
+          } else if (subgame === 'space_fighter') {
+            if (Math.abs(targetX - 140) < 18 && Math.abs(targetY - 75) < 18) {
+              crosshairLocked = true;
+              gameScore = 1;
+            } else {
+              gameOver = true;
+              gameScore = -1;
+            }
+          } else if (subgame === 'ninja_pipe_cleaner') {
+            if (ninjaIncoming.length > 0) {
+              const targetNinja = ninjaIncoming[0];
+              if (targetNinja.dist <= 40) {
+                ninjaIncoming.shift();
+                ninjaKills++;
+                if (ninjaKills >= ninjaRequired) {
+                  gameScore = 1;
+                }
+              }
+            }
+          } else if (subgame === 'bam_fu') {
+            bamAxeChopped = true;
+          }
+        };
+        
+        const handleInput = (e) => {
+          const key = e.key.toLowerCase();
+          
+          if (subgame === 'ninja_pipe_cleaner' && ['arrowleft', 'arrowright', 'arrowup', 'a', 'd', 'w'].includes(key)) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (ninjaIncoming.length > 0) {
+              const targetNinja = ninjaIncoming[0];
+              const matchedDir = (key === 'arrowleft' || key === 'a') && targetNinja.dir === 'left' ||
+                                 (key === 'arrowright' || key === 'd') && targetNinja.dir === 'right' ||
+                                 (key === 'arrowup' || key === 'w') && targetNinja.dir === 'up';
+              if (matchedDir && targetNinja.dist <= 40) {
+                window.Casino.SoundManager.playBeep();
+                ninjaIncoming.shift();
+                ninjaKills++;
+                if (ninjaKills >= ninjaRequired) {
+                  gameScore = 1;
+                }
+              }
+            }
+            return;
+          }
+          
+          if (key === ' ' || key === 'e') {
+            e.preventDefault();
+            e.stopPropagation();
+            triggerAction();
+          }
+        };
+        
+        const triggerClick = (e) => {
+          e.preventDefault();
+          triggerAction();
+        };
+        
+        window.addEventListener('keydown', handleInput);
+        canvas.addEventListener('click', triggerClick);
       }
     }
 

@@ -309,6 +309,9 @@
       } else if (gameType === 'slots') {
         this.modalTitle.innerText = "🎰 Cosmic Slot Machine";
         this.renderSlots();
+      } else if (gameType === 'minigame_machine') {
+        this.modalTitle.innerText = "🕹️ Planet Micro-Arcade Cabinet";
+        this.renderMinigameMachine();
       } else if (gameType === 'blackjack' || gameType === 'elec_blackjack') {
         this.modalTitle.innerText = gameType === 'elec_blackjack' ? "🃏 Electronic Blackjack Terminal" : "🃏 Classic Blackjack Table";
         this.renderBlackjack(gameType === 'elec_blackjack');
@@ -1600,6 +1603,132 @@
           this.updateBalance();
         }
       }, 80);
+    }
+
+    /* ==========================================================================
+       PLANET ARCADE CABINET LAYOUT & INTERACTIVE LOGIC
+       ========================================================================== */
+    renderMinigameMachine() {
+      const self = this;
+      this.modalBody.innerHTML = `
+        <div class="arcade-container" style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px; text-align:center;">
+          <div class="arcade-cabinet" style="width:280px; height:180px; background:#1a1a2e; border:4px solid var(--accent-gold); border-radius:12px; box-shadow:0 0 25px rgba(255, 215, 0, 0.2); display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; overflow:hidden;">
+            <!-- Neon Header -->
+            <div style="background:#ff007f; color:#fff; font-weight:bold; font-size:12px; padding:4px 0; width:100%; border-bottom:2px solid var(--accent-gold); letter-spacing:2px; text-shadow:0 0 6px #fff;">PLANET MICRO-ARCADE</div>
+            
+            <!-- Video Screen area -->
+            <div style="flex-grow:1; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; position:relative;">
+              <div id="arcade-screen-text" style="color:#39ff14; font-family:'Press Start 2P', monospace; font-size:9px; line-height:1.8; text-shadow:0 0 4px #39ff14; padding:20px;">
+                READY TO PLAY?<br>SELECT BET AND<br>PRESS INSERT COIN!
+              </div>
+            </div>
+            
+            <!-- Cabinet controls bar -->
+            <div style="background:#111; height:24px; width:100%; border-top:2px solid var(--accent-gold); display:flex; justify-content:space-around; align-items:center; padding:4px 0;">
+              <div style="width:12px; height:12px; background:#ff0000; border-radius:50%;"></div>
+              <div style="width:24px; height:6px; background:#fff; border-radius:3px;"></div>
+              <div style="width:12px; height:12px; background:#0000ff; border-radius:50%;"></div>
+            </div>
+          </div>
+          
+          <div id="arcade-stats-bar" style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:280px; background:rgba(0,0,0,0.3); padding:8px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); font-size:12px;">
+            <div>Bet: <span id="arcade-total-bet-val" style="color:var(--accent-gold); font-weight:800;">10</span> Chips</div>
+            <div>Session Profit: <span id="minigame-session-profit" style="font-weight:800; color:#ffffff;">0</span> Chips</div>
+          </div>
+          
+          <div class="controls-wrapper" style="display:flex; justify-content:space-between; align-items:center; gap:16px; width:100%; max-width:280px;">
+            <div class="chip-selector" style="display:flex; gap:6px;">
+              <div class="picker-chip active" data-value="10">10</div>
+              <div class="picker-chip" data-value="50">50</div>
+              <div class="picker-chip" data-value="100">100</div>
+              <div class="picker-chip" data-value="250">250</div>
+              <div class="picker-chip" data-value="500">500</div>
+            </div>
+            <button id="arcade-play-btn" class="action-btn primary" style="padding:10px 20px; font-size:12px; font-weight:bold;">INSERT COIN</button>
+          </div>
+          
+          <div id="arcade-result-log" class="minigame-log-feed" style="width:100%; max-width:280px; font-size:11px;">
+            <div class="log-line info">Win Planet Micro-games to win 2X payout!</div>
+          </div>
+        </div>
+      `;
+      
+      this.updateSessionProfit(0);
+      
+      const playBtn = document.getElementById('arcade-play-btn');
+      const logFeed = document.getElementById('arcade-result-log');
+      const betValSpan = document.getElementById('arcade-total-bet-val');
+      
+      let betAmount = 10;
+      
+      const chipsPicker = this.modalBody.querySelectorAll('.picker-chip');
+      chipsPicker.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chipsPicker.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          betAmount = parseInt(chip.getAttribute('data-value'));
+          if (betValSpan) betValSpan.innerText = betAmount;
+          window.Casino.SoundManager.playBeep();
+        });
+      });
+      
+      if (playBtn) {
+        playBtn.addEventListener('click', () => {
+          const client = window.Casino.clientInstance;
+          if (!client) return;
+          
+          if (client.chips < betAmount) {
+            this.logDebug("Insufficient chips to play!", "error");
+            window.Casino.SoundManager.playLose();
+            return;
+          }
+          
+          this.overlayEl.classList.add('hidden');
+          
+          client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+            gameType: 'minigame_machine',
+            tableId: this.activeTableId,
+            action: 'bet',
+            betAmount: betAmount
+          });
+          
+          client.startQTEMinigame(
+            "🕹️ ARCADE CHALLENGE",
+            "Succeed the microgame to win 2X payout!",
+            () => {
+              client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+                gameType: 'minigame_machine',
+                tableId: this.activeTableId,
+                action: 'outcome',
+                outcome: 'win',
+                betAmount: betAmount
+              });
+              
+              this.overlayEl.classList.remove('hidden');
+              this.logDebug(`CONGRATULATIONS! You won the microgame! Payout: +${betAmount * 2} Chips`, 'success');
+              this.sessionProfit += betAmount;
+              this.updateSessionProfit(this.sessionProfit);
+              this.updateBalance();
+            },
+            () => {
+              client.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+                gameType: 'minigame_machine',
+                tableId: this.activeTableId,
+                action: 'outcome',
+                outcome: 'lose',
+                betAmount: betAmount
+              });
+              
+              this.overlayEl.classList.remove('hidden');
+              this.logDebug(`GAME OVER! You failed the microgame. Lost ${betAmount} Chips`, 'error');
+              this.sessionProfit -= betAmount;
+              this.updateSessionProfit(this.sessionProfit);
+              this.updateBalance();
+            },
+            'microgame'
+          );
+        });
+      }
     }
 
     /* ==========================================================================

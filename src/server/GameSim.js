@@ -767,6 +767,8 @@
         this.runPlinkoGame(player, tableId, payload.betAmount);
       } else if (gameType === 'lottery') {
         this.runLotteryGame(player, tableId, payload.betAmount, payload.selectedNumbers);
+      } else if (gameType === 'minigame_machine') {
+        this.runMinigameMachineGame(player, tableId, payload.action, payload.betAmount, payload.outcome);
       }
     }
 
@@ -3467,6 +3469,41 @@
         matches,
         multiplier: mult
       });
+    /* ==========================================================================
+       PLANET ARCADE CABINET GAME ENGINE
+       ========================================================================== */
+    runMinigameMachineGame(player, tableId, action, betAmount, outcome) {
+      if (action === 'bet') {
+        if (!this.economyManager.canAfford(betAmount)) {
+          const ui = window.Casino.clientInstance && window.Casino.clientInstance.minigameUI;
+          if (ui) ui.logDebug(`Arcade play rejected: Insufficient chips!`, 'error');
+          return;
+        }
+        this.economyManager.deductChips(betAmount);
+        
+        this.sendPayout(player, 'minigame_machine', -betAmount, 0, {
+          tableId: tableId,
+          action: 'bet_ack',
+          betAmount: betAmount
+        });
+      } else if (action === 'outcome') {
+        if (outcome === 'win') {
+          const totalWin = betAmount * 2;
+          this.economyManager.addChips(totalWin);
+          
+          this.sendPayout(player, 'minigame_machine', betAmount, totalWin, {
+            tableId: tableId,
+            action: 'win',
+            betAmount: betAmount
+          });
+        } else {
+          this.sendPayout(player, 'minigame_machine', -betAmount, 0, {
+            tableId: tableId,
+            action: 'lose',
+            betAmount: betAmount
+          });
+        }
+      }
     }
 
     sendPayout(player, gameType, netPayout, totalWin, extraData) {
