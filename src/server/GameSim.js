@@ -3580,15 +3580,7 @@
           return session.deck.pop();
         });
 
-        // Simple hand evaluation based on card values sum/pairs
-        const score = finalHand.reduce((sum, c) => sum + c.score, 0);
-        let odds = 0;
-        let outcome = 'lose';
-
-        if (score >= 45) { odds = 50; outcome = 'Royal Flush'; }
-        else if (score >= 38) { odds = 8; outcome = 'Full House'; }
-        else if (score >= 30) { odds = 3; outcome = 'Three of a Kind'; }
-        else if (score >= 20) { odds = 1; outcome = 'Jacks or Better'; }
+        const { odds, outcome } = this.evaluateVideoPokerHand(finalHand);
 
         const totalWin = session.betAmount * (odds + (odds > 0 ? 1 : 0));
         if (totalWin > 0) this.economyManager.addChips(totalWin);
@@ -3600,6 +3592,66 @@
           state: 'resolved'
         });
       }
+    }
+
+    evaluateVideoPokerHand(hand) {
+      const rankValues = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+      const suits = hand.map(c => c.suit);
+      const isFlush = suits.every(s => s === suits[0]);
+      
+      const ranks = hand.map(c => rankValues[c.val]).sort((a, b) => a - b);
+      
+      // Check for straight
+      let isStraight = false;
+      if (new Set(ranks).size === 5) {
+        if (ranks[4] - ranks[0] === 4) {
+          isStraight = true;
+        } else if (ranks[0] === 2 && ranks[1] === 3 && ranks[2] === 4 && ranks[3] === 5 && ranks[4] === 14) {
+          isStraight = true; // Ace-low straight
+        }
+      }
+
+      // Count rank occurrences
+      const counts = {};
+      ranks.forEach(r => { counts[r] = (counts[r] || 0) + 1; });
+      const countValues = Object.values(counts).sort((a, b) => b - a);
+
+      let odds = 0;
+      let outcome = 'lose';
+
+      if (isFlush && isStraight && ranks[0] === 10) {
+        odds = 250;
+        outcome = 'Royal Flush';
+      } else if (isFlush && isStraight) {
+        odds = 50;
+        outcome = 'Straight Flush';
+      } else if (countValues[0] === 4) {
+        odds = 25;
+        outcome = 'Four of a Kind';
+      } else if (countValues[0] === 3 && countValues[1] === 2) {
+        odds = 9;
+        outcome = 'Full House';
+      } else if (isFlush) {
+        odds = 6;
+        outcome = 'Flush';
+      } else if (isStraight) {
+        odds = 4;
+        outcome = 'Straight';
+      } else if (countValues[0] === 3) {
+        odds = 3;
+        outcome = 'Three of a Kind';
+      } else if (countValues[0] === 2 && countValues[1] === 2) {
+        odds = 2;
+        outcome = 'Two Pair';
+      } else if (countValues[0] === 2) {
+        const pairRank = Object.keys(counts).find(r => counts[r] === 2);
+        if (parseInt(pairRank) >= 11) { // 11 is J, 12 is Q, 13 is K, 14 is A
+          odds = 1;
+          outcome = 'Jacks or Better';
+        }
+      }
+
+      return { odds, outcome };
     }
 
     /* ==========================================================================

@@ -1352,6 +1352,80 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that Plinko simulation math maps pocketIndex correctly in range [0, 8] and never returns NaN/out-of-bounds.");
 
+      // Verify Video Poker Hand Evaluator:
+      const evaluateHand = (handRanks, handSuits) => {
+        const hand = handRanks.map((r, i) => ({ val: r, suit: handSuits[i], score: 0 }));
+        return hostGame.sim.evaluateVideoPokerHand(hand);
+      };
+
+      // 1. Test case from user report (busted hand classified as Royal Flush): J♦, Q♣, 4♠, A♥, J♣ (Jacks or Better)
+      const userReport = evaluateHand(['J', 'Q', '4', 'A', 'J'], ['♦', '♣', '♠', '♥', '♣']);
+      if (userReport.outcome !== 'Jacks or Better') {
+        throw new Error(`Expected Jacks or Better for user hand, got: ${userReport.outcome}`);
+      }
+      if (userReport.odds !== 1) {
+        throw new Error(`Expected odds 1 for Jacks or Better, got: ${userReport.odds}`);
+      }
+
+      // 2. Test true Royal Flush: 10♣, J♣, Q♣, K♣, A♣
+      const royalFlush = evaluateHand(['10', 'J', 'Q', 'K', 'A'], ['♣', '♣', '♣', '♣', '♣']);
+      if (royalFlush.outcome !== 'Royal Flush') {
+        throw new Error(`Expected Royal Flush, got: ${royalFlush.outcome}`);
+      }
+      if (royalFlush.odds !== 250) {
+        throw new Error(`Expected odds 250 for Royal Flush, got: ${royalFlush.odds}`);
+      }
+
+      // 3. Test Straight Flush: 5♦, 6♦, 7♦, 8♦, 9♦
+      const straightFlush = evaluateHand(['5', '6', '7', '8', '9'], ['♦', '♦', '♦', '♦', '♦']);
+      if (straightFlush.outcome !== 'Straight Flush') {
+        throw new Error(`Expected Straight Flush, got: ${straightFlush.outcome}`);
+      }
+
+      // 4. Test Flush: 2♣, 5♣, 8♣, J♣, A♣
+      const flush = evaluateHand(['2', '5', '8', 'J', 'A'], ['♣', '♣', '♣', '♣', '♣']);
+      if (flush.outcome !== 'Flush') {
+        throw new Error(`Expected Flush, got: ${flush.outcome}`);
+      }
+
+      // 5. Test Straight: 4♠, 5♦, 6♣, 7♥, 8♠
+      const straight = evaluateHand(['4', '5', '6', '7', '8'], ['♠', '♦', '♣', '♥', '♠']);
+      if (straight.outcome !== 'Straight') {
+        throw new Error(`Expected Straight, got: ${straight.outcome}`);
+      }
+
+      // 6. Test Four of a Kind: 7♠, 7♦, 7♣, 7♥, 2♠
+      const fourOfAKind = evaluateHand(['7', '7', '7', '7', '2'], ['♠', '♦', '♣', '♥', '♠']);
+      if (fourOfAKind.outcome !== 'Four of a Kind') {
+        throw new Error(`Expected Four of a Kind, got: ${fourOfAKind.outcome}`);
+      }
+
+      // 7. Test Full House: K♠, K♦, K♣, 3♥, 3♠
+      const fullHouse = evaluateHand(['K', 'K', 'K', '3', '3'], ['♠', '♦', '♣', '♥', '♠']);
+      if (fullHouse.outcome !== 'Full House') {
+        throw new Error(`Expected Full House, got: ${fullHouse.outcome}`);
+      }
+
+      // 8. Test Three of a Kind: Q♠, Q♦, Q♣, 2♥, 3♠
+      const threeOfAKind = evaluateHand(['Q', 'Q', 'Q', '2', '3'], ['♠', '♦', '♣', '♥', '♠']);
+      if (threeOfAKind.outcome !== 'Three of a Kind') {
+        throw new Error(`Expected Three of a Kind, got: ${threeOfAKind.outcome}`);
+      }
+
+      // 9. Test Two Pair: 10♠, 10♦, 4♣, 4♥, A♠
+      const twoPair = evaluateHand(['10', '10', '4', '4', 'A'], ['♠', '♦', '♣', '♥', '♠']);
+      if (twoPair.outcome !== 'Two Pair') {
+        throw new Error(`Expected Two Pair, got: ${twoPair.outcome}`);
+      }
+
+      // 10. Test Low Pair (Lose): 5♠, 5♦, 2♣, 8♥, A♠
+      const lowPair = evaluateHand(['5', '5', '2', '8', 'A'], ['♠', '♦', '♣', '♥', '♠']);
+      if (lowPair.outcome !== 'lose') {
+        throw new Error(`Expected lose for low pair, got: ${lowPair.outcome}`);
+      }
+
+      writeToLog("* Verified Video Poker hand evaluator correctness for Royal Flush, Straight Flush, Four of a Kind, Full House, Flush, Straight, Three of a Kind, Two Pair, Jacks or Better, and Lose hands.");
+
       // Verify Universal Co-Play Sidebar wrapping:
       const plinkoTableId = "plinko_test_table";
       hostGame.minigameUI.open('plinko', plinkoTableId);
