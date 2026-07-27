@@ -1284,21 +1284,29 @@
       buildItems.forEach(item => {
         const btn = document.getElementById(`btn-build-${item.replace(/_/g, '-')}`);
         if (btn && btn.children.length >= 2) {
+          const Catalog = window.Casino.GameObjects.Catalog;
+          const template = Catalog[item];
+          const cleanName = template ? template.name : (btn.dataset.cleanName || btn.children[0].innerText.replace("🔒", "").trim());
           if (!btn.dataset.cleanName) {
-            btn.dataset.cleanName = btn.children[0].innerText;
+            btn.dataset.cleanName = cleanName;
           }
+
           const isUnlocked = this.state.unlockedTechs && this.state.unlockedTechs.includes(item);
           if (isUnlocked) {
-            btn.children[0].innerText = btn.dataset.cleanName;
-            btn.children[1].innerText = btn.children[1].innerText.replace("🔬", "").trim();
+            btn.children[0].innerText = cleanName;
+            const buildCost = this.getDynamicBuildCost(item);
+            btn.children[1].innerText = buildCost.toLocaleString();
+            // Remove inline custom styling if any (e.g. style overrides on arcade cabinet tag)
+            btn.children[1].style.background = '';
+            btn.children[1].style.color = '';
             btn.classList.remove('locked-tech');
-            btn.title = `Build ${btn.dataset.cleanName}`;
+            btn.title = `Build ${cleanName} (Cost: ${buildCost.toLocaleString()} Chips)`;
           } else {
-            btn.children[0].innerText = "🔒 " + btn.dataset.cleanName;
-            const costVal = btn.children[1].innerText.replace("🔬", "").trim();
-            btn.children[1].innerText = "🔬 " + costVal;
+            btn.children[0].innerText = "🔒 " + cleanName;
+            const rCost = template ? (template.researchCost || 0) : 0;
+            btn.children[1].innerText = `🔬 ${rCost} RP`;
             btn.classList.add('locked-tech');
-            btn.title = `Research ${btn.dataset.cleanName} (Cost: ${costVal} Chips)`;
+            btn.title = `Research ${cleanName} (Cost: ${rCost} RP)`;
           }
         }
       });
