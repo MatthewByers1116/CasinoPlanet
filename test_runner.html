@@ -1734,7 +1734,7 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       doc.getElementById('difficulty-easy-btn').click();
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      const actionsCount = 120;
+      const actionsCount = 1000;
       const stepInterval = 100; // ms
 
       for (let i = 0; i < actionsCount; i++) {
@@ -1851,7 +1851,7 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       // Cleanup
       document.body.removeChild(iframe);
       writeToLog("### Test Case: Chaos Monkey Autoplay Fuzzer");
-      writeToLog("* Executed 120 high-speed simulated gameplay steps.");
+      writeToLog(`* Executed ${actionsCount} high-speed simulated gameplay steps.`);
       writeToLog("* Verified that no unhandled exceptions or browser console errors occurred during chaos execution.");
     });
 
