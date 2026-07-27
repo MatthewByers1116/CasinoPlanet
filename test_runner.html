@@ -1704,6 +1704,24 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
         console.error("Monkey caught rejection:", caughtError);
       };
 
+      // Capture and mirror iframe console logs
+      const iframeLogs = [];
+      const originalLog = win.console.log;
+      win.console.log = (...args) => {
+        iframeLogs.push(`[LOG]: ${args.join(' ')}`);
+        originalLog.apply(win.console, args);
+      };
+      const originalWarn = win.console.warn;
+      win.console.warn = (...args) => {
+        iframeLogs.push(`[WARN]: ${args.join(' ')}`);
+        originalWarn.apply(win.console, args);
+      };
+      const originalError = win.console.error;
+      win.console.error = (...args) => {
+        iframeLogs.push(`[ERROR]: ${args.join(' ')}`);
+        originalError.apply(win.console, args);
+      };
+
       await new Promise(resolve => setTimeout(resolve, 800));
       const client = win.Casino.clientInstance;
       if (!client) {
@@ -1724,9 +1742,22 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
           throw new Error(`Chaos Monkey caught Javascript error during autoplay: ${caughtError.stack || caughtError.message}`);
         }
 
-        // Simulating different random interactions
+        // Verify movement lock state invariants
         const qteContainer = doc.getElementById('qte-container');
         const minigameOverlay = doc.getElementById('minigame-overlay');
+        
+        const qteHidden = !qteContainer || qteContainer.classList.contains('hidden');
+        if (client.isInQTE && qteHidden) {
+          console.error("Iframe logs leading to crash:", iframeLogs.slice(-15));
+          throw new Error("Movement Lock Invariant Violated: client.isInQTE is true, but the QTE container is hidden!");
+        }
+        const minigameHidden = !minigameOverlay || minigameOverlay.classList.contains('hidden');
+        if (client.isInMinigame && minigameHidden) {
+          console.error("Iframe logs leading to crash:", iframeLogs.slice(-15));
+          throw new Error("Movement Lock Invariant Violated: client.isInMinigame is true, but the minigame overlay is hidden!");
+        }
+
+        // Simulating different random interactions
         const upgradeOverlay = doc.getElementById('table-upgrade-dialog');
         const charModal = doc.getElementById('character-details-modal');
         const confirmDialog = doc.getElementById('confirm-dialog');
