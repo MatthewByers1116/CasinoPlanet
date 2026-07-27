@@ -824,6 +824,38 @@ kbd {
   100% { transform: rotate(8deg) scale(1.05); }
 }
 
+/* Craps Multiplayer Chips Container */
+.bet-chips-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  width: 95%;
+  height: 95%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bet-chips-container .bet-chip {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  margin: 1px;
+}
+
+/* 3D Tumbling Dice Styles */
+.die.rolling-3d {
+  pointer-events: none;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.65), inset 0 -4px 0 #d0d0d0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
 /* Happiness Container */
 .happiness-container {
   display: flex;
@@ -1796,6 +1828,7 @@ kbd {
         <button id="btn-detail-mode" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 90px; border-color: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px;">📊 Detail: Off</button>
         <button id="btn-save-game" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 70px; border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: var(--accent-gold);">💾 Save</button>
         <button id="btn-tutorial" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 80px; border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: var(--accent-blue);">❓ Tutorial</button>
+        <button id="btn-unstuck" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 80px; border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: #ff4d4d;">🆘 Unstuck</button>
         
         <div style="display: flex; flex-direction: column; gap: 2px;">
           <div class="connection-status offline" id="conn-status" style="height: 18px; line-height: 16px; padding: 0 8px; font-size: 9px; display: flex; align-items: center; gap: 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); margin: 0; box-sizing: border-box;">
@@ -1818,6 +1851,22 @@ kbd {
         </div>
       </div>
     </div>
+
+    <!-- Scorecard Panel -->
+    <div id="scorecard-panel" style="position: fixed; right: 20px; top: 120px; z-index: 1000; width: 220px; background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(8px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); padding: 12px; box-sizing: border-box; box-shadow: 0 8px 32px rgba(0,0,0,0.5); font-family: 'Outfit', sans-serif; transition: all 0.3s ease;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: bold; color: var(--accent-gold); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">🏆 Scorecard</span>
+        <button id="btn-toggle-scorecard" class="action-btn secondary" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 10px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s ease; outline: none; margin: 0; min-width: unset; height: unset;">hide</button>
+      </div>
+      <div id="scorecard-content" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
+        <!-- Scores will be injected dynamically here -->
+      </div>
+    </div>
+    
+    <!-- Collapsed Scorecard Button -->
+    <button id="scorecard-collapsed-btn" class="action-btn secondary hidden" style="position: fixed; right: 20px; top: 120px; z-index: 1000; background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(8px); border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); padding: 8px 12px; cursor: pointer; color: var(--accent-gold); font-size: 11px; font-weight: bold; font-family: 'Outfit', sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 6px; margin: 0; height: unset; min-width: unset;">
+      🏆 SCORECARD
+    </button>
 
     <!-- Interaction Prompt (Walk up and press E) -->
     <div id="interaction-prompt" class="interaction-prompt hidden">
@@ -1999,6 +2048,9 @@ kbd {
                 <span>🍕 Needs Resist (Lvl <span id="char-lvl-needs">1</span>)</span>
                 <span style="color: #ffd700; font-weight: bold;" id="char-cost-needs">150c</span>
               </button>
+              <button id="btn-employee-break" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: center; align-items: center; border-color: #ffaa00; background: rgba(255, 170, 0, 0.05); color: #ffaa00; font-weight: bold; margin-top: 4px;">
+                <span>☕ Send on Break</span>
+              </button>
             </div>
           </div>
         </div>
@@ -2067,7 +2119,9 @@ kbd {
       REFILL_AMENITY: 'REFILL_AMENITY',     // { objectId }
       GRAB_AMENITY_ITEM: 'GRAB_AMENITY_ITEM', // { objectId }
       HAND_NEEDS: 'HAND_NEEDS',              // { guestId, itemType }
-      SET_PLAYER_NAME: 'SET_PLAYER_NAME'    // { name }
+      SET_PLAYER_NAME: 'SET_PLAYER_NAME',    // { name }
+      SEND_EMPLOYEE_BREAK: 'SEND_EMPLOYEE_BREAK', // { employeeId }
+      UNSTUCK_PLAYER: 'UNSTUCK_PLAYER'
     },
 
     // Events broadcast from Simulator (Server) -> Client
@@ -2911,10 +2965,10 @@ kbd {
       let maxStock = null;
       let stock = null;
       if (['bar', 'restaurant', 'soda_machine', 'vending_machine', 'candy_dispenser', 'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) {
-        if (type === 'bar') maxStock = 15;
-        else if (type === 'restaurant') maxStock = 25;
-        else if (['pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) maxStock = 10;
-        else maxStock = 5;
+        if (type === 'bar') maxStock = 30;
+        else if (type === 'restaurant') maxStock = 50;
+        else if (['pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) maxStock = 20;
+        else maxStock = 10;
         stock = maxStock;
       }
 
@@ -3457,6 +3511,11 @@ kbd {
       this.holdingMeal = false;
       this.color = '#00f0ff';
       this.hairColor = '#ffb300';
+      this.gamblingStats = {
+        totalWon: 0,
+        totalLost: 0,
+        netProfit: 0
+      };
     }
 
     move(gridX, gridY, gridManager) {
@@ -3498,7 +3557,8 @@ kbd {
         holdingDrink: this.holdingDrink || false,
         holdingMeal: this.holdingMeal || false,
         color: this.color || '#00f0ff',
-        hairColor: this.hairColor || '#ffb300'
+        hairColor: this.hairColor || '#ffb300',
+        gamblingStats: this.gamblingStats || { totalWon: 0, totalLost: 0, netProfit: 0 }
       };
     }
 
@@ -3514,6 +3574,7 @@ kbd {
       this.holdingMeal = data.holdingMeal || false;
       this.color = data.color || this.color || '#00f0ff';
       this.hairColor = data.hairColor || this.hairColor || '#ffb300';
+      this.gamblingStats = data.gamblingStats || this.gamblingStats || { totalWon: 0, totalLost: 0, netProfit: 0 };
     }
   }
 
@@ -4703,59 +4764,76 @@ kbd {
     findJobOrWander(gridManager, sim) {
       const objects = Array.from(gridManager.placedObjects.values());
 
-      // 1. Check if needs are critical and satisfy them first
-      if (this.thirst < 25 || this.hunger < 25 || this.bio < 25) {
-        if (this.role === 'dealer' && this.targetObjectId) {
-          const oldTable = gridManager.placedObjects.get(this.targetObjectId);
-          if (oldTable && oldTable.dealerSeat && oldTable.dealerSeat.employeeId === this.id) {
-            oldTable.dealerSeat.employeeId = null;
-          }
-          this.targetObjectId = null;
-        }
-        let reqTypes = null;
-        if (this.thirst < 25) {
-          reqTypes = ['bar', 'soda_machine'];
-          this.currentNeedBeingSatisfied = 'thirst';
-        } else if (this.hunger < 25) {
-          reqTypes = ['restaurant', 'vending_machine'];
-          this.currentNeedBeingSatisfied = 'hunger';
+      // 1. Check if needs are critical and satisfy them first, or if commanded to go on break
+      if (this.thirst < 25 || this.hunger < 25 || this.bio < 25 || this.isOnBreak) {
+        if (this.isOnBreak && this.thirst >= 90 && this.hunger >= 90 && this.bio >= 90) {
+          this.isOnBreak = false;
         } else {
-          reqTypes = ['bathroom', 'bathroom_stall'];
-          this.currentNeedBeingSatisfied = 'bio';
-        }
+          // Find lowest need to satisfy
+          let lowestNeed = 'thirst';
+          let minVal = this.thirst;
+          if (this.hunger < minVal) {
+            lowestNeed = 'hunger';
+            minVal = this.hunger;
+          }
+          if (this.bio < minVal) {
+            lowestNeed = 'bio';
+            minVal = this.bio;
+          }
 
-        const options = objects.filter(obj => reqTypes.includes(obj.type) && obj.seats && obj.seats.some(s => s.guestId === null));
-        if (options.length > 0) {
-          const chosen = options[Math.floor(Math.random() * options.length)];
-          const freeSeat = chosen.seats.find(s => s.guestId === null);
-          if (freeSeat) {
-            freeSeat.guestId = this.id;
-            this.assignedSeatIndex = chosen.seats.indexOf(freeSeat);
-            this.targetObjectId = chosen.id;
-
-            const path = window.Casino.Pathfinding.findPath(
-              gridManager,
-              this.gridX,
-              this.gridY,
-              chosen.gridX + freeSeat.rx,
-              chosen.gridY + freeSeat.ry,
-              false
-            );
-            if (path && path.length > 0) {
-              this.path = path;
-              this.pathIndex = 0;
-              this.moveProgress = 0;
-              this.state = States.WALKING;
-              return;
-            } else {
-              freeSeat.guestId = null;
-              this.assignedSeatIndex = null;
+          if (minVal < 90) {
+            if (this.role === 'dealer' && this.targetObjectId) {
+              const oldTable = gridManager.placedObjects.get(this.targetObjectId);
+              if (oldTable && oldTable.dealerSeat && oldTable.dealerSeat.employeeId === this.id) {
+                oldTable.dealerSeat.employeeId = null;
+              }
               this.targetObjectId = null;
             }
+            let reqTypes = null;
+            if (lowestNeed === 'thirst') {
+              reqTypes = ['bar', 'soda_machine'];
+              this.currentNeedBeingSatisfied = 'thirst';
+            } else if (lowestNeed === 'hunger') {
+              reqTypes = ['restaurant', 'vending_machine'];
+              this.currentNeedBeingSatisfied = 'hunger';
+            } else {
+              reqTypes = ['bathroom', 'bathroom_stall'];
+              this.currentNeedBeingSatisfied = 'bio';
+            }
+
+            const options = objects.filter(obj => reqTypes.includes(obj.type) && obj.seats && obj.seats.some(s => s.guestId === null));
+            if (options.length > 0) {
+              const chosen = options[Math.floor(Math.random() * options.length)];
+              const freeSeat = chosen.seats.find(s => s.guestId === null);
+              if (freeSeat) {
+                freeSeat.guestId = this.id;
+                this.assignedSeatIndex = chosen.seats.indexOf(freeSeat);
+                this.targetObjectId = chosen.id;
+
+                const path = window.Casino.Pathfinding.findPath(
+                  gridManager,
+                  this.gridX,
+                  this.gridY,
+                  chosen.gridX + freeSeat.rx,
+                  chosen.gridY + freeSeat.ry,
+                  false
+                );
+                if (path && path.length > 0) {
+                  this.path = path;
+                  this.pathIndex = 0;
+                  this.moveProgress = 0;
+                  this.state = States.WALKING;
+                  return;
+                } else {
+                  freeSeat.guestId = null;
+                  this.assignedSeatIndex = null;
+                  this.targetObjectId = null;
+                }
+              }
+            }
+            this.currentNeedBeingSatisfied = null;
           }
         }
-        // Fallback: if no empty seats/restrooms available, wander until there is space
-        this.currentNeedBeingSatisfied = null;
       }
 
       // 2. Role-specific tasks
@@ -5108,7 +5186,8 @@ kbd {
         targetObjectId: this.targetObjectId,
         speedLvl: this.speedLvl || 1,
         capacityLvl: this.capacityLvl || 1,
-        needsLvl: this.needsLvl || 1
+        needsLvl: this.needsLvl || 1,
+        isOnBreak: !!this.isOnBreak
       };
     }
   }
@@ -5548,6 +5627,14 @@ kbd {
         case Protocol.Commands.UPGRADE_EMPLOYEE:
           this.handleUpgradeEmployee(player, payload);
           break;
+
+        case Protocol.Commands.SEND_EMPLOYEE_BREAK:
+          this.handleSendEmployeeBreak(player, payload);
+          break;
+
+        case Protocol.Commands.UNSTUCK_PLAYER:
+          this.handleUnstuckPlayer(player);
+          break;
       }
     }
 
@@ -5560,6 +5647,17 @@ kbd {
         player.move(payload.x, payload.y, this.gridManager);
         this.broadcast(window.Casino.Protocol.Events.PLAYER_MOVED, player.serialize());
       }
+    }
+
+    handleUnstuckPlayer(player) {
+      player.clearInteraction();
+      player.gridX = this.gridManager.entranceX;
+      player.gridY = this.gridManager.entranceY;
+      player.targetX = this.gridManager.entranceX;
+      player.targetY = this.gridManager.entranceY;
+      console.log(`[Server:GameSim] Teleported player "${player.id}" back to entrance via Unstuck command`);
+      this.broadcast(window.Casino.Protocol.Events.PLAYER_MOVED, player.serialize());
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
     }
 
     handleMoveObject(player, payload) {
@@ -5700,6 +5798,10 @@ kbd {
         console.warn(`[Server:GameSim] Upgrade rejected: Employee "${employeeId}" not found.`);
         return;
       }
+      if (employee.role === 'pickpocket') {
+        console.warn(`[Server:GameSim] Upgrade rejected: Cannot upgrade pickpockets!`);
+        return;
+      }
 
       const currentLvl = employee[upgradeType + 'Lvl'] || 1;
       if (currentLvl >= 5) {
@@ -5729,6 +5831,17 @@ kbd {
       }
       
       console.log(`[Server:GameSim] Upgraded Employee "${employeeId}" ${upgradeType} to Level ${employee[upgradeType + 'Lvl']} for ${cost} Chips.`);
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleSendEmployeeBreak(player, payload) {
+      const { employeeId } = payload;
+      const employee = this.employees.get(employeeId);
+      if (!employee) return;
+      if (employee.role === 'pickpocket') return;
+      
+      employee.isOnBreak = true;
+      console.log(`[Server:GameSim] Commanding Employee "${employeeId}" to go on break.`);
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
     }
 
@@ -6017,6 +6130,69 @@ kbd {
       const boardState = this.crapsState.get(tableId);
       if (!boardState.rolledNumbers) boardState.rolledNumbers = [];
 
+      // Handle placing bet (subtract chips immediately and save to state)
+      if (action === 'place_bet') {
+        if (!bets || bets.length === 0) return;
+        let extraBetTotal = 0;
+        bets.forEach(b => {
+          let cost = b.amount;
+          if (b.type.startsWith('buy_')) {
+            cost += Math.max(1, Math.floor(b.amount * 0.05)); // 5% Vig commission
+          }
+          extraBetTotal += cost;
+        });
+
+        const pChips = player.chips || 0;
+        if (pChips < extraBetTotal) return;
+
+        player.chips -= extraBetTotal;
+        this.economyManager.deductChips(extraBetTotal);
+
+        bets.forEach(b => {
+          const existing = boardState.activeBets.find(active => active.type === b.type && active.playerId === player.id);
+          if (existing) {
+            existing.amount += b.amount;
+          } else {
+            boardState.activeBets.push({
+              type: b.type,
+              amount: b.amount,
+              playerId: player.id
+            });
+          }
+        });
+
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        return;
+      }
+
+      // Handle clearing bets
+      if (action === 'clear_bets') {
+        let refundTotal = 0;
+        const newActiveBets = [];
+
+        boardState.activeBets.forEach(b => {
+          if (b.playerId === player.id) {
+            const isPassOrDontPass = (b.type === 'pass_line' || b.type === 'dont_pass');
+            if (boardState.point !== null && isPassOrDontPass) {
+              newActiveBets.push(b); // Pass/Don't Pass contract bets are locked once Point is established
+            } else {
+              refundTotal += b.amount;
+            }
+          } else {
+            newActiveBets.push(b);
+          }
+        });
+
+        if (refundTotal > 0) {
+          player.chips += refundTotal;
+          this.economyManager.addChips(refundTotal);
+        }
+
+        boardState.activeBets = newActiveBets;
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        return;
+      }
+
       // Handle roll action
       if (action === 'roll') {
         // Roll dice
@@ -6024,252 +6200,37 @@ kbd {
         const die2 = Math.floor(Math.random() * 6) + 1;
         const total = die1 + die2;
 
-        let totalWin = 0;
-        let totalBetLoss = 0;
-        const newActiveBets = [];
-        const payoutDetails = [];
-
-        // Add new bets if player is passing them in
+        // Legacy: if rolling player passed in new bets directly on roll
         if (bets && bets.length > 0) {
           let extraBetTotal = 0;
           bets.forEach(b => {
             let cost = b.amount;
             if (b.type.startsWith('buy_')) {
-              cost += Math.max(1, Math.floor(b.amount * 0.05)); // 5% Vig, minimum 1 chip
+              cost += Math.max(1, Math.floor(b.amount * 0.05));
             }
             extraBetTotal += cost;
           });
 
-          if (!this.economyManager.canAfford(extraBetTotal)) return;
-
-          this.economyManager.deductChips(extraBetTotal);
-          
-          bets.forEach(b => {
-            boardState.activeBets.push({
-              type: b.type,
-              amount: b.amount
+          if ((player.chips || 0) >= extraBetTotal) {
+            player.chips -= extraBetTotal;
+            this.economyManager.deductChips(extraBetTotal);
+            bets.forEach(b => {
+              const existing = boardState.activeBets.find(active => active.type === b.type && active.playerId === player.id);
+              if (existing) {
+                existing.amount += b.amount;
+              } else {
+                boardState.activeBets.push({
+                  type: b.type,
+                  amount: b.amount,
+                  playerId: player.id
+                });
+              }
             });
-          });
+          }
         }
 
         const isComeOut = (boardState.point === null);
         let nextPoint = boardState.point;
-
-        // Resolve each bet according to Craps rules
-        boardState.activeBets.forEach(bet => {
-          let resolved = false;
-          let won = false;
-          let resolved_push = false;
-          let payoutRatio = 1; // standard is 1:1
-
-          switch (bet.type) {
-            case 'pass_line':
-              if (isComeOut) {
-                if (total === 7 || total === 11) {
-                  resolved = true;
-                  won = true;
-                } else if (total === 2 || total === 3 || total === 12) {
-                  resolved = true;
-                  won = false;
-                }
-              } else {
-                // Point is set
-                if (total === boardState.point) {
-                  resolved = true;
-                  won = true;
-                } else if (total === 7) {
-                  resolved = true;
-                  won = false;
-                }
-              }
-              break;
-
-            case 'dont_pass':
-              if (isComeOut) {
-                if (total === 2 || total === 3) {
-                  resolved = true;
-                  won = true;
-                } else if (total === 12) {
-                  resolved = true; // Bar 12 (Push)
-                  resolved_push = true; 
-                } else if (total === 7 || total === 11) {
-                  resolved = true;
-                  won = false;
-                }
-              } else {
-                if (total === 7) {
-                  resolved = true;
-                  won = true;
-                } else if (total === boardState.point) {
-                  resolved = true;
-                  won = false;
-                }
-              }
-              break;
-
-            case 'field': // Field is a single roll bet
-              resolved = true;
-              if ([3, 4, 9, 10, 11].includes(total)) {
-                won = true;
-                payoutRatio = 1;
-              } else if (total === 2) {
-                won = true;
-                payoutRatio = 2; // Double payout on 2
-              } else if (total === 12) {
-                won = true;
-                payoutRatio = 3; // Triple payout on 12
-              } else {
-                won = false;
-              }
-              break;
-
-            // Place Bets on numbers (4, 5, 6, 8, 9, 10)
-            case 'place_4':
-              if (total === 4) { resolved = true; won = true; payoutRatio = 9/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_5':
-              if (total === 5) { resolved = true; won = true; payoutRatio = 7/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_6':
-              if (total === 6) { resolved = true; won = true; payoutRatio = 7/6; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_8':
-              if (total === 8) { resolved = true; won = true; payoutRatio = 7/6; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_9':
-              if (total === 9) { resolved = true; won = true; payoutRatio = 7/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_10':
-              if (total === 10) { resolved = true; won = true; payoutRatio = 9/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-
-            // Buy Bets on numbers (4, 5, 6, 8, 9, 10) - True Odds (Vig paid on placement)
-            case 'buy_4':
-              if (total === 4) { resolved = true; won = true; payoutRatio = 2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_5':
-              if (total === 5) { resolved = true; won = true; payoutRatio = 1.5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_6':
-              if (total === 6) { resolved = true; won = true; payoutRatio = 1.2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_8':
-              if (total === 8) { resolved = true; won = true; payoutRatio = 1.2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_9':
-              if (total === 9) { resolved = true; won = true; payoutRatio = 1.5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_10':
-              if (total === 10) { resolved = true; won = true; payoutRatio = 2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-
-            // Proposition Bets (Single Roll)
-            case 'prop_yo11':
-              resolved = true;
-              won = (total === 11);
-              payoutRatio = 15;
-              break;
-            case 'prop_craps3':
-              resolved = true;
-              won = (total === 3);
-              payoutRatio = 15;
-              break;
-            case 'prop_craps2':
-              resolved = true;
-              won = (total === 2);
-              payoutRatio = 30;
-              break;
-            case 'prop_craps12':
-              resolved = true;
-              won = (total === 12);
-              payoutRatio = 30;
-              break;
-            case 'prop_any7':
-              resolved = true;
-              won = (total === 7);
-              payoutRatio = 4;
-              break;
-
-            // ATS (All, Tall, Small) side bets
-            case 'prop_small':
-              if (total === 7) {
-                resolved = true;
-                won = false;
-              } else {
-                const smallSet = [2, 3, 4, 5, 6];
-                const hasSmall = smallSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
-                if (hasSmall) {
-                  resolved = true;
-                  won = true;
-                  payoutRatio = 34; // pays 34:1
-                }
-              }
-              break;
-
-            case 'prop_big':
-              if (total === 7) {
-                resolved = true;
-                won = false;
-              } else {
-                const bigSet = [8, 9, 10, 11, 12];
-                const hasBig = bigSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
-                if (hasBig) {
-                  resolved = true;
-                  won = true;
-                  payoutRatio = 34; // pays 34:1
-                }
-              }
-              break;
-
-            case 'prop_all':
-              if (total === 7) {
-                resolved = true;
-                won = false;
-              } else {
-                const allSet = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
-                const hasAll = allSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
-                if (hasAll) {
-                  resolved = true;
-                  won = true;
-                  payoutRatio = 174; // pays 174:1
-                }
-              }
-              break;
-          }
-
-          if (resolved) {
-            if (resolved_push) {
-              // Push: return original bet amount
-              totalWin += bet.amount;
-              payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: bet.amount, isPush: true });
-            } else if (won) {
-              const winAmount = Math.floor(bet.amount * (payoutRatio + 1));
-              totalWin += winAmount;
-              payoutDetails.push({ type: bet.type, won: true, amount: bet.amount, payout: winAmount });
-            } else {
-              totalBetLoss += bet.amount;
-              payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: 0 });
-            }
-          } else {
-            // Keep bet active for next roll
-            newActiveBets.push(bet);
-          }
-        });
-
-        // Update active bets
-        boardState.activeBets = newActiveBets;
 
         // Update ATS Rolled numbers list
         if (total === 7) {
@@ -6292,26 +6253,285 @@ kbd {
         }
         boardState.point = nextPoint;
 
-        // Apply payouts
-        if (totalWin > 0) {
-          this.economyManager.addChips(totalWin);
+        // Group active bets by player
+        const playerBetsMap = new Map();
+        boardState.activeBets.forEach(b => {
+          if (!playerBetsMap.has(b.playerId)) {
+            playerBetsMap.set(b.playerId, []);
+          }
+          playerBetsMap.get(b.playerId).push(b);
+        });
+
+        // Ensure the rolling shooter player is in the map
+        if (!playerBetsMap.has(player.id)) {
+          playerBetsMap.set(player.id, []);
         }
 
-        const resolvedBetTotal = payoutDetails.reduce((sum, d) => sum + d.amount, 0);
-        const netPayout = totalWin - resolvedBetTotal;
+        const nextActiveBets = [];
+        const payoutsSummary = [];
 
-        this.sendPayout(player, isElectronic ? 'bubble_craps' : 'craps', netPayout, totalWin, {
-          tableId: tableId,
-          die1: die1,
-          die2: die2,
-          total: total,
-          point: boardState.point,
-          isComeOut: isComeOut,
-          totalBetLoss: totalBetLoss,
-          payoutDetails: payoutDetails,
-          activeBets: boardState.activeBets,
-          rolledNumbers: boardState.rolledNumbers
+        // Evaluate outcomes for each player at the table
+        for (const [pId, activeBets] of playerBetsMap.entries()) {
+          const targetPlayer = this.players.get(pId);
+          if (!targetPlayer) continue;
+
+          let totalWin = 0;
+          let totalBetLoss = 0;
+          const payoutDetails = [];
+
+          activeBets.forEach(bet => {
+            let resolved = false;
+            let won = false;
+            let resolved_push = false;
+            let payoutRatio = 1; // standard is 1:1
+
+            switch (bet.type) {
+              case 'pass_line':
+                if (isComeOut) {
+                  if (total === 7 || total === 11) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === 2 || total === 3 || total === 12) {
+                    resolved = true;
+                    won = false;
+                  }
+                } else {
+                  if (total === boardState.point) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === 7) {
+                    resolved = true;
+                    won = false;
+                  }
+                }
+                break;
+
+              case 'dont_pass':
+                if (isComeOut) {
+                  if (total === 2 || total === 3) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === 12) {
+                    resolved = true; // Bar 12 (Push)
+                    resolved_push = true; 
+                  } else if (total === 7 || total === 11) {
+                    resolved = true;
+                    won = false;
+                  }
+                } else {
+                  if (total === 7) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === boardState.point) {
+                    resolved = true;
+                    won = false;
+                  }
+                }
+                break;
+
+              case 'field': // Field is a single roll bet
+                resolved = true;
+                if ([3, 4, 9, 10, 11].includes(total)) {
+                  won = true;
+                  payoutRatio = 1;
+                } else if (total === 2) {
+                  won = true;
+                  payoutRatio = 2; // Double payout on 2
+                } else if (total === 12) {
+                  won = true;
+                  payoutRatio = 3; // Triple payout on 12
+                } else {
+                  won = false;
+                }
+                break;
+
+              // Place Bets on numbers (4, 5, 6, 8, 9, 10)
+              case 'place_4':
+                if (total === 4) { resolved = true; won = true; payoutRatio = 9/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_5':
+                if (total === 5) { resolved = true; won = true; payoutRatio = 7/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_6':
+                if (total === 6) { resolved = true; won = true; payoutRatio = 7/6; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_8':
+                if (total === 8) { resolved = true; won = true; payoutRatio = 7/6; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_9':
+                if (total === 9) { resolved = true; won = true; payoutRatio = 7/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_10':
+                if (total === 10) { resolved = true; won = true; payoutRatio = 9/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+
+              // Buy Bets on numbers (4, 5, 6, 8, 9, 10) - True Odds (Vig paid on placement)
+              case 'buy_4':
+                if (total === 4) { resolved = true; won = true; payoutRatio = 2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_5':
+                if (total === 5) { resolved = true; won = true; payoutRatio = 1.5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_6':
+                if (total === 6) { resolved = true; won = true; payoutRatio = 1.2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_8':
+                if (total === 8) { resolved = true; won = true; payoutRatio = 1.2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_9':
+                if (total === 9) { resolved = true; won = true; payoutRatio = 1.5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_10':
+                if (total === 10) { resolved = true; won = true; payoutRatio = 2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+
+              // Proposition Bets (Single Roll)
+              case 'prop_yo11':
+                resolved = true;
+                won = (total === 11);
+                payoutRatio = 15;
+                break;
+              case 'prop_craps3':
+                resolved = true;
+                won = (total === 3);
+                payoutRatio = 15;
+                break;
+              case 'prop_craps2':
+                resolved = true;
+                won = (total === 2);
+                payoutRatio = 30;
+                break;
+              case 'prop_craps12':
+                resolved = true;
+                won = (total === 12);
+                payoutRatio = 30;
+                break;
+              case 'prop_any7':
+                resolved = true;
+                won = (total === 7);
+                payoutRatio = 4;
+                break;
+
+              // ATS (All, Tall, Small) side bets
+              case 'prop_small':
+                if (total === 7) {
+                  resolved = true;
+                  won = false;
+                } else {
+                  const smallSet = [2, 3, 4, 5, 6];
+                  const hasSmall = smallSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
+                  if (hasSmall) {
+                    resolved = true;
+                    won = true;
+                    payoutRatio = 34; // pays 34:1
+                  }
+                }
+                break;
+
+              case 'prop_big':
+                if (total === 7) {
+                  resolved = true;
+                  won = false;
+                } else {
+                  const bigSet = [8, 9, 10, 11, 12];
+                  const hasBig = bigSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
+                  if (hasBig) {
+                    resolved = true;
+                    won = true;
+                    payoutRatio = 34; // pays 34:1
+                  }
+                }
+                break;
+
+              case 'prop_all':
+                if (total === 7) {
+                  resolved = true;
+                  won = false;
+                } else {
+                  const allSet = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
+                  const hasAll = allSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
+                  if (hasAll) {
+                    resolved = true;
+                    won = true;
+                    payoutRatio = 174; // pays 174:1
+                  }
+                }
+                break;
+            }
+
+            if (resolved) {
+              if (resolved_push) {
+                totalWin += bet.amount;
+                payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: bet.amount, isPush: true });
+              } else if (won) {
+                const winAmount = Math.floor(bet.amount * (payoutRatio + 1));
+                totalWin += winAmount;
+                payoutDetails.push({ type: bet.type, won: true, amount: bet.amount, payout: winAmount });
+              } else {
+                totalBetLoss += bet.amount;
+                payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: 0 });
+              }
+            } else {
+              // Keep bet active for next roll, retaining the player identity
+              nextActiveBets.push(bet);
+            }
+          });
+
+          // Apply payouts to this specific player
+          if (totalWin > 0) {
+            targetPlayer.chips += totalWin;
+            this.economyManager.addChips(totalWin);
+          }
+
+          const resolvedBetTotal = payoutDetails.reduce((sum, d) => sum + d.amount, 0);
+          const netPayout = totalWin - resolvedBetTotal;
+
+          payoutsSummary.push({
+            playerId: pId,
+            name: targetPlayer.name || `Manager ${pId.substring(0, 5)}`,
+            totalWin: totalWin,
+            totalBetLoss: totalBetLoss,
+            netPayout: netPayout,
+            payoutDetails: payoutDetails
+          });
+        }
+
+        // Update table's active bets
+        boardState.activeBets = nextActiveBets;
+
+        // Broadcast payouts to all participating players at the table
+        payoutsSummary.forEach(ps => {
+          const targetPlayer = this.players.get(ps.playerId);
+          if (targetPlayer) {
+            this.sendPayout(targetPlayer, isElectronic ? 'bubble_craps' : 'craps', ps.netPayout, ps.totalWin, {
+              tableId: tableId,
+              die1: die1,
+              die2: die2,
+              total: total,
+              point: boardState.point,
+              isComeOut: isComeOut,
+              totalBetLoss: ps.totalBetLoss,
+              payoutDetails: ps.payoutDetails,
+              activeBets: boardState.activeBets,
+              rolledNumbers: boardState.rolledNumbers,
+              payoutsSummary: payoutsSummary // Pass summary to show all table bids/wins
+            });
+          }
         });
+
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
       }
     }
 
@@ -6540,6 +6760,43 @@ kbd {
       // Reset all guests (people-wise reset)
       this.guests.clear();
 
+      // Refund active card sessions
+      const sessionMaps = [
+        this.blackjackSessions,
+        this.rideTheBusSessions,
+        this.threeCardPokerSessions,
+        this.texasHoldemSessions,
+        this.paiGowSessions,
+        this.caribbeanStudSessions,
+        this.letItRideSessions,
+        this.redDogSessions,
+        this.spanish21Sessions,
+        this.casinoWarSessions,
+        this.videoPokerSessions
+      ];
+
+      for (const map of sessionMaps) {
+        for (const [playerId, sess] of map.entries()) {
+          if (sess && sess.state !== 'resolved') {
+            let bet = 0;
+            if (sess.totalInvested !== undefined) bet = sess.totalInvested;
+            else if (sess.betAmount !== undefined) bet = sess.betAmount;
+            else if (sess.anteBet !== undefined) bet = sess.anteBet;
+            else if (sess.singleBet !== undefined) bet = sess.singleBet;
+            else if (sess.bet !== undefined) bet = sess.bet;
+            else if (sess.ante !== undefined) bet = sess.ante;
+
+            if (bet > 0) {
+              const player = this.players.get(playerId);
+              if (player) {
+                this.economyManager.addChips(bet);
+                console.log(`[Server:GameSim] Refunded ${bet} Chips to player "${playerId}" for session at day end.`);
+              }
+            }
+          }
+        }
+      }
+
       // Clear card session states
       this.blackjackSessions.clear();
       this.rideTheBusSessions.clear();
@@ -6554,8 +6811,17 @@ kbd {
       this.casinoWarSessions.clear();
       this.videoPokerSessions.clear();
 
-      // Clear Craps active states
+      // Clear Craps active states and refund bets
       for (const [tableId, state] of this.crapsState.entries()) {
+        if (state.activeBets && state.activeBets.length > 0) {
+          for (const bet of state.activeBets) {
+            const player = this.players.get(bet.playerId);
+            if (player) {
+              this.economyManager.addChips(bet.amount);
+              console.log(`[Server:GameSim] Refunded ${bet.amount} Chips to player "${bet.playerId}" for Craps bet at day end.`);
+            }
+          }
+        }
         state.point = null;
         state.activeBets = [];
         state.rolledNumbers = [];
@@ -6748,7 +7014,13 @@ kbd {
         id: o.id,
         guests: o.guests,
         dealerSeat: o.dealerSeat ? { rx: o.dealerSeat.rx, ry: o.dealerSeat.ry, employeeId: o.dealerSeat.employeeId } : null,
-        eps: o.eps || 0
+        eps: o.eps || 0,
+        stock: o.stock,
+        maxStock: o.maxStock,
+        isOutOfStock: o.isOutOfStock,
+        isBroken: o.isBroken,
+        needsRepairSoon: o.needsRepairSoon,
+        isDealerBoosted: o.isDealerBoosted
       }));
 
       return {
@@ -8645,6 +8917,16 @@ kbd {
 
       this.recordDayStat(gameType, -netPayout);
 
+      if (!player.gamblingStats) {
+        player.gamblingStats = { totalWon: 0, totalLost: 0, netProfit: 0 };
+      }
+      if (netPayout > 0) {
+        player.gamblingStats.totalWon += netPayout;
+      } else if (netPayout < 0) {
+        player.gamblingStats.totalLost += Math.abs(netPayout);
+      }
+      player.gamblingStats.netProfit = player.gamblingStats.totalWon - player.gamblingStats.totalLost;
+
       if (netPayout < 0) {
         this.playerGamblingLosses += Math.abs(netPayout);
       }
@@ -9845,6 +10127,16 @@ kbd {
             <li>3 Matches: <strong>4 to 1</strong> | 2 Matches: <strong>1 to 1 (Return)</strong></li>
           </ul>
         `;
+      } else if (gameType === 'minigame_machine') {
+        contentEl.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px; color:#fff;">How to Play:</div>
+          <p style="margin:0 0 8px 0;">Select your bet amount and click <strong>INSERT COIN</strong> to start. Complete the interactive arcade microgame successfully to win a 2X payout!</p>
+          <div style="font-weight:700; margin-bottom:4px; color:#fff;">Payout Odds:</div>
+          <ul style="margin:0; padding-left:16px;">
+            <li>Succeed microgame: <strong>2 to 1 (Double bet)</strong></li>
+            <li>Fail microgame: <strong>Forfeits bet</strong></li>
+          </ul>
+        `;
       }
     }
 
@@ -10014,7 +10306,7 @@ kbd {
       const statusEl = document.getElementById('minigame-dealer-status');
       if (!statusEl) return;
 
-      if (['slots', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery'].includes(this.activeGameType)) {
+      if (['slots', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery', 'minigame_machine'].includes(this.activeGameType)) {
         statusEl.style.display = 'none';
         return;
       }
@@ -10601,8 +10893,6 @@ kbd {
               <div class="craps-cell" data-bet="prop_craps3">Craps 3</div>
               <div class="craps-cell" data-bet="prop_craps2">Craps 2</div>
               <div class="craps-cell" data-bet="prop_craps12">Craps 12</div>
-              <div class="craps-cell" data-bet="prop_any7">Any 7</div>
-              <!-- ATS Side Bets -->
               <div class="craps-cell" data-bet="prop_small" style="background:rgba(255,215,0,0.05); border-color:var(--accent-gold); font-size:10px;">Small 2-6</div>
               <div class="craps-cell" data-bet="prop_big" style="background:rgba(255,215,0,0.05); border-color:var(--accent-gold); font-size:10px;">Big 8-12</div>
               <div class="craps-cell" data-bet="prop_all" style="grid-column: span 2; background:rgba(0,240,255,0.05); border-color:var(--accent-blue); font-size:10px;">ALL (2-12)</div>
@@ -10645,7 +10935,7 @@ kbd {
             </div>
           </div>
 
-          <div class="craps-board-wrapper">
+          <div class="craps-board-wrapper" style="position: relative; margin-bottom: 8px;">
             ${boardHTML}
           </div>
 
@@ -10666,8 +10956,16 @@ kbd {
             </div>
           </div>
 
-          <div id="craps-result-log" class="minigame-log-feed">
-            <div class="log-line info">Place bets on Pass Line, Don't Pass, or ATS and click ROLL DICE. Payout logs appear here.</div>
+          <div style="display: flex; gap: 12px; margin-top: 10px;">
+            <div id="craps-result-log" class="minigame-log-feed" style="flex: 1.3; height: 110px; margin-top: 0; box-sizing: border-box;">
+              <div class="log-line info">Place bets on Pass Line, Don't Pass, or ATS and click ROLL DICE. Payout logs appear here.</div>
+            </div>
+            <div id="craps-players-panel" style="flex: 1; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); font-size: 11px; height: 110px; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;">
+              <h4 style="margin: 0 0 4px 0; color: var(--accent-gold); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 2px;">Players & Bets</h4>
+              <div id="craps-players-list" style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="color: var(--text-secondary); text-align: center; padding: 4px 0;">No other players</div>
+              </div>
+            </div>
           </div>
         </div>
       `;
@@ -10678,6 +10976,16 @@ kbd {
         this.updateATSLights(this.crapsRolledNumbers);
         this.updateCrapsPucks(this.crapsPoint);
       }
+    }
+
+    getCrapsBetTotal() {
+      let sum = 0;
+      this.crapsActiveBets.forEach(b => {
+        if (b.playerId === this.clientGame.playerId) {
+          sum += b.amount;
+        }
+      });
+      return sum;
     }
 
     bindCrapsEvents(isElectronic = false) {
@@ -10735,255 +11043,375 @@ kbd {
 
           // Electronic limit check
           const limit = isElectronic ? 100 : Infinity;
-          const totalPlannedBet = self.getBetTotal() + plannedCost;
+          const totalPlannedBet = self.getCrapsBetTotal() + plannedCost;
           if (totalPlannedBet > limit) {
             self.clientGame.showNotification(`Electronic terminal limit reached (Max: ${limit} chips)!`, "warning");
             return;
           }
 
-          if (totalPlannedBet > self.clientGame.chips) {
+          if (plannedCost > self.clientGame.chips) {
             self.clientGame.showNotification("Insufficient Chips (plus 5% commission)!", "error");
             return;
           }
 
-          const currentAmount = self.currentBets.get(betKey) || 0;
-          const newAmount = currentAmount + self.selectedChipValue;
-          self.currentBets.set(betKey, newAmount);
+          self.logDebug(`Placing bet on "${betKey.replace('prop_','').replace('place_','').toUpperCase()}" for ${self.selectedChipValue} Chips`, 'info');
 
-          self.logDebug(`Placed bet on "${betKey.replace('prop_','').replace('place_','').toUpperCase()}" for ${self.selectedChipValue} Chips (Cell total: ${newAmount})`, 'info');
-
-          self.updateCellBetUI(this, newAmount, betKey.startsWith('buy_'));
-
-          // Update total bet display
-          const totalValEl = document.getElementById('craps-total-bet-val');
-          if (totalValEl) {
-            totalValEl.innerText = self.getBetTotal().toLocaleString();
-          }
+          // Send placement directly to the server
+          self.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+            gameType: self.activeGameType,
+            tableId: self.activeTableId,
+            action: 'place_bet',
+            bets: [{ type: betKey, amount: self.selectedChipValue }]
+          });
         });
       });
 
-      // Clear bets (clears only new unplaced bets)
+      // Clear bets
       this.modalBody.querySelector('#craps-clear-btn').addEventListener('click', () => {
         if (this.isRolling) return;
-        this.currentBets.clear();
-        cells.forEach(cell => {
-          const betKey = cell.dataset.bet;
-          const matchingActive = self.crapsActiveBets.find(b => b.type === betKey || (b.type.startsWith('buy_') && betKey === b.type.replace('buy_', 'place_')));
-          
-          if (!matchingActive) {
-            const chip = cell.querySelector('.bet-chip');
-            if (chip) chip.remove();
-          } else {
-            // Re-render server bet value
-            self.updateCellBetUI(cell, matchingActive.amount, matchingActive.type.startsWith('buy_'));
-          }
+        self.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+          gameType: this.activeGameType,
+          tableId: this.activeTableId,
+          action: 'clear_bets'
         });
-
-        // Update total bet display
-        const totalValEl = document.getElementById('craps-total-bet-val');
-        if (totalValEl) {
-          totalValEl.innerText = self.getBetTotal().toLocaleString();
-        }
       });
 
       // Roll action
       this.modalBody.querySelector('#craps-roll-btn').addEventListener('click', () => {
         if (this.isRolling) return;
 
-        // Check if there are active bets on the table, OR new bets being placed
-        if (this.crapsActiveBets.length === 0 && this.currentBets.size === 0) {
+        // Check if there are active bets on the table
+        if (this.crapsActiveBets.length === 0) {
           this.clientGame.showNotification("Please place a bet on Pass Line, Don't Pass, or another section!", "info");
           return;
         }
 
-        const betsArray = [];
-        for (const [type, amount] of this.currentBets.entries()) {
-          betsArray.push({ type, amount });
-        }
-
-        self.logDebug(`Rolling dice... Submitting ${betsArray.length} resolved/new bets to server.`, 'info');
+        self.logDebug(`Rolling dice...`, 'info');
 
         this.isRolling = true;
         window.Casino.SoundManager.playDice();
         this.modalBody.querySelector('#craps-roll-btn').disabled = true;
         this.modalBody.querySelector('#craps-clear-btn').disabled = true;
 
-        // Clear local currentBets as they are now committed to active table bets
-        this.currentBets.clear();
-
         this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
           gameType: this.activeGameType,
           tableId: this.activeTableId,
-          action: 'roll',
-          bets: betsArray
+          action: 'roll'
         });
       });
     }
 
     reconstructActiveCrapsBetsUI() {
+      // Clear any existing chips
+      const cells = this.modalBody.querySelectorAll('.craps-cell');
+      cells.forEach(cell => {
+        const existingContainer = cell.querySelector('.bet-chips-container');
+        if (existingContainer) existingContainer.remove();
+        const oldChip = cell.querySelector('.bet-chip');
+        if (oldChip) oldChip.remove();
+      });
+
+      const betsByType = new Map();
       this.crapsActiveBets.forEach(bet => {
-        const cell = this.modalBody.querySelector(`.craps-cell[data-bet="${bet.type}"]`);
+        let visualType = bet.type;
+        if (visualType.startsWith('buy_')) {
+          visualType = visualType.replace('buy_', 'place_');
+        }
+        if (!betsByType.has(visualType)) {
+          betsByType.set(visualType, []);
+        }
+        betsByType.get(visualType).push(bet);
+      });
+
+      betsByType.forEach((bets, type) => {
+        const cell = this.modalBody.querySelector(`.craps-cell[data-bet="${type}"]`);
         if (cell) {
-          this.updateCellBetUI(cell, bet.amount);
+          let container = cell.querySelector('.bet-chips-container');
+          if (!container) {
+            container = document.createElement('div');
+            container.className = 'bet-chips-container';
+            cell.appendChild(container);
+          }
+          
+          bets.forEach(bet => {
+            const chipEl = document.createElement('div');
+            chipEl.className = 'bet-chip';
+            if (bet.type.startsWith('buy_')) {
+              chipEl.innerText = "B " + bet.amount;
+              chipEl.classList.add('buy-chip');
+            } else {
+              chipEl.innerText = bet.amount;
+            }
+            
+            const pId = bet.playerId;
+            const targetPlayer = this.clientGame.state.players[pId];
+            let color = '#00f0ff';
+            let name = pId === this.clientGame.playerId ? 'YOU' : `Manager ${pId.substring(0, 5)}`;
+            
+            if (targetPlayer) {
+              color = targetPlayer.color || color;
+              name = targetPlayer.name || name;
+            } else if (pId === this.clientGame.playerId) {
+              color = '#00f0ff';
+            } else {
+              const colors = ['#ff007f', '#39ff14', '#ffaa00', '#a020f0', '#e64dff', '#ffff00'];
+              let hash = 0;
+              for (let i = 0; i < pId.length; i++) hash += pId.charCodeAt(i);
+              color = colors[hash % colors.length];
+            }
+            
+            chipEl.style.background = color;
+            chipEl.style.color = '#000';
+            chipEl.style.borderColor = '#000';
+            chipEl.title = `${name}'s Bet: ${bet.amount} Chips`;
+            
+            container.appendChild(chipEl);
+          });
         }
       });
+
+      // Update total bet display for the local player
+      const totalValEl = document.getElementById('craps-total-bet-val');
+      if (totalValEl) {
+        totalValEl.innerText = this.getCrapsBetTotal().toLocaleString();
+      }
     }
 
-    // Handles the outcome of Craps callback from server
     handleCrapsPayout(payload) {
+      const now = Date.now();
+      if (this.lastCrapsRollTime && (now - this.lastCrapsRollTime < 200)) {
+        return;
+      }
+      this.lastCrapsRollTime = now;
+
       const d1 = payload.die1;
       const d2 = payload.die2;
       const total = payload.total;
       const point = payload.point;
 
+      // 1. Shaking animation on header dice
       const die1El = document.getElementById('die1');
       const die2El = document.getElementById('die2');
+      if (die1El && die2El) {
+        die1El.classList.add('rolling');
+        die2El.classList.add('rolling');
+      }
 
-      // Shaking animation
-      die1El.classList.add('rolling');
-      die2El.classList.add('rolling');
+      // 2. 3D Tumbling Dice rolling on the board field!
+      const container = this.modalBody.querySelector('.craps-container');
+      const animDie1 = document.createElement('div');
+      const animDie2 = document.createElement('div');
+      animDie1.className = 'die rolling-3d';
+      animDie2.className = 'die rolling-3d';
+      animDie1.style.position = 'absolute';
+      animDie1.style.zIndex = '1000';
+      animDie2.style.position = 'absolute';
+      animDie2.style.zIndex = '1000';
+      
+      animDie1.dataset.val = '1';
+      animDie2.dataset.val = '1';
+      this.renderDieDots(animDie1);
+      this.renderDieDots(animDie2);
+      
+      container.appendChild(animDie1);
+      container.appendChild(animDie2);
 
-      // Setup interval to cycle dice values while rolling
-      let rollCycles = 0;
-      const cycleInterval = setInterval(() => {
-        die1El.dataset.val = Math.floor(Math.random() * 6) + 1;
-        die2El.dataset.val = Math.floor(Math.random() * 6) + 1;
+      const startTime = performance.now();
+      const duration = 1200; // 1.2s rolling duration
+      
+      // Random target positions near the middle of the field (craps board wrapper)
+      const target1 = { x: 120 + Math.random() * 60, y: 160 + Math.random() * 40 };
+      const target2 = { x: 200 + Math.random() * 60, y: 140 + Math.random() * 40 };
+      
+      // Spawn locations (rolling onto the board from off-screen left)
+      const start1 = { x: -60, y: 130 };
+      const start2 = { x: -60, y: 190 };
+
+      const animTick = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
         
-        // Re-generate dots
-        this.renderDieDots(die1El);
-        this.renderDieDots(die2El);
-
-        rollCycles++;
-        if (rollCycles >= 10) {
-          clearInterval(cycleInterval);
+        if (progress < 1) {
+          // Cycle faces rapidly while rolling
+          if (Math.floor(elapsed / 60) % 2 === 0) {
+            animDie1.dataset.val = Math.floor(Math.random() * 6) + 1;
+            animDie2.dataset.val = Math.floor(Math.random() * 6) + 1;
+            this.renderDieDots(animDie1);
+            this.renderDieDots(animDie2);
+          }
+        }
+        
+        // Linear position interpolation
+        const x1 = start1.x + (target1.x - start1.x) * progress;
+        const y1 = start1.y + (target1.y - start1.y) * progress;
+        const x2 = start2.x + (target2.x - start2.x) * progress;
+        const y2 = start2.y + (target2.y - start2.y) * progress;
+        
+        // Bounces: simulated via sine wave that decays over time
+        const bounceHeight1 = Math.max(0, Math.sin(progress * Math.PI * 3.5) * 50 * (1 - progress));
+        const bounceHeight2 = Math.max(0, Math.sin(progress * Math.PI * 3) * 50 * (1 - progress));
+        
+        // Spinning rotations
+        const rot1 = progress * 720;
+        const rot2 = progress * -680;
+        
+        animDie1.style.left = `${x1}px`;
+        animDie1.style.top = `${y1 - bounceHeight1}px`;
+        animDie1.style.transform = `rotate(${rot1}deg) scale(${1 + bounceHeight1/100})`;
+        
+        animDie2.style.left = `${x2}px`;
+        animDie2.style.top = `${y2 - bounceHeight2}px`;
+        animDie2.style.transform = `rotate(${rot2}deg) scale(${1 + bounceHeight2/100})`;
+        
+        if (progress < 1) {
+          requestAnimationFrame(animTick);
+        } else {
+          // Animation complete: set final authoritative values
+          animDie1.dataset.val = d1;
+          animDie2.dataset.val = d2;
+          this.renderDieDots(animDie1);
+          this.renderDieDots(animDie2);
           
-          // Stop roll, set final values
-          die1El.classList.remove('rolling');
-          die2El.classList.remove('rolling');
+          // Stop header dice wobbling and sync final values
+          if (die1El && die2El) {
+            die1El.classList.remove('rolling');
+            die2El.classList.remove('rolling');
+            die1El.dataset.val = d1;
+            die2El.dataset.val = d2;
+            this.renderDieDots(die1El);
+            this.renderDieDots(die2El);
+          }
 
-          die1El.dataset.val = d1;
-          die2El.dataset.val = d2;
-          this.renderDieDots(die1El);
-          this.renderDieDots(die2El);
+          // Let 3D dice rest on the field for 3.5 seconds, then fade out
+          setTimeout(() => {
+            animDie1.style.transition = 'opacity 0.5s ease';
+            animDie2.style.transition = 'opacity 0.5s ease';
+            animDie1.style.opacity = '0';
+            animDie2.style.opacity = '0';
+            setTimeout(() => {
+              animDie1.remove();
+              animDie2.remove();
+            }, 500);
+          }, 3500);
 
           // Resolve payouts
           this.isRolling = false;
           this.crapsPoint = point;
           this.crapsActiveBets = payload.activeBets;
+          this.lastRollPayouts = payload.payoutsSummary;
 
-          // Update point pucks & ATS checked-off values
+          // Update board lights, pucks and active chips
           this.updateATSLights(payload.rolledNumbers);
           this.updateCrapsPucks(point);
+          this.reconstructActiveCrapsBetsUI();
 
-          // Trigger result alert
-          setTimeout(() => {
-            const win = payload.totalWin;
-            const loss = payload.totalBetLoss;
-            let statusType = 'info';
-            let msg = `Dice roll: ${d1} + ${d2} = ${total}. `;
-            
-            if (win > 0 && loss > 0) {
-              window.Casino.SoundManager.playWin();
-              msg += `🎉 Won +${win}! (Lost -${loss})`;
-              statusType = 'success';
-            } else if (win > 0) {
-              window.Casino.SoundManager.playWin();
-              msg += `🎉 Won +${win} Chips!`;
-              statusType = 'success';
-            } else if (loss > 0) {
-              window.Casino.SoundManager.playLose();
-              msg += `😢 Lost -${loss} Chips.`;
-              statusType = 'error';
+          // Sync side panel list
+          this.updateOtherPlayers(this.clientGame.state);
+
+          // Find local player results
+          const localWin = payload.totalWin;
+          const localLoss = payload.totalBetLoss;
+          const localNet = localWin - localLoss;
+          
+          let statusType = 'info';
+          let msg = `Dice roll: ${d1} + ${d2} = ${total}. `;
+          if (localWin > 0 && localLoss > 0) {
+            window.Casino.SoundManager.playWin();
+            msg += `🎉 Won +${localWin}! (Lost -${localLoss})`;
+            statusType = 'success';
+          } else if (localWin > 0) {
+            window.Casino.SoundManager.playWin();
+            msg += `🎉 Won +${localWin} Chips!`;
+            statusType = 'success';
+          } else if (localLoss > 0) {
+            window.Casino.SoundManager.playLose();
+            msg += `😢 Lost -${localLoss} Chips.`;
+            statusType = 'error';
+          } else {
+            msg += `Point is: ${point ? point : 'Resolved'}.`;
+          }
+          this.clientGame.showNotification(msg, statusType);
+
+          // Update session profit stats
+          this.sessionProfit += localNet;
+          const profitEl = document.getElementById('minigame-session-profit');
+          if (profitEl) {
+            profitEl.innerText = (this.sessionProfit >= 0 ? '+' : '') + this.sessionProfit.toLocaleString();
+            profitEl.style.color = this.sessionProfit > 0 ? 'var(--accent-green)' : (this.sessionProfit < 0 ? 'var(--accent-pink)' : '#fff');
+          }
+
+          // Log detailed breakdown in scrolling feed
+          const logEl = document.getElementById('craps-result-log');
+          if (logEl) {
+            let logHtml = ``;
+            if (payload.payoutsSummary) {
+              payload.payoutsSummary.forEach(ps => {
+                const netSign = ps.netPayout >= 0 ? `+${ps.netPayout}` : `${ps.netPayout}`;
+                const lineClass = ps.netPayout > 0 ? 'win' : (ps.netPayout < 0 ? 'loss' : 'info');
+                const nameTag = ps.playerId === this.clientGame.playerId ? 'YOU' : ps.name;
+                
+                logHtml += `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} [${nameTag}] (Net: ${netSign})</strong></div>`;
+                ps.payoutDetails.forEach(d => {
+                  const betName = d.type.replace('prop_','').replace('place_','').replace('buy_','');
+                  if (d.isPush) {
+                    logHtml += `<div class="log-line info" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): PUSH (Returned)</div>`;
+                  } else if (d.won) {
+                    logHtml += `<div class="log-line win" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout} Chips)</div>`;
+                  } else {
+                    logHtml += `<div class="log-line loss" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
+                  }
+                });
+              });
             } else {
-              msg += `Point is: ${point ? point : 'Resolved'}.`;
-            }
-            this.clientGame.showNotification(msg, statusType);
-
-            // Update session profit
-            const net = win - loss;
-            this.sessionProfit += net;
-            const profitEl = document.getElementById('minigame-session-profit');
-            if (profitEl) {
-              profitEl.innerText = (this.sessionProfit >= 0 ? '+' : '') + this.sessionProfit.toLocaleString();
-              profitEl.style.color = this.sessionProfit > 0 ? 'var(--accent-green)' : (this.sessionProfit < 0 ? 'var(--accent-pink)' : '#fff');
-            }
-
-            // Log detailed results breakdown inside the scrolling feed
-            const logEl = document.getElementById('craps-result-log');
-            if (logEl) {
-              const net = win - loss;
-              const netSign = net >= 0 ? `+${net}` : `${net}`;
-              const lineClass = net > 0 ? 'win' : (net < 0 ? 'loss' : 'info');
-              
-              let logHtml = `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} (Net: ${netSign})</strong></div>`;
+              // Legacy fallback log
+              const netSign = localNet >= 0 ? `+${localNet}` : `${localNet}`;
+              const lineClass = localNet > 0 ? 'win' : (localNet < 0 ? 'loss' : 'info');
+              logHtml += `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} (Net: ${netSign})</strong></div>`;
               payload.payoutDetails.forEach(d => {
                 const betName = d.type.replace('prop_','').replace('place_','').replace('buy_','');
                 if (d.isPush) {
-                  logHtml += `<div class="log-line info"> &raquo; Bet '${betName}' (${d.amount}): PUSH (Returned)</div>`;
+                  logHtml += `<div class="log-line info" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): PUSH</div>`;
                 } else if (d.won) {
-                  logHtml += `<div class="log-line win"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout} Chips)</div>`;
+                  logHtml += `<div class="log-line win" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout})</div>`;
                 } else {
-                  logHtml += `<div class="log-line loss"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
+                  logHtml += `<div class="log-line loss" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
                 }
               });
-              
-              logEl.innerHTML += logHtml;
-              logEl.scrollTop = logEl.scrollHeight;
             }
+            logEl.innerHTML += logHtml;
+            logEl.scrollTop = logEl.scrollHeight;
+          }
 
-            // Keep Bets toggle: re-add resolved bets
-            const keepBetsCheckbox = document.getElementById('craps-keep-bets-checkbox');
-            const shouldKeep = keepBetsCheckbox ? keepBetsCheckbox.checked : true;
-
-            if (shouldKeep) {
-              payload.payoutDetails.forEach(d => {
-                // If it resolved, re-place it
-                if (this.clientGame.chips >= d.amount) {
-                  const existing = this.currentBets.get(d.type) || 0;
-                  this.currentBets.set(d.type, existing + d.amount);
-                  
-                  // Deduct locally to reflect planned bet
-                  this.clientGame.chips -= d.amount;
-                } else {
-                  this.clientGame.showNotification("Bets cleared: Insufficient Chips to repeat some bets!", "error");
-                }
-              });
-            } else {
-              this.currentBets.clear();
-            }
-
-            // Re-render UI table bets
-            const cells = this.modalBody.querySelectorAll('.craps-cell');
-            cells.forEach(cell => {
-              const chip = cell.querySelector('.bet-chip');
-              if (chip) chip.remove();
+          // Repeat resolved bets if "Keep bets on board" is checked
+          const keepBetsCheckbox = document.getElementById('craps-keep-bets-checkbox');
+          const shouldKeep = keepBetsCheckbox ? keepBetsCheckbox.checked : true;
+          if (shouldKeep) {
+            const repeatedBets = [];
+            payload.payoutDetails.forEach(d => {
+              repeatedBets.push({ type: d.type, amount: d.amount });
             });
-            
-            this.reconstructActiveCrapsBetsUI();
-            for (const [type, amount] of this.currentBets.entries()) {
-              const cellType = type.startsWith('buy_') ? type.replace('buy_', 'place_') : type;
-              const cell = this.modalBody.querySelector(`.craps-cell[data-bet="${cellType}"]`);
-              if (cell) {
-                this.updateCellBetUI(cell, amount, type.startsWith('buy_'));
-              }
+            if (repeatedBets.length > 0) {
+              // Send placement request to repeat
+              this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+                gameType: this.activeGameType,
+                tableId: this.activeTableId,
+                action: 'place_bet',
+                bets: repeatedBets
+              });
             }
+          }
 
-            // Update total bet display
-            const totalValEl = document.getElementById('craps-total-bet-val');
-            if (totalValEl) {
-              totalValEl.innerText = this.getBetTotal().toLocaleString();
-            }
+          // Update balance displays
+          this.updateBalance();
 
-            // Update balance displays
-            this.updateBalance();
-
-            const rollBtn = document.getElementById('craps-roll-btn');
-            if (rollBtn) rollBtn.disabled = false;
-            const clearBtn = document.getElementById('craps-clear-btn');
-            if (clearBtn) clearBtn.disabled = false;
-          }, 500);
+          const rollBtn = document.getElementById('craps-roll-btn');
+          if (rollBtn) rollBtn.disabled = false;
+          const clearBtn = document.getElementById('craps-clear-btn');
+          if (clearBtn) clearBtn.disabled = false;
         }
-      }, 100);
+      };
+      
+      requestAnimationFrame(animTick);
     }
 
     updateATSLights(rolled) {
@@ -11572,10 +12000,10 @@ kbd {
       }
       const color = ['♥', '♦'].includes(card.suit) ? '#ff4d4d' : '#fff';
       return `
-        <div class="card" style="position: relative; width: 55px; height: 80px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: linear-gradient(135deg, #1c1c1e, #2c2c2e); color: ${color}; box-shadow: 0 4px 8px rgba(0,0,0,0.5); font-family: sans-serif; font-weight: bold; font-size: 14px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px;">
-          <div style="text-align: left; line-height: 1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
-          <div style="font-size: 20px; text-align: center;">${card.suit}</div>
-          <div style="text-align: right; transform: rotate(180deg); line-height: 1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
+        <div class="card" style="position: relative; width: 55px; height: 80px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: linear-gradient(135deg, #1c1c1e, #2c2c2e); color: ${color}; box-shadow: 0 4px 8px rgba(0,0,0,0.5); font-family: sans-serif; font-weight: bold; font-size: 14px; box-sizing: border-box;">
+          <div style="position: absolute; top: 5px; left: 5px; text-align: center; line-height: 1.1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px;">${card.suit}</div>
+          <div style="position: absolute; bottom: 5px; right: 5px; text-align: center; transform: rotate(180deg); line-height: 1.1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
         </div>
       `;
     }
@@ -11731,10 +12159,10 @@ kbd {
           stepTitleEl.innerText = "Step 4: Guess the Suit!";
           statusTextEl.innerText = "Guess the exact suit of the final card:";
           guessContainer.innerHTML = `
-            <button class="action-btn" data-guess="♠" style="color:#fff; border-color:#fff; min-width:50px;">♠</button>
-            <button class="action-btn" data-guess="♥" style="color:#ff4d4d; border-color:#ff4d4d; min-width:50px;">♥</button>
-            <button class="action-btn" data-guess="♦" style="color:#ff4d4d; border-color:#ff4d4d; min-width:50px;">♦</button>
-            <button class="action-btn" data-guess="♣" style="color:#fff; border-color:#fff; min-width:50px;">♣</button>
+            <button class="action-btn" data-guess="♠" style="color:#fff; border-color:rgba(255,255,255,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♠</button>
+            <button class="action-btn" data-guess="♥" style="color:#ff4d4d; border-color:rgba(255,77,77,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♥</button>
+            <button class="action-btn" data-guess="♦" style="color:#ff4d4d; border-color:rgba(255,77,77,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♦</button>
+            <button class="action-btn" data-guess="♣" style="color:#fff; border-color:rgba(255,255,255,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♣</button>
           `;
         }
 
@@ -13896,6 +14324,19 @@ kbd {
           }
         }
       } else if (gameType === 'craps' || gameType === 'bubble_craps') {
+        const crapsState = state.crapsState || {};
+        const simState = crapsState[tableId];
+        if (simState) {
+          this.crapsPoint = simState.point;
+          this.crapsActiveBets = simState.activeBets || [];
+          this.crapsRolledNumbers = simState.rolledNumbers || [];
+          
+          this.updateATSLights(this.crapsRolledNumbers);
+          this.updateCrapsPucks(this.crapsPoint);
+          this.reconstructActiveCrapsBetsUI();
+        }
+
+        // Inline other players list
         const inlineContainer = document.getElementById('craps-other-players-inline');
         const inlineList = document.getElementById('craps-other-players-list-inline');
         if (inlineContainer && inlineList) {
@@ -13904,6 +14345,57 @@ kbd {
             inlineList.innerText = otherPlayers.map(p => `Manager ${p.playerId.substring(0, 5)}`).join(', ');
           } else {
             inlineContainer.style.display = 'none';
+          }
+        }
+
+        // Sidebar list
+        const listEl = document.getElementById('craps-players-list');
+        if (listEl) {
+          const tablePlayers = [];
+          for (const [pId, p] of Object.entries(state.players)) {
+            if (p.interactingObjectId === tableId) {
+              tablePlayers.push({
+                id: pId,
+                name: p.name || (pId === this.clientGame.playerId ? 'YOU' : `Manager ${pId.substring(0, 5)}`),
+                color: p.color || '#00f0ff'
+              });
+            }
+          }
+
+          if (tablePlayers.length > 0) {
+            listEl.innerHTML = tablePlayers.map(p => {
+              const pBets = this.crapsActiveBets.filter(b => b.playerId === p.id);
+              const totalBet = pBets.reduce((sum, b) => sum + b.amount, 0);
+              const betDetailsText = pBets.map(b => `${b.type.replace('prop_','').replace('place_','').replace('buy_','').toUpperCase()}: ${b.amount}`).join(', ') || 'No active bets';
+
+              let lastWinText = '';
+              if (this.lastRollPayouts) {
+                const pPayout = this.lastRollPayouts.find(x => x.playerId === p.id);
+                if (pPayout) {
+                  const net = pPayout.netPayout;
+                  if (net > 0) {
+                    lastWinText = `<div style="color:#39ff14; font-weight:bold; margin-top:2px;">Last: +${net} Chips</div>`;
+                  } else if (net < 0) {
+                    lastWinText = `<div style="color:#ff4d4d; font-weight:bold; margin-top:2px;">Last: ${net} Chips</div>`;
+                  } else {
+                    lastWinText = `<div style="color:#aaa; font-weight:bold; margin-top:2px;">Last: Push / 0</div>`;
+                  }
+                }
+              }
+
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: left; display: flex; align-items: flex-start; gap: 8px;">
+                  <div style="width: 10px; height: 10px; border-radius: 50%; background: ${p.color}; border: 1px solid #000; margin-top: 3px; flex-shrink: 0;"></div>
+                  <div style="flex: 1;">
+                    <div style="font-weight: bold; color: ${p.id === this.clientGame.playerId ? 'var(--accent-blue)' : '#fff'};">${p.name}</div>
+                    <div style="font-size: 9px; color: var(--text-secondary); word-break: break-word; margin-top: 2px;">Bets: ${betDetailsText} (Total: ${totalBet})</div>
+                    ${lastWinText}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            listEl.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 10px 0;">No players at table</div>`;
           }
         }
       } else if (gameType === 'ride_the_bus') {
@@ -14642,6 +15134,22 @@ kbd {
         });
       }
 
+      const unstuckBtn = document.getElementById('btn-unstuck');
+      if (unstuckBtn) {
+        unstuckBtn.addEventListener('click', () => {
+          this.isInQTE = false;
+          this.isInMinigame = false;
+          
+          const qteContainer = document.getElementById('qte-container');
+          if (qteContainer) qteContainer.classList.add('hidden');
+          
+          if (this.minigameUI) this.minigameUI.close();
+          
+          this.sendAction(window.Casino.Protocol.Commands.UNSTUCK_PLAYER, {});
+          this.showNotification("🆘 Teleported back to casino entrance", "info");
+        });
+      }
+
       const dayReportOverlay = document.getElementById('day-report-overlay');
       const dayReportNextBtn = document.getElementById('day-report-next-btn');
       if (dayReportNextBtn && dayReportOverlay) {
@@ -14967,6 +15475,21 @@ kbd {
         });
       }
 
+      const btnToggleScorecard = document.getElementById('btn-toggle-scorecard');
+      const scorecardPanel = document.getElementById('scorecard-panel');
+      const scorecardCollapsedBtn = document.getElementById('scorecard-collapsed-btn');
+      
+      if (btnToggleScorecard && scorecardPanel && scorecardCollapsedBtn) {
+        btnToggleScorecard.addEventListener('click', () => {
+          scorecardPanel.classList.add('hidden');
+          scorecardCollapsedBtn.classList.remove('hidden');
+        });
+        scorecardCollapsedBtn.addEventListener('click', () => {
+          scorecardCollapsedBtn.classList.add('hidden');
+          scorecardPanel.classList.remove('hidden');
+        });
+      }
+
       // Procedural click sounds on any interactive buttons
       document.querySelectorAll('.build-btn, .dropdown-item, .action-btn, .close-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -15049,6 +15572,12 @@ kbd {
                 if (updatedObj.dealerSeat !== undefined) {
                   matched.dealerSeat = updatedObj.dealerSeat;
                 }
+                if (updatedObj.stock !== undefined) matched.stock = updatedObj.stock;
+                if (updatedObj.maxStock !== undefined) matched.maxStock = updatedObj.maxStock;
+                if (updatedObj.isOutOfStock !== undefined) matched.isOutOfStock = updatedObj.isOutOfStock;
+                if (updatedObj.isBroken !== undefined) matched.isBroken = updatedObj.isBroken;
+                if (updatedObj.needsRepairSoon !== undefined) matched.needsRepairSoon = updatedObj.needsRepairSoon;
+                if (updatedObj.isDealerBoosted !== undefined) matched.isDealerBoosted = updatedObj.isDealerBoosted;
               }
             });
           }
@@ -15588,6 +16117,80 @@ kbd {
           dayTimerEl.style.color = 'var(--accent-gold)';
         }
       }
+      this.updateScorecardUI();
+    }
+
+    updateScorecardUI() {
+      const panel = document.getElementById('scorecard-panel');
+      const content = document.getElementById('scorecard-content');
+      if (!panel || !content) return;
+
+      content.innerHTML = '';
+
+      if (!this.state.players || Object.keys(this.state.players).length === 0) {
+        content.innerHTML = '<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 12px 0;">No active players</div>';
+        return;
+      }
+
+      Object.values(this.state.players).forEach(p => {
+        const stats = p.gamblingStats || { totalWon: 0, totalLost: 0, netProfit: 0 };
+        const row = document.createElement('div');
+        row.style.background = 'rgba(255,255,255,0.03)';
+        row.style.border = '1px solid rgba(255,255,255,0.05)';
+        row.style.borderRadius = '8px';
+        row.style.padding = '8px';
+        row.style.display = 'flex';
+        row.style.flexDirection = 'column';
+        row.style.gap = '4px';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.innerText = p.name;
+        nameSpan.style.color = p.color || 'var(--accent-blue)';
+        nameSpan.style.fontWeight = 'bold';
+        nameSpan.style.fontSize = '11px';
+
+        const profitSpan = document.createElement('span');
+        const profit = stats.netProfit || 0;
+        if (profit >= 0) {
+          profitSpan.innerText = `+${profit} c`;
+          profitSpan.style.color = '#39ff14';
+          profitSpan.style.textShadow = '0 0 4px rgba(57,255,20,0.3)';
+        } else {
+          profitSpan.innerText = `${profit} c`;
+          profitSpan.style.color = '#ff007f';
+          profitSpan.style.textShadow = '0 0 4px rgba(255,0,127,0.3)';
+        }
+        profitSpan.style.fontWeight = 'bold';
+        profitSpan.style.fontSize = '11px';
+        profitSpan.style.fontFamily = 'monospace';
+
+        header.appendChild(nameSpan);
+        header.appendChild(profitSpan);
+
+        const details = document.createElement('div');
+        details.style.display = 'flex';
+        details.style.justifyContent = 'space-between';
+        details.style.fontSize = '9px';
+        details.style.color = 'var(--text-secondary)';
+
+        const wonSpan = document.createElement('span');
+        wonSpan.innerText = `Won: ${stats.totalWon || 0}`;
+
+        const lostSpan = document.createElement('span');
+        lostSpan.innerText = `Lost: ${stats.totalLost || 0}`;
+
+        details.appendChild(wonSpan);
+        details.appendChild(lostSpan);
+
+        row.appendChild(header);
+        row.appendChild(details);
+        content.appendChild(row);
+      });
     }
 
     handleInteractKeyPress() {
@@ -15669,8 +16272,19 @@ kbd {
             "🔧 REPAIR MACHINE",
             "Press SPACE or E in the GREEN zone to fix the grid!",
             () => {
+              this.repairFailuresCount = 0;
               this.sendAction(window.Casino.Protocol.Commands.REPAIR_MACHINE, { objectId: closestObj.id });
               this.showNotification(`🔧 Machine "${closestObj.name}" repaired!`, "success");
+            },
+            () => {
+              this.repairFailuresCount = (this.repairFailuresCount || 0) + 1;
+              if (this.repairFailuresCount >= 3) {
+                this.repairFailuresCount = 0;
+                this.sendAction(window.Casino.Protocol.Commands.REPAIR_MACHINE, { objectId: closestObj.id });
+                this.showNotification(`🔧 Machine "${closestObj.name}" repaired! (Mercy Rule applied)`, "success");
+              } else {
+                this.showNotification(`QTE Failed! Missed target zone. (${3 - this.repairFailuresCount} attempts remaining before mercy rule)`, "warning");
+              }
             }
           );
           return;
@@ -15748,6 +16362,33 @@ kbd {
       if (this.isInQTE) return;
       this.isInQTE = true;
       let animId = null;
+
+      let qteResolved = false;
+      const originalSuccess = successCallback;
+      const originalFailure = failureCallback;
+
+      const safeSuccess = (...args) => {
+        if (qteResolved) return;
+        qteResolved = true;
+        this.isInQTE = false;
+        if (cleanUp) cleanUp();
+        if (originalSuccess) originalSuccess(...args);
+      };
+
+      const safeFailure = (...args) => {
+        if (qteResolved) return;
+        qteResolved = true;
+        this.isInQTE = false;
+        if (cleanUp) cleanUp();
+        if (originalFailure) {
+          originalFailure(...args);
+        } else {
+          this.showNotification("QTE Failed! Missed target zone.", "error");
+        }
+      };
+
+      successCallback = safeSuccess;
+      failureCallback = safeFailure;
 
       const container = document.getElementById('qte-container');
       const titleEl = document.getElementById('qte-title');
@@ -16217,7 +16858,7 @@ kbd {
         const radius = 45;
 
         // Generate target zone angle (in radians)
-        const targetWidth = 0.45 + Math.random() * 0.15; // approx 25-35 degrees
+        const targetWidth = 0.6 + Math.random() * 0.2; // approx 35-45 degrees
         const targetStart = 0.5 * Math.PI + Math.random() * 0.8 * Math.PI;
         const targetEnd = targetStart + targetWidth;
         
@@ -16231,7 +16872,7 @@ kbd {
 
         let currentAngle = 0;
         this.qteAngle = currentAngle;
-        const speed = 0.045 + Math.random() * 0.015;
+        const speed = 0.02 + Math.random() * 0.008;
         animId = null;
 
         const tick = () => {
@@ -16300,7 +16941,8 @@ kbd {
           cleanUp();
           const normAngle = currentAngle % (2 * Math.PI);
           
-          if (normAngle >= targetStart && normAngle <= targetEnd) {
+          const tolerance = 0.08;
+          if (normAngle >= (targetStart - tolerance) && normAngle <= (targetEnd + tolerance)) {
             window.Casino.SoundManager.playWin();
             if (normAngle >= greatStart && normAngle <= greatEnd) {
               this.showNotification("🎯 GREAT SKILL CHECK! Boost duration doubled!", "success");
@@ -16399,6 +17041,7 @@ kbd {
         const totalDuration = 4000; // 4 seconds
         const startTime = performance.now();
         let lastTick = performance.now();
+        let resolved = false;
         
         const tick = () => {
           if (!active) return;
@@ -16407,7 +17050,7 @@ kbd {
           lastTick = now;
           
           // Decay progress
-          progress = Math.max(0, progress - 18 * dt);
+          progress = Math.max(0, progress - 12 * dt);
           progressFillEl.style.width = progress + '%';
           
           // Timer
@@ -16416,17 +17059,9 @@ kbd {
           timerFillEl.style.width = remainingPct + '%';
           
           if (progress >= 100) {
-            cleanUp();
-            window.Casino.SoundManager.playWin();
-            successCallback();
+            handleSuccess();
           } else if (elapsed >= totalDuration) {
-            cleanUp();
-            window.Casino.SoundManager.playLose();
-            if (failureCallback) {
-              failureCallback();
-            } else {
-              this.showNotification("Time ran out! QTE Failed.", "error");
-            }
+            handleFailure();
           } else {
             animId = requestAnimationFrame(tick);
           }
@@ -16439,9 +17074,30 @@ kbd {
           container.classList.add('hidden');
           mashWrap.classList.add('hidden');
           window.removeEventListener('keydown', handleInput);
-          window.removeEventListener('click', triggerClick);
+          window.removeEventListener('mousedown', triggerClick);
+          container.removeEventListener('mousedown', triggerClick);
           this.isInQTE = false;
           if (this.inputHandler) this.inputHandler.keys = {};
+        };
+
+        const handleSuccess = () => {
+          if (resolved) return;
+          resolved = true;
+          cleanUp();
+          window.Casino.SoundManager.playWin();
+          successCallback();
+        };
+
+        const handleFailure = () => {
+          if (resolved) return;
+          resolved = true;
+          cleanUp();
+          window.Casino.SoundManager.playLose();
+          if (failureCallback) {
+            failureCallback();
+          } else {
+            this.showNotification("Time ran out! QTE Failed.", "error");
+          }
         };
         
         const handleInput = (e) => {
@@ -16450,19 +17106,30 @@ kbd {
             e.preventDefault();
             e.stopPropagation();
             window.Casino.SoundManager.playBeep();
-            progress = Math.min(100, progress + 12);
+            progress = Math.min(100, progress + 16);
             progressFillEl.style.width = progress + '%';
+            if (progress >= 100) {
+              handleSuccess();
+            }
           }
         };
         
         const triggerClick = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
           window.Casino.SoundManager.playBeep();
-          progress = Math.min(100, progress + 12);
+          progress = Math.min(100, progress + 16);
           progressFillEl.style.width = progress + '%';
+          if (progress >= 100) {
+            handleSuccess();
+          }
         };
         
         window.addEventListener('keydown', handleInput);
-        window.addEventListener('click', triggerClick);
+        window.addEventListener('mousedown', triggerClick);
+        container.addEventListener('mousedown', triggerClick);
       } else if (mode === 'microgame') {
         let microgameWrap = document.getElementById('qte-microgame-wrap');
         if (!microgameWrap) {
@@ -17828,6 +18495,15 @@ kbd {
           gridX: gridX,
           gridY: gridY
         });
+        // Return to select mode by default after placement
+        this.buildModeItem = null;
+        const btnSelect = document.getElementById('btn-select');
+        if (btnSelect) {
+          document.querySelectorAll('.build-btn, .action-btn').forEach(btn => {
+            btn.classList.remove('active');
+          });
+          btnSelect.classList.add('active');
+        }
       } else if (this.moveModeItem) {
         // Send move object command to simulator
         this.sendAction(window.Casino.Protocol.Commands.MOVE_OBJECT, {
@@ -18078,6 +18754,19 @@ kbd {
             };
           } else if (btnNeeds) {
             btnNeeds.disabled = true;
+          }
+
+          const btnBreak = replaceBtn('btn-employee-break');
+          if (btnBreak) {
+            btnBreak.disabled = !!char.isOnBreak;
+            btnBreak.innerText = char.isOnBreak ? '☕ On Break' : '☕ Send on Break';
+            btnBreak.onclick = () => {
+              this.sendAction(window.Casino.Protocol.Commands.SEND_EMPLOYEE_BREAK, {
+                employeeId: char.id
+              });
+              this.showNotification(`Sent ${role} on break.`, "success");
+              modal.classList.add('hidden');
+            };
           }
         } else {
           upgradesSection.style.display = 'none';

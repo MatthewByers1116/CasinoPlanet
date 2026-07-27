@@ -790,6 +790,7 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       assertButtonClickable('#btn-detail-mode', 'HUD Details View Toggle');
       assertButtonClickable('#btn-save-game', 'HUD Save Game');
       assertButtonClickable('#btn-tutorial', 'HUD Tutorial Help');
+      assertButtonClickable('#btn-unstuck', 'HUD Unstuck Recovery Command');
       assertButtonClickable('#btn-select', 'HUD Selection Tool');
       assertButtonClickable('button[title="Build Arcade Games"]', 'HUD Games Dropdown Toggle');
       assertButtonClickable('button[title="Casino Amenities & Services"]', 'HUD Amenities Dropdown Toggle');
@@ -1080,6 +1081,50 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       writeToLog("* Verified that player gambling losses are tracked and compiled in the Day Report payload.");
       hostGame.showDayReportDialog = originalShowDayReport; // Restore
 
+      // Verify active bet refund and scorecard win/loss stats tracking
+      const initialChips = hostGame.sim.economyManager.getChips();
+      
+      // Mock an active blackjack card session with bet
+      hostGame.sim.blackjackSessions.set(hostGame.playerId, {
+        tableId: 'table_test_refund',
+        betAmount: 100,
+        totalInvested: 100,
+        state: 'playing'
+      });
+      
+      // Mock a Craps bet
+      hostGame.sim.crapsState.set('craps_test_refund', {
+        point: null,
+        activeBets: [{ playerId: hostGame.playerId, amount: 50, type: 'pass_line' }],
+        rolledNumbers: []
+      });
+
+      // Execute endCurrentDay
+      hostGame.sim.endCurrentDay();
+
+      // Check if chips are refunded (initialChips + 100 + 50)
+      const afterDayEndChips = hostGame.sim.economyManager.getChips();
+      if (afterDayEndChips !== initialChips + 150) {
+        throw new Error(`Expected refunded chips to be ${initialChips + 150}, got: ${afterDayEndChips}`);
+      }
+      writeToLog("* Verified that active card sessions and Craps bets are successfully refunded to player balances at the end of the day.");
+
+      // Check if player's gamblingStats are serialized and update correctly
+      if (hostPlayerObj) {
+        if (!hostPlayerObj.gamblingStats) {
+          throw new Error("Expected PlayerEntity to have gamblingStats property");
+        }
+        // Let's simulate a winning payout of +200 chips, which should update gamblingStats
+        hostGame.sim.sendPayout(hostPlayerObj, 'blackjack', 200, 300);
+        if (hostPlayerObj.gamblingStats.totalWon !== 200) {
+          throw new Error(`Expected player totalWon to be 200, got: ${hostPlayerObj.gamblingStats.totalWon}`);
+        }
+        if (hostPlayerObj.gamblingStats.netProfit !== -50) { // -250 from earlier + 200 = -50
+          throw new Error(`Expected player netProfit to be -50, got: ${hostPlayerObj.gamblingStats.netProfit}`);
+        }
+      }
+      writeToLog("* Verified that player win/loss stats are tracked correctly in PlayerEntity.gamblingStats.");
+
       // Verify multiplayer co-play sidebar update
       const tableId = "bj_multi_test";
       hostGame.sim.gridManager.placedObjects.set(tableId, {
@@ -1232,6 +1277,50 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       }
       writeToLog("* Verified that new DBD Skill Check Wheel QTE correctly tracks rotating needle and triggers success upon click in target zone.");
 
+      // Verify Mashing QTE Mode:
+      let mashResolved = false;
+      hostGame.startQTEMinigame(
+        "🎰 MASH QTE TEST",
+        "Test mashing mode",
+        () => { mashResolved = true; },
+        null,
+        'mash'
+      );
+      const mashWrap = docHost.getElementById('qte-mash-wrap');
+      if (!mashWrap || mashWrap.classList.contains('hidden')) {
+        throw new Error("QTE mash wrap element not created or not visible");
+      }
+      // Simulate clicks/events to reach 100% progress
+      const mashEvent = new winHost.KeyboardEvent('keydown', { key: ' ' });
+      for (let i = 0; i < 8; i++) {
+        winHost.dispatchEvent(mashEvent);
+      }
+      if (!mashResolved) {
+        throw new Error("Mashing QTE failed to resolve after dispatching keypress events");
+      }
+      if (hostGame.isInQTE) {
+        throw new Error("Expected isInQTE to be false after mashing QTE resolves");
+      }
+      writeToLog("* Verified that Mashing QTE mode successfully tracks keyboard mashing inputs and resolves without locking player movement.");
+
+      // Verify Unstuck button recovery functionality
+      hostGame.isInQTE = true;
+      hostGame.isInMinigame = true;
+      const unstuckButtonEl = docHost.getElementById('btn-unstuck');
+      if (!unstuckButtonEl) {
+        throw new Error("HUD Unstuck button element not found");
+      }
+      unstuckButtonEl.click();
+      if (hostGame.isInQTE || hostGame.isInMinigame) {
+        throw new Error("Unstuck button click did not reset client QTE/minigame locks");
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const hostPlayerState = hostGame.state.players[hostGame.playerId];
+      if (hostPlayerState.gridX !== hostGame.sim.gridManager.entranceX || hostPlayerState.gridY !== hostGame.sim.gridManager.entranceY) {
+        throw new Error(`Expected unstuck player coordinates to be at entrance (${hostGame.sim.gridManager.entranceX}, ${hostGame.sim.gridManager.entranceY}), got (${hostPlayerState.gridX}, ${hostPlayerState.gridY})`);
+      }
+      writeToLog("* Verified that Unstuck button click successfully resets lock states and teleports the player back to the entrance.");
+
       // Verify Plinko simulation math & payouts bounds:
       const mockPlayer = {
         id: "plinko_math_mock_player",
@@ -1351,7 +1440,7 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       // Test Case 3: Vending machine stocking and refilling
       const vendingObj = winHost.Casino.GameObjects.createPlaced("vending_1", "vending_machine", 2, 2);
       sim.gridManager.placedObjects.set(vendingObj.id, vendingObj);
-      if (vendingObj.stock !== 5 || vendingObj.isOutOfStock !== false) {
+      if (vendingObj.stock !== 10 || vendingObj.isOutOfStock !== false) {
         throw new Error("Vending machine did not initialize with correct stock");
       }
       
@@ -1402,6 +1491,95 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       sim.gridManager.placedObjects.delete(vendingObj.id);
       writeToLog("* Verified player manual food grabbing, carrying state, and direct guest serving.");
 
+      // Verify Multiplayer Craps Shared Table Bets, Roll Outcomes & Sidebar Sync:
+      const testCrapsId = "craps_multiplayer_test_table";
+      const testCraps = winHost.Casino.GameObjects.createPlaced(testCrapsId, 'craps', 10, 10);
+      testCraps.dealerSeat.employeeId = "mock_dealer_employee";
+      hostGame.sim.gridManager.placedObjects.set(testCrapsId, testCraps);
+
+      const hostPlayerEntity = hostGame.sim.players.get(hostGame.playerId);
+      const guestPlayerEntity = hostGame.sim.players.get(guestGame.playerId);
+      if (hostPlayerEntity) hostPlayerEntity.interactingObjectId = testCrapsId;
+      if (guestPlayerEntity) guestPlayerEntity.interactingObjectId = testCrapsId;
+
+
+      // 1. Host places a bet
+      hostGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+        gameType: 'craps',
+        tableId: testCrapsId,
+        action: 'place_bet',
+        bets: [{ type: 'pass_line', amount: 50 }]
+      });
+
+      // 2. Guest places a bet
+      guestGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+        gameType: 'craps',
+        tableId: testCrapsId,
+        action: 'place_bet',
+        bets: [{ type: 'dont_pass', amount: 30 }]
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Verify active bets are stored and replicated correctly
+      const hostActiveBets = hostGame.sim.crapsState.get(testCrapsId).activeBets;
+      if (hostActiveBets.length !== 2) {
+        throw new Error(`Expected 2 active bets on host Craps table, found: ${hostActiveBets.length}`);
+      }
+
+      const hostPassLineBet = hostActiveBets.find(b => b.type === 'pass_line');
+      const hostDontPassBet = hostActiveBets.find(b => b.type === 'dont_pass');
+
+      if (!hostPassLineBet || hostPassLineBet.amount !== 50 || hostPassLineBet.playerId !== hostGame.playerId) {
+        throw new Error("Host pass_line bet verification failed");
+      }
+      if (!hostDontPassBet || hostDontPassBet.amount !== 30 || hostDontPassBet.playerId !== guestGame.playerId) {
+        throw new Error("Guest dont_pass bet verification failed");
+      }
+
+      // 3. Roll dice from host
+      hostGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+        gameType: 'craps',
+        tableId: testCrapsId,
+        action: 'roll'
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Verify that active bets were resolved/processed
+      if (!hostGame.sim.crapsState.get(testCrapsId).rolledNumbers) {
+        throw new Error("Dice roll did not register rolled numbers list in simulator");
+      }
+
+      // 4. Verify multiplayer Craps sidebar sync
+      hostGame.minigameUI.open('craps', testCrapsId);
+      guestGame.minigameUI.open('craps', testCrapsId);
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const hostCrapsList = docHost.getElementById('craps-players-list');
+      const guestCrapsList = docGuest.getElementById('craps-players-list');
+
+      const hostHasSelf = hostCrapsList && (hostCrapsList.innerHTML.includes("YOU") || hostCrapsList.innerHTML.includes(hostGame.playerId) || (hostPlayerEntity && hostCrapsList.innerHTML.includes(hostPlayerEntity.name)));
+      const hostHasGuest = hostCrapsList && (hostCrapsList.innerHTML.includes(guestGame.playerId.substring(0, 5)) || (guestPlayerEntity && hostCrapsList.innerHTML.includes(guestPlayerEntity.name)));
+
+      if (!hostCrapsList || !hostHasSelf || !hostHasGuest) {
+        throw new Error("Host Craps sidebar list did not render table players correctly");
+      }
+
+      const guestHasSelf = guestCrapsList && (guestCrapsList.innerHTML.includes("YOU") || guestCrapsList.innerHTML.includes(guestGame.playerId) || (guestPlayerEntity && guestCrapsList.innerHTML.includes(guestPlayerEntity.name)));
+      const guestHasHost = guestCrapsList && (guestCrapsList.innerHTML.includes(hostGame.playerId.substring(0, 5)) || (hostPlayerEntity && guestCrapsList.innerHTML.includes(hostPlayerEntity.name)));
+
+      if (!guestCrapsList || !guestHasSelf || !guestHasHost) {
+        throw new Error("Guest Craps sidebar list did not render table players correctly");
+      }
+
+      hostGame.minigameUI.close();
+      guestGame.minigameUI.close();
+      hostGame.sim.gridManager.placedObjects.delete(testCrapsId);
+
+      writeToLog("* Verified multiplayer Craps shared table bets, concurrent player chip rendering, and co-play sidebar updates.");
+
       // 6. Test Guest Disconnection graceful continuation
       guestGame.peerConn.close(); // trigger close
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -1421,6 +1599,7 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
       writeToLog("* Verified synchronized real-time WASD player coordinates between Host and Guest.");
       writeToLog("* Verified placement collision prevention (only 1 object is placed on collision).");
       writeToLog("* Verified concurrent upgrade execution handled correctly by simulator.");
+      writeToLog("* Verified multiplayer Craps shared table bets, concurrent player chip rendering, and co-play sidebar updates.");
       writeToLog("* Verified guest player cleanup upon connection termination.");
     });
 

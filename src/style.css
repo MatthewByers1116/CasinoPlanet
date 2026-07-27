@@ -817,6 +817,38 @@ kbd {
   100% { transform: rotate(8deg) scale(1.05); }
 }
 
+/* Craps Multiplayer Chips Container */
+.bet-chips-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  width: 95%;
+  height: 95%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bet-chips-container .bet-chip {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  margin: 1px;
+}
+
+/* 3D Tumbling Dice Styles */
+.die.rolling-3d {
+  pointer-events: none;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.65), inset 0 -4px 0 #d0d0d0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
 /* Happiness Container */
 .happiness-container {
   display: flex;

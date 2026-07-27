@@ -386,6 +386,22 @@
         });
       }
 
+      const unstuckBtn = document.getElementById('btn-unstuck');
+      if (unstuckBtn) {
+        unstuckBtn.addEventListener('click', () => {
+          this.isInQTE = false;
+          this.isInMinigame = false;
+          
+          const qteContainer = document.getElementById('qte-container');
+          if (qteContainer) qteContainer.classList.add('hidden');
+          
+          if (this.minigameUI) this.minigameUI.close();
+          
+          this.sendAction(window.Casino.Protocol.Commands.UNSTUCK_PLAYER, {});
+          this.showNotification("🆘 Teleported back to casino entrance", "info");
+        });
+      }
+
       const dayReportOverlay = document.getElementById('day-report-overlay');
       const dayReportNextBtn = document.getElementById('day-report-next-btn');
       if (dayReportNextBtn && dayReportOverlay) {
@@ -711,6 +727,21 @@
         });
       }
 
+      const btnToggleScorecard = document.getElementById('btn-toggle-scorecard');
+      const scorecardPanel = document.getElementById('scorecard-panel');
+      const scorecardCollapsedBtn = document.getElementById('scorecard-collapsed-btn');
+      
+      if (btnToggleScorecard && scorecardPanel && scorecardCollapsedBtn) {
+        btnToggleScorecard.addEventListener('click', () => {
+          scorecardPanel.classList.add('hidden');
+          scorecardCollapsedBtn.classList.remove('hidden');
+        });
+        scorecardCollapsedBtn.addEventListener('click', () => {
+          scorecardCollapsedBtn.classList.add('hidden');
+          scorecardPanel.classList.remove('hidden');
+        });
+      }
+
       // Procedural click sounds on any interactive buttons
       document.querySelectorAll('.build-btn, .dropdown-item, .action-btn, .close-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -793,6 +824,12 @@
                 if (updatedObj.dealerSeat !== undefined) {
                   matched.dealerSeat = updatedObj.dealerSeat;
                 }
+                if (updatedObj.stock !== undefined) matched.stock = updatedObj.stock;
+                if (updatedObj.maxStock !== undefined) matched.maxStock = updatedObj.maxStock;
+                if (updatedObj.isOutOfStock !== undefined) matched.isOutOfStock = updatedObj.isOutOfStock;
+                if (updatedObj.isBroken !== undefined) matched.isBroken = updatedObj.isBroken;
+                if (updatedObj.needsRepairSoon !== undefined) matched.needsRepairSoon = updatedObj.needsRepairSoon;
+                if (updatedObj.isDealerBoosted !== undefined) matched.isDealerBoosted = updatedObj.isDealerBoosted;
               }
             });
           }
@@ -1332,6 +1369,80 @@
           dayTimerEl.style.color = 'var(--accent-gold)';
         }
       }
+      this.updateScorecardUI();
+    }
+
+    updateScorecardUI() {
+      const panel = document.getElementById('scorecard-panel');
+      const content = document.getElementById('scorecard-content');
+      if (!panel || !content) return;
+
+      content.innerHTML = '';
+
+      if (!this.state.players || Object.keys(this.state.players).length === 0) {
+        content.innerHTML = '<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 12px 0;">No active players</div>';
+        return;
+      }
+
+      Object.values(this.state.players).forEach(p => {
+        const stats = p.gamblingStats || { totalWon: 0, totalLost: 0, netProfit: 0 };
+        const row = document.createElement('div');
+        row.style.background = 'rgba(255,255,255,0.03)';
+        row.style.border = '1px solid rgba(255,255,255,0.05)';
+        row.style.borderRadius = '8px';
+        row.style.padding = '8px';
+        row.style.display = 'flex';
+        row.style.flexDirection = 'column';
+        row.style.gap = '4px';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.innerText = p.name;
+        nameSpan.style.color = p.color || 'var(--accent-blue)';
+        nameSpan.style.fontWeight = 'bold';
+        nameSpan.style.fontSize = '11px';
+
+        const profitSpan = document.createElement('span');
+        const profit = stats.netProfit || 0;
+        if (profit >= 0) {
+          profitSpan.innerText = `+${profit} c`;
+          profitSpan.style.color = '#39ff14';
+          profitSpan.style.textShadow = '0 0 4px rgba(57,255,20,0.3)';
+        } else {
+          profitSpan.innerText = `${profit} c`;
+          profitSpan.style.color = '#ff007f';
+          profitSpan.style.textShadow = '0 0 4px rgba(255,0,127,0.3)';
+        }
+        profitSpan.style.fontWeight = 'bold';
+        profitSpan.style.fontSize = '11px';
+        profitSpan.style.fontFamily = 'monospace';
+
+        header.appendChild(nameSpan);
+        header.appendChild(profitSpan);
+
+        const details = document.createElement('div');
+        details.style.display = 'flex';
+        details.style.justifyContent = 'space-between';
+        details.style.fontSize = '9px';
+        details.style.color = 'var(--text-secondary)';
+
+        const wonSpan = document.createElement('span');
+        wonSpan.innerText = `Won: ${stats.totalWon || 0}`;
+
+        const lostSpan = document.createElement('span');
+        lostSpan.innerText = `Lost: ${stats.totalLost || 0}`;
+
+        details.appendChild(wonSpan);
+        details.appendChild(lostSpan);
+
+        row.appendChild(header);
+        row.appendChild(details);
+        content.appendChild(row);
+      });
     }
 
     handleInteractKeyPress() {
@@ -1413,8 +1524,19 @@
             "🔧 REPAIR MACHINE",
             "Press SPACE or E in the GREEN zone to fix the grid!",
             () => {
+              this.repairFailuresCount = 0;
               this.sendAction(window.Casino.Protocol.Commands.REPAIR_MACHINE, { objectId: closestObj.id });
               this.showNotification(`🔧 Machine "${closestObj.name}" repaired!`, "success");
+            },
+            () => {
+              this.repairFailuresCount = (this.repairFailuresCount || 0) + 1;
+              if (this.repairFailuresCount >= 3) {
+                this.repairFailuresCount = 0;
+                this.sendAction(window.Casino.Protocol.Commands.REPAIR_MACHINE, { objectId: closestObj.id });
+                this.showNotification(`🔧 Machine "${closestObj.name}" repaired! (Mercy Rule applied)`, "success");
+              } else {
+                this.showNotification(`QTE Failed! Missed target zone. (${3 - this.repairFailuresCount} attempts remaining before mercy rule)`, "warning");
+              }
             }
           );
           return;
@@ -1492,6 +1614,33 @@
       if (this.isInQTE) return;
       this.isInQTE = true;
       let animId = null;
+
+      let qteResolved = false;
+      const originalSuccess = successCallback;
+      const originalFailure = failureCallback;
+
+      const safeSuccess = (...args) => {
+        if (qteResolved) return;
+        qteResolved = true;
+        this.isInQTE = false;
+        if (cleanUp) cleanUp();
+        if (originalSuccess) originalSuccess(...args);
+      };
+
+      const safeFailure = (...args) => {
+        if (qteResolved) return;
+        qteResolved = true;
+        this.isInQTE = false;
+        if (cleanUp) cleanUp();
+        if (originalFailure) {
+          originalFailure(...args);
+        } else {
+          this.showNotification("QTE Failed! Missed target zone.", "error");
+        }
+      };
+
+      successCallback = safeSuccess;
+      failureCallback = safeFailure;
 
       const container = document.getElementById('qte-container');
       const titleEl = document.getElementById('qte-title');
@@ -1961,7 +2110,7 @@
         const radius = 45;
 
         // Generate target zone angle (in radians)
-        const targetWidth = 0.45 + Math.random() * 0.15; // approx 25-35 degrees
+        const targetWidth = 0.6 + Math.random() * 0.2; // approx 35-45 degrees
         const targetStart = 0.5 * Math.PI + Math.random() * 0.8 * Math.PI;
         const targetEnd = targetStart + targetWidth;
         
@@ -1975,7 +2124,7 @@
 
         let currentAngle = 0;
         this.qteAngle = currentAngle;
-        const speed = 0.045 + Math.random() * 0.015;
+        const speed = 0.02 + Math.random() * 0.008;
         animId = null;
 
         const tick = () => {
@@ -2044,7 +2193,8 @@
           cleanUp();
           const normAngle = currentAngle % (2 * Math.PI);
           
-          if (normAngle >= targetStart && normAngle <= targetEnd) {
+          const tolerance = 0.08;
+          if (normAngle >= (targetStart - tolerance) && normAngle <= (targetEnd + tolerance)) {
             window.Casino.SoundManager.playWin();
             if (normAngle >= greatStart && normAngle <= greatEnd) {
               this.showNotification("🎯 GREAT SKILL CHECK! Boost duration doubled!", "success");
@@ -2143,6 +2293,7 @@
         const totalDuration = 4000; // 4 seconds
         const startTime = performance.now();
         let lastTick = performance.now();
+        let resolved = false;
         
         const tick = () => {
           if (!active) return;
@@ -2151,7 +2302,7 @@
           lastTick = now;
           
           // Decay progress
-          progress = Math.max(0, progress - 18 * dt);
+          progress = Math.max(0, progress - 12 * dt);
           progressFillEl.style.width = progress + '%';
           
           // Timer
@@ -2160,17 +2311,9 @@
           timerFillEl.style.width = remainingPct + '%';
           
           if (progress >= 100) {
-            cleanUp();
-            window.Casino.SoundManager.playWin();
-            successCallback();
+            handleSuccess();
           } else if (elapsed >= totalDuration) {
-            cleanUp();
-            window.Casino.SoundManager.playLose();
-            if (failureCallback) {
-              failureCallback();
-            } else {
-              this.showNotification("Time ran out! QTE Failed.", "error");
-            }
+            handleFailure();
           } else {
             animId = requestAnimationFrame(tick);
           }
@@ -2183,9 +2326,30 @@
           container.classList.add('hidden');
           mashWrap.classList.add('hidden');
           window.removeEventListener('keydown', handleInput);
-          window.removeEventListener('click', triggerClick);
+          window.removeEventListener('mousedown', triggerClick);
+          container.removeEventListener('mousedown', triggerClick);
           this.isInQTE = false;
           if (this.inputHandler) this.inputHandler.keys = {};
+        };
+
+        const handleSuccess = () => {
+          if (resolved) return;
+          resolved = true;
+          cleanUp();
+          window.Casino.SoundManager.playWin();
+          successCallback();
+        };
+
+        const handleFailure = () => {
+          if (resolved) return;
+          resolved = true;
+          cleanUp();
+          window.Casino.SoundManager.playLose();
+          if (failureCallback) {
+            failureCallback();
+          } else {
+            this.showNotification("Time ran out! QTE Failed.", "error");
+          }
         };
         
         const handleInput = (e) => {
@@ -2194,19 +2358,30 @@
             e.preventDefault();
             e.stopPropagation();
             window.Casino.SoundManager.playBeep();
-            progress = Math.min(100, progress + 12);
+            progress = Math.min(100, progress + 16);
             progressFillEl.style.width = progress + '%';
+            if (progress >= 100) {
+              handleSuccess();
+            }
           }
         };
         
         const triggerClick = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
           window.Casino.SoundManager.playBeep();
-          progress = Math.min(100, progress + 12);
+          progress = Math.min(100, progress + 16);
           progressFillEl.style.width = progress + '%';
+          if (progress >= 100) {
+            handleSuccess();
+          }
         };
         
         window.addEventListener('keydown', handleInput);
-        window.addEventListener('click', triggerClick);
+        window.addEventListener('mousedown', triggerClick);
+        container.addEventListener('mousedown', triggerClick);
       } else if (mode === 'microgame') {
         let microgameWrap = document.getElementById('qte-microgame-wrap');
         if (!microgameWrap) {
@@ -3572,6 +3747,15 @@
           gridX: gridX,
           gridY: gridY
         });
+        // Return to select mode by default after placement
+        this.buildModeItem = null;
+        const btnSelect = document.getElementById('btn-select');
+        if (btnSelect) {
+          document.querySelectorAll('.build-btn, .action-btn').forEach(btn => {
+            btn.classList.remove('active');
+          });
+          btnSelect.classList.add('active');
+        }
       } else if (this.moveModeItem) {
         // Send move object command to simulator
         this.sendAction(window.Casino.Protocol.Commands.MOVE_OBJECT, {
@@ -3822,6 +4006,19 @@
             };
           } else if (btnNeeds) {
             btnNeeds.disabled = true;
+          }
+
+          const btnBreak = replaceBtn('btn-employee-break');
+          if (btnBreak) {
+            btnBreak.disabled = !!char.isOnBreak;
+            btnBreak.innerText = char.isOnBreak ? '☕ On Break' : '☕ Send on Break';
+            btnBreak.onclick = () => {
+              this.sendAction(window.Casino.Protocol.Commands.SEND_EMPLOYEE_BREAK, {
+                employeeId: char.id
+              });
+              this.showNotification(`Sent ${role} on break.`, "success");
+              modal.classList.add('hidden');
+            };
           }
         } else {
           upgradesSection.style.display = 'none';

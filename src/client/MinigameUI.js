@@ -264,6 +264,16 @@
             <li>3 Matches: <strong>4 to 1</strong> | 2 Matches: <strong>1 to 1 (Return)</strong></li>
           </ul>
         `;
+      } else if (gameType === 'minigame_machine') {
+        contentEl.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px; color:#fff;">How to Play:</div>
+          <p style="margin:0 0 8px 0;">Select your bet amount and click <strong>INSERT COIN</strong> to start. Complete the interactive arcade microgame successfully to win a 2X payout!</p>
+          <div style="font-weight:700; margin-bottom:4px; color:#fff;">Payout Odds:</div>
+          <ul style="margin:0; padding-left:16px;">
+            <li>Succeed microgame: <strong>2 to 1 (Double bet)</strong></li>
+            <li>Fail microgame: <strong>Forfeits bet</strong></li>
+          </ul>
+        `;
       }
     }
 
@@ -433,7 +443,7 @@
       const statusEl = document.getElementById('minigame-dealer-status');
       if (!statusEl) return;
 
-      if (['slots', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery'].includes(this.activeGameType)) {
+      if (['slots', 'elec_roulette', 'elec_blackjack', 'bubble_craps', 'video_poker', 'elec_sic_bo', 'elec_baccarat', 'plinko', 'lottery', 'minigame_machine'].includes(this.activeGameType)) {
         statusEl.style.display = 'none';
         return;
       }
@@ -1020,8 +1030,6 @@
               <div class="craps-cell" data-bet="prop_craps3">Craps 3</div>
               <div class="craps-cell" data-bet="prop_craps2">Craps 2</div>
               <div class="craps-cell" data-bet="prop_craps12">Craps 12</div>
-              <div class="craps-cell" data-bet="prop_any7">Any 7</div>
-              <!-- ATS Side Bets -->
               <div class="craps-cell" data-bet="prop_small" style="background:rgba(255,215,0,0.05); border-color:var(--accent-gold); font-size:10px;">Small 2-6</div>
               <div class="craps-cell" data-bet="prop_big" style="background:rgba(255,215,0,0.05); border-color:var(--accent-gold); font-size:10px;">Big 8-12</div>
               <div class="craps-cell" data-bet="prop_all" style="grid-column: span 2; background:rgba(0,240,255,0.05); border-color:var(--accent-blue); font-size:10px;">ALL (2-12)</div>
@@ -1064,7 +1072,7 @@
             </div>
           </div>
 
-          <div class="craps-board-wrapper">
+          <div class="craps-board-wrapper" style="position: relative; margin-bottom: 8px;">
             ${boardHTML}
           </div>
 
@@ -1085,8 +1093,16 @@
             </div>
           </div>
 
-          <div id="craps-result-log" class="minigame-log-feed">
-            <div class="log-line info">Place bets on Pass Line, Don't Pass, or ATS and click ROLL DICE. Payout logs appear here.</div>
+          <div style="display: flex; gap: 12px; margin-top: 10px;">
+            <div id="craps-result-log" class="minigame-log-feed" style="flex: 1.3; height: 110px; margin-top: 0; box-sizing: border-box;">
+              <div class="log-line info">Place bets on Pass Line, Don't Pass, or ATS and click ROLL DICE. Payout logs appear here.</div>
+            </div>
+            <div id="craps-players-panel" style="flex: 1; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); font-size: 11px; height: 110px; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;">
+              <h4 style="margin: 0 0 4px 0; color: var(--accent-gold); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 2px;">Players & Bets</h4>
+              <div id="craps-players-list" style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="color: var(--text-secondary); text-align: center; padding: 4px 0;">No other players</div>
+              </div>
+            </div>
           </div>
         </div>
       `;
@@ -1097,6 +1113,16 @@
         this.updateATSLights(this.crapsRolledNumbers);
         this.updateCrapsPucks(this.crapsPoint);
       }
+    }
+
+    getCrapsBetTotal() {
+      let sum = 0;
+      this.crapsActiveBets.forEach(b => {
+        if (b.playerId === this.clientGame.playerId) {
+          sum += b.amount;
+        }
+      });
+      return sum;
     }
 
     bindCrapsEvents(isElectronic = false) {
@@ -1154,255 +1180,375 @@
 
           // Electronic limit check
           const limit = isElectronic ? 100 : Infinity;
-          const totalPlannedBet = self.getBetTotal() + plannedCost;
+          const totalPlannedBet = self.getCrapsBetTotal() + plannedCost;
           if (totalPlannedBet > limit) {
             self.clientGame.showNotification(`Electronic terminal limit reached (Max: ${limit} chips)!`, "warning");
             return;
           }
 
-          if (totalPlannedBet > self.clientGame.chips) {
+          if (plannedCost > self.clientGame.chips) {
             self.clientGame.showNotification("Insufficient Chips (plus 5% commission)!", "error");
             return;
           }
 
-          const currentAmount = self.currentBets.get(betKey) || 0;
-          const newAmount = currentAmount + self.selectedChipValue;
-          self.currentBets.set(betKey, newAmount);
+          self.logDebug(`Placing bet on "${betKey.replace('prop_','').replace('place_','').toUpperCase()}" for ${self.selectedChipValue} Chips`, 'info');
 
-          self.logDebug(`Placed bet on "${betKey.replace('prop_','').replace('place_','').toUpperCase()}" for ${self.selectedChipValue} Chips (Cell total: ${newAmount})`, 'info');
-
-          self.updateCellBetUI(this, newAmount, betKey.startsWith('buy_'));
-
-          // Update total bet display
-          const totalValEl = document.getElementById('craps-total-bet-val');
-          if (totalValEl) {
-            totalValEl.innerText = self.getBetTotal().toLocaleString();
-          }
+          // Send placement directly to the server
+          self.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+            gameType: self.activeGameType,
+            tableId: self.activeTableId,
+            action: 'place_bet',
+            bets: [{ type: betKey, amount: self.selectedChipValue }]
+          });
         });
       });
 
-      // Clear bets (clears only new unplaced bets)
+      // Clear bets
       this.modalBody.querySelector('#craps-clear-btn').addEventListener('click', () => {
         if (this.isRolling) return;
-        this.currentBets.clear();
-        cells.forEach(cell => {
-          const betKey = cell.dataset.bet;
-          const matchingActive = self.crapsActiveBets.find(b => b.type === betKey || (b.type.startsWith('buy_') && betKey === b.type.replace('buy_', 'place_')));
-          
-          if (!matchingActive) {
-            const chip = cell.querySelector('.bet-chip');
-            if (chip) chip.remove();
-          } else {
-            // Re-render server bet value
-            self.updateCellBetUI(cell, matchingActive.amount, matchingActive.type.startsWith('buy_'));
-          }
+        self.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+          gameType: this.activeGameType,
+          tableId: this.activeTableId,
+          action: 'clear_bets'
         });
-
-        // Update total bet display
-        const totalValEl = document.getElementById('craps-total-bet-val');
-        if (totalValEl) {
-          totalValEl.innerText = self.getBetTotal().toLocaleString();
-        }
       });
 
       // Roll action
       this.modalBody.querySelector('#craps-roll-btn').addEventListener('click', () => {
         if (this.isRolling) return;
 
-        // Check if there are active bets on the table, OR new bets being placed
-        if (this.crapsActiveBets.length === 0 && this.currentBets.size === 0) {
+        // Check if there are active bets on the table
+        if (this.crapsActiveBets.length === 0) {
           this.clientGame.showNotification("Please place a bet on Pass Line, Don't Pass, or another section!", "info");
           return;
         }
 
-        const betsArray = [];
-        for (const [type, amount] of this.currentBets.entries()) {
-          betsArray.push({ type, amount });
-        }
-
-        self.logDebug(`Rolling dice... Submitting ${betsArray.length} resolved/new bets to server.`, 'info');
+        self.logDebug(`Rolling dice...`, 'info');
 
         this.isRolling = true;
         window.Casino.SoundManager.playDice();
         this.modalBody.querySelector('#craps-roll-btn').disabled = true;
         this.modalBody.querySelector('#craps-clear-btn').disabled = true;
 
-        // Clear local currentBets as they are now committed to active table bets
-        this.currentBets.clear();
-
         this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
           gameType: this.activeGameType,
           tableId: this.activeTableId,
-          action: 'roll',
-          bets: betsArray
+          action: 'roll'
         });
       });
     }
 
     reconstructActiveCrapsBetsUI() {
+      // Clear any existing chips
+      const cells = this.modalBody.querySelectorAll('.craps-cell');
+      cells.forEach(cell => {
+        const existingContainer = cell.querySelector('.bet-chips-container');
+        if (existingContainer) existingContainer.remove();
+        const oldChip = cell.querySelector('.bet-chip');
+        if (oldChip) oldChip.remove();
+      });
+
+      const betsByType = new Map();
       this.crapsActiveBets.forEach(bet => {
-        const cell = this.modalBody.querySelector(`.craps-cell[data-bet="${bet.type}"]`);
+        let visualType = bet.type;
+        if (visualType.startsWith('buy_')) {
+          visualType = visualType.replace('buy_', 'place_');
+        }
+        if (!betsByType.has(visualType)) {
+          betsByType.set(visualType, []);
+        }
+        betsByType.get(visualType).push(bet);
+      });
+
+      betsByType.forEach((bets, type) => {
+        const cell = this.modalBody.querySelector(`.craps-cell[data-bet="${type}"]`);
         if (cell) {
-          this.updateCellBetUI(cell, bet.amount);
+          let container = cell.querySelector('.bet-chips-container');
+          if (!container) {
+            container = document.createElement('div');
+            container.className = 'bet-chips-container';
+            cell.appendChild(container);
+          }
+          
+          bets.forEach(bet => {
+            const chipEl = document.createElement('div');
+            chipEl.className = 'bet-chip';
+            if (bet.type.startsWith('buy_')) {
+              chipEl.innerText = "B " + bet.amount;
+              chipEl.classList.add('buy-chip');
+            } else {
+              chipEl.innerText = bet.amount;
+            }
+            
+            const pId = bet.playerId;
+            const targetPlayer = this.clientGame.state.players[pId];
+            let color = '#00f0ff';
+            let name = pId === this.clientGame.playerId ? 'YOU' : `Manager ${pId.substring(0, 5)}`;
+            
+            if (targetPlayer) {
+              color = targetPlayer.color || color;
+              name = targetPlayer.name || name;
+            } else if (pId === this.clientGame.playerId) {
+              color = '#00f0ff';
+            } else {
+              const colors = ['#ff007f', '#39ff14', '#ffaa00', '#a020f0', '#e64dff', '#ffff00'];
+              let hash = 0;
+              for (let i = 0; i < pId.length; i++) hash += pId.charCodeAt(i);
+              color = colors[hash % colors.length];
+            }
+            
+            chipEl.style.background = color;
+            chipEl.style.color = '#000';
+            chipEl.style.borderColor = '#000';
+            chipEl.title = `${name}'s Bet: ${bet.amount} Chips`;
+            
+            container.appendChild(chipEl);
+          });
         }
       });
+
+      // Update total bet display for the local player
+      const totalValEl = document.getElementById('craps-total-bet-val');
+      if (totalValEl) {
+        totalValEl.innerText = this.getCrapsBetTotal().toLocaleString();
+      }
     }
 
-    // Handles the outcome of Craps callback from server
     handleCrapsPayout(payload) {
+      const now = Date.now();
+      if (this.lastCrapsRollTime && (now - this.lastCrapsRollTime < 200)) {
+        return;
+      }
+      this.lastCrapsRollTime = now;
+
       const d1 = payload.die1;
       const d2 = payload.die2;
       const total = payload.total;
       const point = payload.point;
 
+      // 1. Shaking animation on header dice
       const die1El = document.getElementById('die1');
       const die2El = document.getElementById('die2');
+      if (die1El && die2El) {
+        die1El.classList.add('rolling');
+        die2El.classList.add('rolling');
+      }
 
-      // Shaking animation
-      die1El.classList.add('rolling');
-      die2El.classList.add('rolling');
+      // 2. 3D Tumbling Dice rolling on the board field!
+      const container = this.modalBody.querySelector('.craps-container');
+      const animDie1 = document.createElement('div');
+      const animDie2 = document.createElement('div');
+      animDie1.className = 'die rolling-3d';
+      animDie2.className = 'die rolling-3d';
+      animDie1.style.position = 'absolute';
+      animDie1.style.zIndex = '1000';
+      animDie2.style.position = 'absolute';
+      animDie2.style.zIndex = '1000';
+      
+      animDie1.dataset.val = '1';
+      animDie2.dataset.val = '1';
+      this.renderDieDots(animDie1);
+      this.renderDieDots(animDie2);
+      
+      container.appendChild(animDie1);
+      container.appendChild(animDie2);
 
-      // Setup interval to cycle dice values while rolling
-      let rollCycles = 0;
-      const cycleInterval = setInterval(() => {
-        die1El.dataset.val = Math.floor(Math.random() * 6) + 1;
-        die2El.dataset.val = Math.floor(Math.random() * 6) + 1;
+      const startTime = performance.now();
+      const duration = 1200; // 1.2s rolling duration
+      
+      // Random target positions near the middle of the field (craps board wrapper)
+      const target1 = { x: 120 + Math.random() * 60, y: 160 + Math.random() * 40 };
+      const target2 = { x: 200 + Math.random() * 60, y: 140 + Math.random() * 40 };
+      
+      // Spawn locations (rolling onto the board from off-screen left)
+      const start1 = { x: -60, y: 130 };
+      const start2 = { x: -60, y: 190 };
+
+      const animTick = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
         
-        // Re-generate dots
-        this.renderDieDots(die1El);
-        this.renderDieDots(die2El);
-
-        rollCycles++;
-        if (rollCycles >= 10) {
-          clearInterval(cycleInterval);
+        if (progress < 1) {
+          // Cycle faces rapidly while rolling
+          if (Math.floor(elapsed / 60) % 2 === 0) {
+            animDie1.dataset.val = Math.floor(Math.random() * 6) + 1;
+            animDie2.dataset.val = Math.floor(Math.random() * 6) + 1;
+            this.renderDieDots(animDie1);
+            this.renderDieDots(animDie2);
+          }
+        }
+        
+        // Linear position interpolation
+        const x1 = start1.x + (target1.x - start1.x) * progress;
+        const y1 = start1.y + (target1.y - start1.y) * progress;
+        const x2 = start2.x + (target2.x - start2.x) * progress;
+        const y2 = start2.y + (target2.y - start2.y) * progress;
+        
+        // Bounces: simulated via sine wave that decays over time
+        const bounceHeight1 = Math.max(0, Math.sin(progress * Math.PI * 3.5) * 50 * (1 - progress));
+        const bounceHeight2 = Math.max(0, Math.sin(progress * Math.PI * 3) * 50 * (1 - progress));
+        
+        // Spinning rotations
+        const rot1 = progress * 720;
+        const rot2 = progress * -680;
+        
+        animDie1.style.left = `${x1}px`;
+        animDie1.style.top = `${y1 - bounceHeight1}px`;
+        animDie1.style.transform = `rotate(${rot1}deg) scale(${1 + bounceHeight1/100})`;
+        
+        animDie2.style.left = `${x2}px`;
+        animDie2.style.top = `${y2 - bounceHeight2}px`;
+        animDie2.style.transform = `rotate(${rot2}deg) scale(${1 + bounceHeight2/100})`;
+        
+        if (progress < 1) {
+          requestAnimationFrame(animTick);
+        } else {
+          // Animation complete: set final authoritative values
+          animDie1.dataset.val = d1;
+          animDie2.dataset.val = d2;
+          this.renderDieDots(animDie1);
+          this.renderDieDots(animDie2);
           
-          // Stop roll, set final values
-          die1El.classList.remove('rolling');
-          die2El.classList.remove('rolling');
+          // Stop header dice wobbling and sync final values
+          if (die1El && die2El) {
+            die1El.classList.remove('rolling');
+            die2El.classList.remove('rolling');
+            die1El.dataset.val = d1;
+            die2El.dataset.val = d2;
+            this.renderDieDots(die1El);
+            this.renderDieDots(die2El);
+          }
 
-          die1El.dataset.val = d1;
-          die2El.dataset.val = d2;
-          this.renderDieDots(die1El);
-          this.renderDieDots(die2El);
+          // Let 3D dice rest on the field for 3.5 seconds, then fade out
+          setTimeout(() => {
+            animDie1.style.transition = 'opacity 0.5s ease';
+            animDie2.style.transition = 'opacity 0.5s ease';
+            animDie1.style.opacity = '0';
+            animDie2.style.opacity = '0';
+            setTimeout(() => {
+              animDie1.remove();
+              animDie2.remove();
+            }, 500);
+          }, 3500);
 
           // Resolve payouts
           this.isRolling = false;
           this.crapsPoint = point;
           this.crapsActiveBets = payload.activeBets;
+          this.lastRollPayouts = payload.payoutsSummary;
 
-          // Update point pucks & ATS checked-off values
+          // Update board lights, pucks and active chips
           this.updateATSLights(payload.rolledNumbers);
           this.updateCrapsPucks(point);
+          this.reconstructActiveCrapsBetsUI();
 
-          // Trigger result alert
-          setTimeout(() => {
-            const win = payload.totalWin;
-            const loss = payload.totalBetLoss;
-            let statusType = 'info';
-            let msg = `Dice roll: ${d1} + ${d2} = ${total}. `;
-            
-            if (win > 0 && loss > 0) {
-              window.Casino.SoundManager.playWin();
-              msg += `🎉 Won +${win}! (Lost -${loss})`;
-              statusType = 'success';
-            } else if (win > 0) {
-              window.Casino.SoundManager.playWin();
-              msg += `🎉 Won +${win} Chips!`;
-              statusType = 'success';
-            } else if (loss > 0) {
-              window.Casino.SoundManager.playLose();
-              msg += `😢 Lost -${loss} Chips.`;
-              statusType = 'error';
+          // Sync side panel list
+          this.updateOtherPlayers(this.clientGame.state);
+
+          // Find local player results
+          const localWin = payload.totalWin;
+          const localLoss = payload.totalBetLoss;
+          const localNet = localWin - localLoss;
+          
+          let statusType = 'info';
+          let msg = `Dice roll: ${d1} + ${d2} = ${total}. `;
+          if (localWin > 0 && localLoss > 0) {
+            window.Casino.SoundManager.playWin();
+            msg += `🎉 Won +${localWin}! (Lost -${localLoss})`;
+            statusType = 'success';
+          } else if (localWin > 0) {
+            window.Casino.SoundManager.playWin();
+            msg += `🎉 Won +${localWin} Chips!`;
+            statusType = 'success';
+          } else if (localLoss > 0) {
+            window.Casino.SoundManager.playLose();
+            msg += `😢 Lost -${localLoss} Chips.`;
+            statusType = 'error';
+          } else {
+            msg += `Point is: ${point ? point : 'Resolved'}.`;
+          }
+          this.clientGame.showNotification(msg, statusType);
+
+          // Update session profit stats
+          this.sessionProfit += localNet;
+          const profitEl = document.getElementById('minigame-session-profit');
+          if (profitEl) {
+            profitEl.innerText = (this.sessionProfit >= 0 ? '+' : '') + this.sessionProfit.toLocaleString();
+            profitEl.style.color = this.sessionProfit > 0 ? 'var(--accent-green)' : (this.sessionProfit < 0 ? 'var(--accent-pink)' : '#fff');
+          }
+
+          // Log detailed breakdown in scrolling feed
+          const logEl = document.getElementById('craps-result-log');
+          if (logEl) {
+            let logHtml = ``;
+            if (payload.payoutsSummary) {
+              payload.payoutsSummary.forEach(ps => {
+                const netSign = ps.netPayout >= 0 ? `+${ps.netPayout}` : `${ps.netPayout}`;
+                const lineClass = ps.netPayout > 0 ? 'win' : (ps.netPayout < 0 ? 'loss' : 'info');
+                const nameTag = ps.playerId === this.clientGame.playerId ? 'YOU' : ps.name;
+                
+                logHtml += `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} [${nameTag}] (Net: ${netSign})</strong></div>`;
+                ps.payoutDetails.forEach(d => {
+                  const betName = d.type.replace('prop_','').replace('place_','').replace('buy_','');
+                  if (d.isPush) {
+                    logHtml += `<div class="log-line info" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): PUSH (Returned)</div>`;
+                  } else if (d.won) {
+                    logHtml += `<div class="log-line win" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout} Chips)</div>`;
+                  } else {
+                    logHtml += `<div class="log-line loss" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
+                  }
+                });
+              });
             } else {
-              msg += `Point is: ${point ? point : 'Resolved'}.`;
-            }
-            this.clientGame.showNotification(msg, statusType);
-
-            // Update session profit
-            const net = win - loss;
-            this.sessionProfit += net;
-            const profitEl = document.getElementById('minigame-session-profit');
-            if (profitEl) {
-              profitEl.innerText = (this.sessionProfit >= 0 ? '+' : '') + this.sessionProfit.toLocaleString();
-              profitEl.style.color = this.sessionProfit > 0 ? 'var(--accent-green)' : (this.sessionProfit < 0 ? 'var(--accent-pink)' : '#fff');
-            }
-
-            // Log detailed results breakdown inside the scrolling feed
-            const logEl = document.getElementById('craps-result-log');
-            if (logEl) {
-              const net = win - loss;
-              const netSign = net >= 0 ? `+${net}` : `${net}`;
-              const lineClass = net > 0 ? 'win' : (net < 0 ? 'loss' : 'info');
-              
-              let logHtml = `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} (Net: ${netSign})</strong></div>`;
+              // Legacy fallback log
+              const netSign = localNet >= 0 ? `+${localNet}` : `${localNet}`;
+              const lineClass = localNet > 0 ? 'win' : (localNet < 0 ? 'loss' : 'info');
+              logHtml += `<div class="log-line ${lineClass}"><strong>Result: ${d1} + ${d2} = ${total} (Net: ${netSign})</strong></div>`;
               payload.payoutDetails.forEach(d => {
                 const betName = d.type.replace('prop_','').replace('place_','').replace('buy_','');
                 if (d.isPush) {
-                  logHtml += `<div class="log-line info"> &raquo; Bet '${betName}' (${d.amount}): PUSH (Returned)</div>`;
+                  logHtml += `<div class="log-line info" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): PUSH</div>`;
                 } else if (d.won) {
-                  logHtml += `<div class="log-line win"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout} Chips)</div>`;
+                  logHtml += `<div class="log-line win" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): WON (+${d.payout})</div>`;
                 } else {
-                  logHtml += `<div class="log-line loss"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
+                  logHtml += `<div class="log-line loss" style="margin-left:12px;"> &raquo; Bet '${betName}' (${d.amount}): LOST</div>`;
                 }
               });
-              
-              logEl.innerHTML += logHtml;
-              logEl.scrollTop = logEl.scrollHeight;
             }
+            logEl.innerHTML += logHtml;
+            logEl.scrollTop = logEl.scrollHeight;
+          }
 
-            // Keep Bets toggle: re-add resolved bets
-            const keepBetsCheckbox = document.getElementById('craps-keep-bets-checkbox');
-            const shouldKeep = keepBetsCheckbox ? keepBetsCheckbox.checked : true;
-
-            if (shouldKeep) {
-              payload.payoutDetails.forEach(d => {
-                // If it resolved, re-place it
-                if (this.clientGame.chips >= d.amount) {
-                  const existing = this.currentBets.get(d.type) || 0;
-                  this.currentBets.set(d.type, existing + d.amount);
-                  
-                  // Deduct locally to reflect planned bet
-                  this.clientGame.chips -= d.amount;
-                } else {
-                  this.clientGame.showNotification("Bets cleared: Insufficient Chips to repeat some bets!", "error");
-                }
-              });
-            } else {
-              this.currentBets.clear();
-            }
-
-            // Re-render UI table bets
-            const cells = this.modalBody.querySelectorAll('.craps-cell');
-            cells.forEach(cell => {
-              const chip = cell.querySelector('.bet-chip');
-              if (chip) chip.remove();
+          // Repeat resolved bets if "Keep bets on board" is checked
+          const keepBetsCheckbox = document.getElementById('craps-keep-bets-checkbox');
+          const shouldKeep = keepBetsCheckbox ? keepBetsCheckbox.checked : true;
+          if (shouldKeep) {
+            const repeatedBets = [];
+            payload.payoutDetails.forEach(d => {
+              repeatedBets.push({ type: d.type, amount: d.amount });
             });
-            
-            this.reconstructActiveCrapsBetsUI();
-            for (const [type, amount] of this.currentBets.entries()) {
-              const cellType = type.startsWith('buy_') ? type.replace('buy_', 'place_') : type;
-              const cell = this.modalBody.querySelector(`.craps-cell[data-bet="${cellType}"]`);
-              if (cell) {
-                this.updateCellBetUI(cell, amount, type.startsWith('buy_'));
-              }
+            if (repeatedBets.length > 0) {
+              // Send placement request to repeat
+              this.clientGame.sendAction(window.Casino.Protocol.Commands.PLAY_MINIGAME, {
+                gameType: this.activeGameType,
+                tableId: this.activeTableId,
+                action: 'place_bet',
+                bets: repeatedBets
+              });
             }
+          }
 
-            // Update total bet display
-            const totalValEl = document.getElementById('craps-total-bet-val');
-            if (totalValEl) {
-              totalValEl.innerText = this.getBetTotal().toLocaleString();
-            }
+          // Update balance displays
+          this.updateBalance();
 
-            // Update balance displays
-            this.updateBalance();
-
-            const rollBtn = document.getElementById('craps-roll-btn');
-            if (rollBtn) rollBtn.disabled = false;
-            const clearBtn = document.getElementById('craps-clear-btn');
-            if (clearBtn) clearBtn.disabled = false;
-          }, 500);
+          const rollBtn = document.getElementById('craps-roll-btn');
+          if (rollBtn) rollBtn.disabled = false;
+          const clearBtn = document.getElementById('craps-clear-btn');
+          if (clearBtn) clearBtn.disabled = false;
         }
-      }, 100);
+      };
+      
+      requestAnimationFrame(animTick);
     }
 
     updateATSLights(rolled) {
@@ -1991,10 +2137,10 @@
       }
       const color = ['♥', '♦'].includes(card.suit) ? '#ff4d4d' : '#fff';
       return `
-        <div class="card" style="position: relative; width: 55px; height: 80px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: linear-gradient(135deg, #1c1c1e, #2c2c2e); color: ${color}; box-shadow: 0 4px 8px rgba(0,0,0,0.5); font-family: sans-serif; font-weight: bold; font-size: 14px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px;">
-          <div style="text-align: left; line-height: 1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
-          <div style="font-size: 20px; text-align: center;">${card.suit}</div>
-          <div style="text-align: right; transform: rotate(180deg); line-height: 1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
+        <div class="card" style="position: relative; width: 55px; height: 80px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: linear-gradient(135deg, #1c1c1e, #2c2c2e); color: ${color}; box-shadow: 0 4px 8px rgba(0,0,0,0.5); font-family: sans-serif; font-weight: bold; font-size: 14px; box-sizing: border-box;">
+          <div style="position: absolute; top: 5px; left: 5px; text-align: center; line-height: 1.1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px;">${card.suit}</div>
+          <div style="position: absolute; bottom: 5px; right: 5px; text-align: center; transform: rotate(180deg); line-height: 1.1;">${card.val}<br><span style="font-size: 10px;">${card.suit}</span></div>
         </div>
       `;
     }
@@ -2150,10 +2296,10 @@
           stepTitleEl.innerText = "Step 4: Guess the Suit!";
           statusTextEl.innerText = "Guess the exact suit of the final card:";
           guessContainer.innerHTML = `
-            <button class="action-btn" data-guess="♠" style="color:#fff; border-color:#fff; min-width:50px;">♠</button>
-            <button class="action-btn" data-guess="♥" style="color:#ff4d4d; border-color:#ff4d4d; min-width:50px;">♥</button>
-            <button class="action-btn" data-guess="♦" style="color:#ff4d4d; border-color:#ff4d4d; min-width:50px;">♦</button>
-            <button class="action-btn" data-guess="♣" style="color:#fff; border-color:#fff; min-width:50px;">♣</button>
+            <button class="action-btn" data-guess="♠" style="color:#fff; border-color:rgba(255,255,255,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♠</button>
+            <button class="action-btn" data-guess="♥" style="color:#ff4d4d; border-color:rgba(255,77,77,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♥</button>
+            <button class="action-btn" data-guess="♦" style="color:#ff4d4d; border-color:rgba(255,77,77,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♦</button>
+            <button class="action-btn" data-guess="♣" style="color:#fff; border-color:rgba(255,255,255,0.4); background:rgba(0,0,0,0.6); min-width:50px;">♣</button>
           `;
         }
 
@@ -4315,6 +4461,19 @@
           }
         }
       } else if (gameType === 'craps' || gameType === 'bubble_craps') {
+        const crapsState = state.crapsState || {};
+        const simState = crapsState[tableId];
+        if (simState) {
+          this.crapsPoint = simState.point;
+          this.crapsActiveBets = simState.activeBets || [];
+          this.crapsRolledNumbers = simState.rolledNumbers || [];
+          
+          this.updateATSLights(this.crapsRolledNumbers);
+          this.updateCrapsPucks(this.crapsPoint);
+          this.reconstructActiveCrapsBetsUI();
+        }
+
+        // Inline other players list
         const inlineContainer = document.getElementById('craps-other-players-inline');
         const inlineList = document.getElementById('craps-other-players-list-inline');
         if (inlineContainer && inlineList) {
@@ -4323,6 +4482,57 @@
             inlineList.innerText = otherPlayers.map(p => `Manager ${p.playerId.substring(0, 5)}`).join(', ');
           } else {
             inlineContainer.style.display = 'none';
+          }
+        }
+
+        // Sidebar list
+        const listEl = document.getElementById('craps-players-list');
+        if (listEl) {
+          const tablePlayers = [];
+          for (const [pId, p] of Object.entries(state.players)) {
+            if (p.interactingObjectId === tableId) {
+              tablePlayers.push({
+                id: pId,
+                name: p.name || (pId === this.clientGame.playerId ? 'YOU' : `Manager ${pId.substring(0, 5)}`),
+                color: p.color || '#00f0ff'
+              });
+            }
+          }
+
+          if (tablePlayers.length > 0) {
+            listEl.innerHTML = tablePlayers.map(p => {
+              const pBets = this.crapsActiveBets.filter(b => b.playerId === p.id);
+              const totalBet = pBets.reduce((sum, b) => sum + b.amount, 0);
+              const betDetailsText = pBets.map(b => `${b.type.replace('prop_','').replace('place_','').replace('buy_','').toUpperCase()}: ${b.amount}`).join(', ') || 'No active bets';
+
+              let lastWinText = '';
+              if (this.lastRollPayouts) {
+                const pPayout = this.lastRollPayouts.find(x => x.playerId === p.id);
+                if (pPayout) {
+                  const net = pPayout.netPayout;
+                  if (net > 0) {
+                    lastWinText = `<div style="color:#39ff14; font-weight:bold; margin-top:2px;">Last: +${net} Chips</div>`;
+                  } else if (net < 0) {
+                    lastWinText = `<div style="color:#ff4d4d; font-weight:bold; margin-top:2px;">Last: ${net} Chips</div>`;
+                  } else {
+                    lastWinText = `<div style="color:#aaa; font-weight:bold; margin-top:2px;">Last: Push / 0</div>`;
+                  }
+                }
+              }
+
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: left; display: flex; align-items: flex-start; gap: 8px;">
+                  <div style="width: 10px; height: 10px; border-radius: 50%; background: ${p.color}; border: 1px solid #000; margin-top: 3px; flex-shrink: 0;"></div>
+                  <div style="flex: 1;">
+                    <div style="font-weight: bold; color: ${p.id === this.clientGame.playerId ? 'var(--accent-blue)' : '#fff'};">${p.name}</div>
+                    <div style="font-size: 9px; color: var(--text-secondary); word-break: break-word; margin-top: 2px;">Bets: ${betDetailsText} (Total: ${totalBet})</div>
+                    ${lastWinText}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            listEl.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 10px 0;">No players at table</div>`;
           }
         }
       } else if (gameType === 'ride_the_bus') {

@@ -509,59 +509,76 @@
     findJobOrWander(gridManager, sim) {
       const objects = Array.from(gridManager.placedObjects.values());
 
-      // 1. Check if needs are critical and satisfy them first
-      if (this.thirst < 25 || this.hunger < 25 || this.bio < 25) {
-        if (this.role === 'dealer' && this.targetObjectId) {
-          const oldTable = gridManager.placedObjects.get(this.targetObjectId);
-          if (oldTable && oldTable.dealerSeat && oldTable.dealerSeat.employeeId === this.id) {
-            oldTable.dealerSeat.employeeId = null;
-          }
-          this.targetObjectId = null;
-        }
-        let reqTypes = null;
-        if (this.thirst < 25) {
-          reqTypes = ['bar', 'soda_machine'];
-          this.currentNeedBeingSatisfied = 'thirst';
-        } else if (this.hunger < 25) {
-          reqTypes = ['restaurant', 'vending_machine'];
-          this.currentNeedBeingSatisfied = 'hunger';
+      // 1. Check if needs are critical and satisfy them first, or if commanded to go on break
+      if (this.thirst < 25 || this.hunger < 25 || this.bio < 25 || this.isOnBreak) {
+        if (this.isOnBreak && this.thirst >= 90 && this.hunger >= 90 && this.bio >= 90) {
+          this.isOnBreak = false;
         } else {
-          reqTypes = ['bathroom', 'bathroom_stall'];
-          this.currentNeedBeingSatisfied = 'bio';
-        }
+          // Find lowest need to satisfy
+          let lowestNeed = 'thirst';
+          let minVal = this.thirst;
+          if (this.hunger < minVal) {
+            lowestNeed = 'hunger';
+            minVal = this.hunger;
+          }
+          if (this.bio < minVal) {
+            lowestNeed = 'bio';
+            minVal = this.bio;
+          }
 
-        const options = objects.filter(obj => reqTypes.includes(obj.type) && obj.seats && obj.seats.some(s => s.guestId === null));
-        if (options.length > 0) {
-          const chosen = options[Math.floor(Math.random() * options.length)];
-          const freeSeat = chosen.seats.find(s => s.guestId === null);
-          if (freeSeat) {
-            freeSeat.guestId = this.id;
-            this.assignedSeatIndex = chosen.seats.indexOf(freeSeat);
-            this.targetObjectId = chosen.id;
-
-            const path = window.Casino.Pathfinding.findPath(
-              gridManager,
-              this.gridX,
-              this.gridY,
-              chosen.gridX + freeSeat.rx,
-              chosen.gridY + freeSeat.ry,
-              false
-            );
-            if (path && path.length > 0) {
-              this.path = path;
-              this.pathIndex = 0;
-              this.moveProgress = 0;
-              this.state = States.WALKING;
-              return;
-            } else {
-              freeSeat.guestId = null;
-              this.assignedSeatIndex = null;
+          if (minVal < 90) {
+            if (this.role === 'dealer' && this.targetObjectId) {
+              const oldTable = gridManager.placedObjects.get(this.targetObjectId);
+              if (oldTable && oldTable.dealerSeat && oldTable.dealerSeat.employeeId === this.id) {
+                oldTable.dealerSeat.employeeId = null;
+              }
               this.targetObjectId = null;
             }
+            let reqTypes = null;
+            if (lowestNeed === 'thirst') {
+              reqTypes = ['bar', 'soda_machine'];
+              this.currentNeedBeingSatisfied = 'thirst';
+            } else if (lowestNeed === 'hunger') {
+              reqTypes = ['restaurant', 'vending_machine'];
+              this.currentNeedBeingSatisfied = 'hunger';
+            } else {
+              reqTypes = ['bathroom', 'bathroom_stall'];
+              this.currentNeedBeingSatisfied = 'bio';
+            }
+
+            const options = objects.filter(obj => reqTypes.includes(obj.type) && obj.seats && obj.seats.some(s => s.guestId === null));
+            if (options.length > 0) {
+              const chosen = options[Math.floor(Math.random() * options.length)];
+              const freeSeat = chosen.seats.find(s => s.guestId === null);
+              if (freeSeat) {
+                freeSeat.guestId = this.id;
+                this.assignedSeatIndex = chosen.seats.indexOf(freeSeat);
+                this.targetObjectId = chosen.id;
+
+                const path = window.Casino.Pathfinding.findPath(
+                  gridManager,
+                  this.gridX,
+                  this.gridY,
+                  chosen.gridX + freeSeat.rx,
+                  chosen.gridY + freeSeat.ry,
+                  false
+                );
+                if (path && path.length > 0) {
+                  this.path = path;
+                  this.pathIndex = 0;
+                  this.moveProgress = 0;
+                  this.state = States.WALKING;
+                  return;
+                } else {
+                  freeSeat.guestId = null;
+                  this.assignedSeatIndex = null;
+                  this.targetObjectId = null;
+                }
+              }
+            }
+            this.currentNeedBeingSatisfied = null;
           }
         }
-        // Fallback: if no empty seats/restrooms available, wander until there is space
-        this.currentNeedBeingSatisfied = null;
       }
 
       // 2. Role-specific tasks
@@ -914,7 +931,8 @@
         targetObjectId: this.targetObjectId,
         speedLvl: this.speedLvl || 1,
         capacityLvl: this.capacityLvl || 1,
-        needsLvl: this.needsLvl || 1
+        needsLvl: this.needsLvl || 1,
+        isOnBreak: !!this.isOnBreak
       };
     }
   }

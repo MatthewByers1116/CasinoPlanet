@@ -427,6 +427,14 @@
         case Protocol.Commands.UPGRADE_EMPLOYEE:
           this.handleUpgradeEmployee(player, payload);
           break;
+
+        case Protocol.Commands.SEND_EMPLOYEE_BREAK:
+          this.handleSendEmployeeBreak(player, payload);
+          break;
+
+        case Protocol.Commands.UNSTUCK_PLAYER:
+          this.handleUnstuckPlayer(player);
+          break;
       }
     }
 
@@ -439,6 +447,17 @@
         player.move(payload.x, payload.y, this.gridManager);
         this.broadcast(window.Casino.Protocol.Events.PLAYER_MOVED, player.serialize());
       }
+    }
+
+    handleUnstuckPlayer(player) {
+      player.clearInteraction();
+      player.gridX = this.gridManager.entranceX;
+      player.gridY = this.gridManager.entranceY;
+      player.targetX = this.gridManager.entranceX;
+      player.targetY = this.gridManager.entranceY;
+      console.log(`[Server:GameSim] Teleported player "${player.id}" back to entrance via Unstuck command`);
+      this.broadcast(window.Casino.Protocol.Events.PLAYER_MOVED, player.serialize());
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
     }
 
     handleMoveObject(player, payload) {
@@ -579,6 +598,10 @@
         console.warn(`[Server:GameSim] Upgrade rejected: Employee "${employeeId}" not found.`);
         return;
       }
+      if (employee.role === 'pickpocket') {
+        console.warn(`[Server:GameSim] Upgrade rejected: Cannot upgrade pickpockets!`);
+        return;
+      }
 
       const currentLvl = employee[upgradeType + 'Lvl'] || 1;
       if (currentLvl >= 5) {
@@ -608,6 +631,17 @@
       }
       
       console.log(`[Server:GameSim] Upgraded Employee "${employeeId}" ${upgradeType} to Level ${employee[upgradeType + 'Lvl']} for ${cost} Chips.`);
+      this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+    }
+
+    handleSendEmployeeBreak(player, payload) {
+      const { employeeId } = payload;
+      const employee = this.employees.get(employeeId);
+      if (!employee) return;
+      if (employee.role === 'pickpocket') return;
+      
+      employee.isOnBreak = true;
+      console.log(`[Server:GameSim] Commanding Employee "${employeeId}" to go on break.`);
       this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
     }
 
@@ -896,6 +930,69 @@
       const boardState = this.crapsState.get(tableId);
       if (!boardState.rolledNumbers) boardState.rolledNumbers = [];
 
+      // Handle placing bet (subtract chips immediately and save to state)
+      if (action === 'place_bet') {
+        if (!bets || bets.length === 0) return;
+        let extraBetTotal = 0;
+        bets.forEach(b => {
+          let cost = b.amount;
+          if (b.type.startsWith('buy_')) {
+            cost += Math.max(1, Math.floor(b.amount * 0.05)); // 5% Vig commission
+          }
+          extraBetTotal += cost;
+        });
+
+        const pChips = player.chips || 0;
+        if (pChips < extraBetTotal) return;
+
+        player.chips -= extraBetTotal;
+        this.economyManager.deductChips(extraBetTotal);
+
+        bets.forEach(b => {
+          const existing = boardState.activeBets.find(active => active.type === b.type && active.playerId === player.id);
+          if (existing) {
+            existing.amount += b.amount;
+          } else {
+            boardState.activeBets.push({
+              type: b.type,
+              amount: b.amount,
+              playerId: player.id
+            });
+          }
+        });
+
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        return;
+      }
+
+      // Handle clearing bets
+      if (action === 'clear_bets') {
+        let refundTotal = 0;
+        const newActiveBets = [];
+
+        boardState.activeBets.forEach(b => {
+          if (b.playerId === player.id) {
+            const isPassOrDontPass = (b.type === 'pass_line' || b.type === 'dont_pass');
+            if (boardState.point !== null && isPassOrDontPass) {
+              newActiveBets.push(b); // Pass/Don't Pass contract bets are locked once Point is established
+            } else {
+              refundTotal += b.amount;
+            }
+          } else {
+            newActiveBets.push(b);
+          }
+        });
+
+        if (refundTotal > 0) {
+          player.chips += refundTotal;
+          this.economyManager.addChips(refundTotal);
+        }
+
+        boardState.activeBets = newActiveBets;
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
+        return;
+      }
+
       // Handle roll action
       if (action === 'roll') {
         // Roll dice
@@ -903,252 +1000,37 @@
         const die2 = Math.floor(Math.random() * 6) + 1;
         const total = die1 + die2;
 
-        let totalWin = 0;
-        let totalBetLoss = 0;
-        const newActiveBets = [];
-        const payoutDetails = [];
-
-        // Add new bets if player is passing them in
+        // Legacy: if rolling player passed in new bets directly on roll
         if (bets && bets.length > 0) {
           let extraBetTotal = 0;
           bets.forEach(b => {
             let cost = b.amount;
             if (b.type.startsWith('buy_')) {
-              cost += Math.max(1, Math.floor(b.amount * 0.05)); // 5% Vig, minimum 1 chip
+              cost += Math.max(1, Math.floor(b.amount * 0.05));
             }
             extraBetTotal += cost;
           });
 
-          if (!this.economyManager.canAfford(extraBetTotal)) return;
-
-          this.economyManager.deductChips(extraBetTotal);
-          
-          bets.forEach(b => {
-            boardState.activeBets.push({
-              type: b.type,
-              amount: b.amount
+          if ((player.chips || 0) >= extraBetTotal) {
+            player.chips -= extraBetTotal;
+            this.economyManager.deductChips(extraBetTotal);
+            bets.forEach(b => {
+              const existing = boardState.activeBets.find(active => active.type === b.type && active.playerId === player.id);
+              if (existing) {
+                existing.amount += b.amount;
+              } else {
+                boardState.activeBets.push({
+                  type: b.type,
+                  amount: b.amount,
+                  playerId: player.id
+                });
+              }
             });
-          });
+          }
         }
 
         const isComeOut = (boardState.point === null);
         let nextPoint = boardState.point;
-
-        // Resolve each bet according to Craps rules
-        boardState.activeBets.forEach(bet => {
-          let resolved = false;
-          let won = false;
-          let resolved_push = false;
-          let payoutRatio = 1; // standard is 1:1
-
-          switch (bet.type) {
-            case 'pass_line':
-              if (isComeOut) {
-                if (total === 7 || total === 11) {
-                  resolved = true;
-                  won = true;
-                } else if (total === 2 || total === 3 || total === 12) {
-                  resolved = true;
-                  won = false;
-                }
-              } else {
-                // Point is set
-                if (total === boardState.point) {
-                  resolved = true;
-                  won = true;
-                } else if (total === 7) {
-                  resolved = true;
-                  won = false;
-                }
-              }
-              break;
-
-            case 'dont_pass':
-              if (isComeOut) {
-                if (total === 2 || total === 3) {
-                  resolved = true;
-                  won = true;
-                } else if (total === 12) {
-                  resolved = true; // Bar 12 (Push)
-                  resolved_push = true; 
-                } else if (total === 7 || total === 11) {
-                  resolved = true;
-                  won = false;
-                }
-              } else {
-                if (total === 7) {
-                  resolved = true;
-                  won = true;
-                } else if (total === boardState.point) {
-                  resolved = true;
-                  won = false;
-                }
-              }
-              break;
-
-            case 'field': // Field is a single roll bet
-              resolved = true;
-              if ([3, 4, 9, 10, 11].includes(total)) {
-                won = true;
-                payoutRatio = 1;
-              } else if (total === 2) {
-                won = true;
-                payoutRatio = 2; // Double payout on 2
-              } else if (total === 12) {
-                won = true;
-                payoutRatio = 3; // Triple payout on 12
-              } else {
-                won = false;
-              }
-              break;
-
-            // Place Bets on numbers (4, 5, 6, 8, 9, 10)
-            case 'place_4':
-              if (total === 4) { resolved = true; won = true; payoutRatio = 9/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_5':
-              if (total === 5) { resolved = true; won = true; payoutRatio = 7/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_6':
-              if (total === 6) { resolved = true; won = true; payoutRatio = 7/6; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_8':
-              if (total === 8) { resolved = true; won = true; payoutRatio = 7/6; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_9':
-              if (total === 9) { resolved = true; won = true; payoutRatio = 7/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'place_10':
-              if (total === 10) { resolved = true; won = true; payoutRatio = 9/5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-
-            // Buy Bets on numbers (4, 5, 6, 8, 9, 10) - True Odds (Vig paid on placement)
-            case 'buy_4':
-              if (total === 4) { resolved = true; won = true; payoutRatio = 2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_5':
-              if (total === 5) { resolved = true; won = true; payoutRatio = 1.5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_6':
-              if (total === 6) { resolved = true; won = true; payoutRatio = 1.2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_8':
-              if (total === 8) { resolved = true; won = true; payoutRatio = 1.2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_9':
-              if (total === 9) { resolved = true; won = true; payoutRatio = 1.5; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-            case 'buy_10':
-              if (total === 10) { resolved = true; won = true; payoutRatio = 2; }
-              else if (total === 7) { resolved = true; won = false; }
-              break;
-
-            // Proposition Bets (Single Roll)
-            case 'prop_yo11':
-              resolved = true;
-              won = (total === 11);
-              payoutRatio = 15;
-              break;
-            case 'prop_craps3':
-              resolved = true;
-              won = (total === 3);
-              payoutRatio = 15;
-              break;
-            case 'prop_craps2':
-              resolved = true;
-              won = (total === 2);
-              payoutRatio = 30;
-              break;
-            case 'prop_craps12':
-              resolved = true;
-              won = (total === 12);
-              payoutRatio = 30;
-              break;
-            case 'prop_any7':
-              resolved = true;
-              won = (total === 7);
-              payoutRatio = 4;
-              break;
-
-            // ATS (All, Tall, Small) side bets
-            case 'prop_small':
-              if (total === 7) {
-                resolved = true;
-                won = false;
-              } else {
-                const smallSet = [2, 3, 4, 5, 6];
-                const hasSmall = smallSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
-                if (hasSmall) {
-                  resolved = true;
-                  won = true;
-                  payoutRatio = 34; // pays 34:1
-                }
-              }
-              break;
-
-            case 'prop_big':
-              if (total === 7) {
-                resolved = true;
-                won = false;
-              } else {
-                const bigSet = [8, 9, 10, 11, 12];
-                const hasBig = bigSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
-                if (hasBig) {
-                  resolved = true;
-                  won = true;
-                  payoutRatio = 34; // pays 34:1
-                }
-              }
-              break;
-
-            case 'prop_all':
-              if (total === 7) {
-                resolved = true;
-                won = false;
-              } else {
-                const allSet = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
-                const hasAll = allSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
-                if (hasAll) {
-                  resolved = true;
-                  won = true;
-                  payoutRatio = 174; // pays 174:1
-                }
-              }
-              break;
-          }
-
-          if (resolved) {
-            if (resolved_push) {
-              // Push: return original bet amount
-              totalWin += bet.amount;
-              payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: bet.amount, isPush: true });
-            } else if (won) {
-              const winAmount = Math.floor(bet.amount * (payoutRatio + 1));
-              totalWin += winAmount;
-              payoutDetails.push({ type: bet.type, won: true, amount: bet.amount, payout: winAmount });
-            } else {
-              totalBetLoss += bet.amount;
-              payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: 0 });
-            }
-          } else {
-            // Keep bet active for next roll
-            newActiveBets.push(bet);
-          }
-        });
-
-        // Update active bets
-        boardState.activeBets = newActiveBets;
 
         // Update ATS Rolled numbers list
         if (total === 7) {
@@ -1171,26 +1053,285 @@
         }
         boardState.point = nextPoint;
 
-        // Apply payouts
-        if (totalWin > 0) {
-          this.economyManager.addChips(totalWin);
+        // Group active bets by player
+        const playerBetsMap = new Map();
+        boardState.activeBets.forEach(b => {
+          if (!playerBetsMap.has(b.playerId)) {
+            playerBetsMap.set(b.playerId, []);
+          }
+          playerBetsMap.get(b.playerId).push(b);
+        });
+
+        // Ensure the rolling shooter player is in the map
+        if (!playerBetsMap.has(player.id)) {
+          playerBetsMap.set(player.id, []);
         }
 
-        const resolvedBetTotal = payoutDetails.reduce((sum, d) => sum + d.amount, 0);
-        const netPayout = totalWin - resolvedBetTotal;
+        const nextActiveBets = [];
+        const payoutsSummary = [];
 
-        this.sendPayout(player, isElectronic ? 'bubble_craps' : 'craps', netPayout, totalWin, {
-          tableId: tableId,
-          die1: die1,
-          die2: die2,
-          total: total,
-          point: boardState.point,
-          isComeOut: isComeOut,
-          totalBetLoss: totalBetLoss,
-          payoutDetails: payoutDetails,
-          activeBets: boardState.activeBets,
-          rolledNumbers: boardState.rolledNumbers
+        // Evaluate outcomes for each player at the table
+        for (const [pId, activeBets] of playerBetsMap.entries()) {
+          const targetPlayer = this.players.get(pId);
+          if (!targetPlayer) continue;
+
+          let totalWin = 0;
+          let totalBetLoss = 0;
+          const payoutDetails = [];
+
+          activeBets.forEach(bet => {
+            let resolved = false;
+            let won = false;
+            let resolved_push = false;
+            let payoutRatio = 1; // standard is 1:1
+
+            switch (bet.type) {
+              case 'pass_line':
+                if (isComeOut) {
+                  if (total === 7 || total === 11) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === 2 || total === 3 || total === 12) {
+                    resolved = true;
+                    won = false;
+                  }
+                } else {
+                  if (total === boardState.point) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === 7) {
+                    resolved = true;
+                    won = false;
+                  }
+                }
+                break;
+
+              case 'dont_pass':
+                if (isComeOut) {
+                  if (total === 2 || total === 3) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === 12) {
+                    resolved = true; // Bar 12 (Push)
+                    resolved_push = true; 
+                  } else if (total === 7 || total === 11) {
+                    resolved = true;
+                    won = false;
+                  }
+                } else {
+                  if (total === 7) {
+                    resolved = true;
+                    won = true;
+                  } else if (total === boardState.point) {
+                    resolved = true;
+                    won = false;
+                  }
+                }
+                break;
+
+              case 'field': // Field is a single roll bet
+                resolved = true;
+                if ([3, 4, 9, 10, 11].includes(total)) {
+                  won = true;
+                  payoutRatio = 1;
+                } else if (total === 2) {
+                  won = true;
+                  payoutRatio = 2; // Double payout on 2
+                } else if (total === 12) {
+                  won = true;
+                  payoutRatio = 3; // Triple payout on 12
+                } else {
+                  won = false;
+                }
+                break;
+
+              // Place Bets on numbers (4, 5, 6, 8, 9, 10)
+              case 'place_4':
+                if (total === 4) { resolved = true; won = true; payoutRatio = 9/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_5':
+                if (total === 5) { resolved = true; won = true; payoutRatio = 7/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_6':
+                if (total === 6) { resolved = true; won = true; payoutRatio = 7/6; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_8':
+                if (total === 8) { resolved = true; won = true; payoutRatio = 7/6; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_9':
+                if (total === 9) { resolved = true; won = true; payoutRatio = 7/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'place_10':
+                if (total === 10) { resolved = true; won = true; payoutRatio = 9/5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+
+              // Buy Bets on numbers (4, 5, 6, 8, 9, 10) - True Odds (Vig paid on placement)
+              case 'buy_4':
+                if (total === 4) { resolved = true; won = true; payoutRatio = 2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_5':
+                if (total === 5) { resolved = true; won = true; payoutRatio = 1.5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_6':
+                if (total === 6) { resolved = true; won = true; payoutRatio = 1.2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_8':
+                if (total === 8) { resolved = true; won = true; payoutRatio = 1.2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_9':
+                if (total === 9) { resolved = true; won = true; payoutRatio = 1.5; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+              case 'buy_10':
+                if (total === 10) { resolved = true; won = true; payoutRatio = 2; }
+                else if (total === 7) { resolved = true; won = false; }
+                break;
+
+              // Proposition Bets (Single Roll)
+              case 'prop_yo11':
+                resolved = true;
+                won = (total === 11);
+                payoutRatio = 15;
+                break;
+              case 'prop_craps3':
+                resolved = true;
+                won = (total === 3);
+                payoutRatio = 15;
+                break;
+              case 'prop_craps2':
+                resolved = true;
+                won = (total === 2);
+                payoutRatio = 30;
+                break;
+              case 'prop_craps12':
+                resolved = true;
+                won = (total === 12);
+                payoutRatio = 30;
+                break;
+              case 'prop_any7':
+                resolved = true;
+                won = (total === 7);
+                payoutRatio = 4;
+                break;
+
+              // ATS (All, Tall, Small) side bets
+              case 'prop_small':
+                if (total === 7) {
+                  resolved = true;
+                  won = false;
+                } else {
+                  const smallSet = [2, 3, 4, 5, 6];
+                  const hasSmall = smallSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
+                  if (hasSmall) {
+                    resolved = true;
+                    won = true;
+                    payoutRatio = 34; // pays 34:1
+                  }
+                }
+                break;
+
+              case 'prop_big':
+                if (total === 7) {
+                  resolved = true;
+                  won = false;
+                } else {
+                  const bigSet = [8, 9, 10, 11, 12];
+                  const hasBig = bigSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
+                  if (hasBig) {
+                    resolved = true;
+                    won = true;
+                    payoutRatio = 34; // pays 34:1
+                  }
+                }
+                break;
+
+              case 'prop_all':
+                if (total === 7) {
+                  resolved = true;
+                  won = false;
+                } else {
+                  const allSet = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
+                  const hasAll = allSet.every(n => boardState.rolledNumbers.includes(n) || n === total);
+                  if (hasAll) {
+                    resolved = true;
+                    won = true;
+                    payoutRatio = 174; // pays 174:1
+                  }
+                }
+                break;
+            }
+
+            if (resolved) {
+              if (resolved_push) {
+                totalWin += bet.amount;
+                payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: bet.amount, isPush: true });
+              } else if (won) {
+                const winAmount = Math.floor(bet.amount * (payoutRatio + 1));
+                totalWin += winAmount;
+                payoutDetails.push({ type: bet.type, won: true, amount: bet.amount, payout: winAmount });
+              } else {
+                totalBetLoss += bet.amount;
+                payoutDetails.push({ type: bet.type, won: false, amount: bet.amount, payout: 0 });
+              }
+            } else {
+              // Keep bet active for next roll, retaining the player identity
+              nextActiveBets.push(bet);
+            }
+          });
+
+          // Apply payouts to this specific player
+          if (totalWin > 0) {
+            targetPlayer.chips += totalWin;
+            this.economyManager.addChips(totalWin);
+          }
+
+          const resolvedBetTotal = payoutDetails.reduce((sum, d) => sum + d.amount, 0);
+          const netPayout = totalWin - resolvedBetTotal;
+
+          payoutsSummary.push({
+            playerId: pId,
+            name: targetPlayer.name || `Manager ${pId.substring(0, 5)}`,
+            totalWin: totalWin,
+            totalBetLoss: totalBetLoss,
+            netPayout: netPayout,
+            payoutDetails: payoutDetails
+          });
+        }
+
+        // Update table's active bets
+        boardState.activeBets = nextActiveBets;
+
+        // Broadcast payouts to all participating players at the table
+        payoutsSummary.forEach(ps => {
+          const targetPlayer = this.players.get(ps.playerId);
+          if (targetPlayer) {
+            this.sendPayout(targetPlayer, isElectronic ? 'bubble_craps' : 'craps', ps.netPayout, ps.totalWin, {
+              tableId: tableId,
+              die1: die1,
+              die2: die2,
+              total: total,
+              point: boardState.point,
+              isComeOut: isComeOut,
+              totalBetLoss: ps.totalBetLoss,
+              payoutDetails: ps.payoutDetails,
+              activeBets: boardState.activeBets,
+              rolledNumbers: boardState.rolledNumbers,
+              payoutsSummary: payoutsSummary // Pass summary to show all table bids/wins
+            });
+          }
         });
+
+        this.broadcast(window.Casino.Protocol.Events.FULL_STATE, this.getFullState());
       }
     }
 
@@ -1419,6 +1560,43 @@
       // Reset all guests (people-wise reset)
       this.guests.clear();
 
+      // Refund active card sessions
+      const sessionMaps = [
+        this.blackjackSessions,
+        this.rideTheBusSessions,
+        this.threeCardPokerSessions,
+        this.texasHoldemSessions,
+        this.paiGowSessions,
+        this.caribbeanStudSessions,
+        this.letItRideSessions,
+        this.redDogSessions,
+        this.spanish21Sessions,
+        this.casinoWarSessions,
+        this.videoPokerSessions
+      ];
+
+      for (const map of sessionMaps) {
+        for (const [playerId, sess] of map.entries()) {
+          if (sess && sess.state !== 'resolved') {
+            let bet = 0;
+            if (sess.totalInvested !== undefined) bet = sess.totalInvested;
+            else if (sess.betAmount !== undefined) bet = sess.betAmount;
+            else if (sess.anteBet !== undefined) bet = sess.anteBet;
+            else if (sess.singleBet !== undefined) bet = sess.singleBet;
+            else if (sess.bet !== undefined) bet = sess.bet;
+            else if (sess.ante !== undefined) bet = sess.ante;
+
+            if (bet > 0) {
+              const player = this.players.get(playerId);
+              if (player) {
+                this.economyManager.addChips(bet);
+                console.log(`[Server:GameSim] Refunded ${bet} Chips to player "${playerId}" for session at day end.`);
+              }
+            }
+          }
+        }
+      }
+
       // Clear card session states
       this.blackjackSessions.clear();
       this.rideTheBusSessions.clear();
@@ -1433,8 +1611,17 @@
       this.casinoWarSessions.clear();
       this.videoPokerSessions.clear();
 
-      // Clear Craps active states
+      // Clear Craps active states and refund bets
       for (const [tableId, state] of this.crapsState.entries()) {
+        if (state.activeBets && state.activeBets.length > 0) {
+          for (const bet of state.activeBets) {
+            const player = this.players.get(bet.playerId);
+            if (player) {
+              this.economyManager.addChips(bet.amount);
+              console.log(`[Server:GameSim] Refunded ${bet.amount} Chips to player "${bet.playerId}" for Craps bet at day end.`);
+            }
+          }
+        }
         state.point = null;
         state.activeBets = [];
         state.rolledNumbers = [];
@@ -1627,7 +1814,13 @@
         id: o.id,
         guests: o.guests,
         dealerSeat: o.dealerSeat ? { rx: o.dealerSeat.rx, ry: o.dealerSeat.ry, employeeId: o.dealerSeat.employeeId } : null,
-        eps: o.eps || 0
+        eps: o.eps || 0,
+        stock: o.stock,
+        maxStock: o.maxStock,
+        isOutOfStock: o.isOutOfStock,
+        isBroken: o.isBroken,
+        needsRepairSoon: o.needsRepairSoon,
+        isDealerBoosted: o.isDealerBoosted
       }));
 
       return {
@@ -3523,6 +3716,16 @@
       }
 
       this.recordDayStat(gameType, -netPayout);
+
+      if (!player.gamblingStats) {
+        player.gamblingStats = { totalWon: 0, totalLost: 0, netProfit: 0 };
+      }
+      if (netPayout > 0) {
+        player.gamblingStats.totalWon += netPayout;
+      } else if (netPayout < 0) {
+        player.gamblingStats.totalLost += Math.abs(netPayout);
+      }
+      player.gamblingStats.netProfit = player.gamblingStats.totalWon - player.gamblingStats.totalLost;
 
       if (netPayout < 0) {
         this.playerGamblingLosses += Math.abs(netPayout);

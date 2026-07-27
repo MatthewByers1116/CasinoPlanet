@@ -814,10 +814,10 @@
       let maxStock = null;
       let stock = null;
       if (['bar', 'restaurant', 'soda_machine', 'vending_machine', 'candy_dispenser', 'coffee_maker', 'popcorn_cart', 'pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) {
-        if (type === 'bar') maxStock = 15;
-        else if (type === 'restaurant') maxStock = 25;
-        else if (['pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) maxStock = 10;
-        else maxStock = 5;
+        if (type === 'bar') maxStock = 30;
+        else if (type === 'restaurant') maxStock = 50;
+        else if (['pizza_oven', 'ice_cream', 'bubble_tea'].includes(type)) maxStock = 20;
+        else maxStock = 10;
         stock = maxStock;
       }
 

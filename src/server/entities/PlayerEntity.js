@@ -14,6 +14,11 @@
       this.holdingMeal = false;
       this.color = '#00f0ff';
       this.hairColor = '#ffb300';
+      this.gamblingStats = {
+        totalWon: 0,
+        totalLost: 0,
+        netProfit: 0
+      };
     }
 
     move(gridX, gridY, gridManager) {
@@ -55,7 +60,8 @@
         holdingDrink: this.holdingDrink || false,
         holdingMeal: this.holdingMeal || false,
         color: this.color || '#00f0ff',
-        hairColor: this.hairColor || '#ffb300'
+        hairColor: this.hairColor || '#ffb300',
+        gamblingStats: this.gamblingStats || { totalWon: 0, totalLost: 0, netProfit: 0 }
       };
     }
 
@@ -71,6 +77,7 @@
       this.holdingMeal = data.holdingMeal || false;
       this.color = data.color || this.color || '#00f0ff';
       this.hairColor = data.hairColor || this.hairColor || '#ffb300';
+      this.gamblingStats = data.gamblingStats || this.gamblingStats || { totalWon: 0, totalLost: 0, netProfit: 0 };
     }
   }
 

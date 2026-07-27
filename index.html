@@ -544,6 +544,7 @@
         <button id="btn-detail-mode" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 90px; border-color: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px;">📊 Detail: Off</button>
         <button id="btn-save-game" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 70px; border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: var(--accent-gold);">💾 Save</button>
         <button id="btn-tutorial" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 80px; border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: var(--accent-blue);">❓ Tutorial</button>
+        <button id="btn-unstuck" class="action-btn secondary" style="padding: 6px 10px; font-size: 11px; margin: 0; min-width: 80px; border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05); display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; color: #ff4d4d;">🆘 Unstuck</button>
         
         <div style="display: flex; flex-direction: column; gap: 2px;">
           <div class="connection-status offline" id="conn-status" style="height: 18px; line-height: 16px; padding: 0 8px; font-size: 9px; display: flex; align-items: center; gap: 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); margin: 0; box-sizing: border-box;">
@@ -566,6 +567,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Scorecard Panel -->
+    <div id="scorecard-panel" style="position: fixed; right: 20px; top: 120px; z-index: 1000; width: 220px; background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(8px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); padding: 12px; box-sizing: border-box; box-shadow: 0 8px 32px rgba(0,0,0,0.5); font-family: 'Outfit', sans-serif; transition: all 0.3s ease;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: bold; color: var(--accent-gold); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">🏆 Scorecard</span>
+        <button id="btn-toggle-scorecard" class="action-btn secondary" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 10px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s ease; outline: none; margin: 0; min-width: unset; height: unset;">hide</button>
+      </div>
+      <div id="scorecard-content" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
+        <!-- Scores will be injected dynamically here -->
+      </div>
+    </div>
+    
+    <!-- Collapsed Scorecard Button -->
+    <button id="scorecard-collapsed-btn" class="action-btn secondary hidden" style="position: fixed; right: 20px; top: 120px; z-index: 1000; background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(8px); border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); padding: 8px 12px; cursor: pointer; color: var(--accent-gold); font-size: 11px; font-weight: bold; font-family: 'Outfit', sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 6px; margin: 0; height: unset; min-width: unset;">
+      🏆 SCORECARD
+    </button>
 
     <!-- Interaction Prompt (Walk up and press E) -->
     <div id="interaction-prompt" class="interaction-prompt hidden">
@@ -746,6 +763,9 @@
               <button id="btn-upgrade-needs" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-color: #e64dff; background: rgba(230, 77, 255, 0.05);">
                 <span>🍕 Needs Resist (Lvl <span id="char-lvl-needs">1</span>)</span>
                 <span style="color: #ffd700; font-weight: bold;" id="char-cost-needs">150c</span>
+              </button>
+              <button id="btn-employee-break" class="minigame-btn action" style="padding: 6px 12px; font-size: 11px; display: flex; justify-content: center; align-items: center; border-color: #ffaa00; background: rgba(255, 170, 0, 0.05); color: #ffaa00; font-weight: bold; margin-top: 4px;">
+                <span>☕ Send on Break</span>
               </button>
             </div>
           </div>
