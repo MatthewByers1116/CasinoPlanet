@@ -8920,12 +8920,15 @@ kbd {
       if (!player.gamblingStats) {
         player.gamblingStats = { totalWon: 0, totalLost: 0, netProfit: 0 };
       }
-      if (netPayout > 0) {
-        player.gamblingStats.totalWon += netPayout;
-      } else if (netPayout < 0) {
-        player.gamblingStats.totalLost += Math.abs(netPayout);
+      const isIntermediateBet = extraData && extraData.state && extraData.state !== 'resolved';
+      if (!isIntermediateBet) {
+        if (netPayout > 0) {
+          player.gamblingStats.totalWon += netPayout;
+        } else if (netPayout < 0) {
+          player.gamblingStats.totalLost += Math.abs(netPayout);
+        }
+        player.gamblingStats.netProfit = player.gamblingStats.totalWon - player.gamblingStats.totalLost;
       }
-      player.gamblingStats.netProfit = player.gamblingStats.totalWon - player.gamblingStats.totalLost;
 
       if (netPayout < 0) {
         this.playerGamblingLosses += Math.abs(netPayout);
