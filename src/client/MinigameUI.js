@@ -548,6 +548,16 @@
       }
     }
 
+    // Renders an already-accumulated session total into #minigame-session-profit.
+    // Display only: does not mutate this.sessionProfit.
+    updateSessionProfit(value) {
+      const profitEl = document.getElementById('minigame-session-profit');
+      if (profitEl) {
+        profitEl.innerText = (value >= 0 ? '+' : '') + value.toLocaleString();
+        profitEl.style.color = value > 0 ? 'var(--accent-green)' : (value < 0 ? 'var(--accent-pink)' : '#fff');
+      }
+    }
+
     // Helper to get total bets in current workspace
     getBetTotal() {
       let sum = 0;

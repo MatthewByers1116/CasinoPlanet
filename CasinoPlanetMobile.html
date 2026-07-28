@@ -1532,7 +1532,7 @@ kbd {
         </div>
       </div>
 
-      <!-- Mode Selector / Lobby Overlays -->
+      <!-- Mode Selector Overlays -->
       <div id="mode-selection-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20000; font-family: 'Outfit', sans-serif;">
         <div style="text-align: center; margin-bottom: 24px; padding: 0 20px;">
           <h1 style="margin: 0; font-size: 32px; font-weight: 800; background: linear-gradient(45deg, #00f0ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px rgba(0,240,255,0.2);">CASINO PLANET</h1>
@@ -1559,14 +1559,6 @@ kbd {
           <button id="mode-solo-btn" class="menu-btn" style="border-color: var(--accent-blue); background: rgba(0, 240, 255, 0.05); color: var(--accent-blue);">
             🎮 PLAY SOLO (OFFLINE)
           </button>
-          
-          <button id="mode-host-btn" class="menu-btn" style="border-color: #39ff14; background: rgba(57, 255, 20, 0.05); color: #39ff14;">
-            👑 HOST MULTIPLAYER LOBBY
-          </button>
-          
-          <button id="mode-join-btn" class="menu-btn" style="border-color: #ff007f; background: rgba(255, 0, 127, 0.05); color: #ff007f;">
-            🤝 JOIN MULTIPLAYER LOBBY
-          </button>
         </div>
       </div>
 
@@ -1578,18 +1570,6 @@ kbd {
           <button id="difficulty-medium-btn" class="menu-btn" style="border-color: #00f0ff; color: #00f0ff; font-size: 13px;">MEDIUM (36x24 Grid)</button>
           <button id="difficulty-hard-btn" class="menu-btn" style="border-color: #ffaa00; color: #ffaa00; font-size: 13px;">HARD (48x32 Grid)</button>
           <button id="difficulty-gambler-btn" class="menu-btn" style="border-color: #ff007f; color: #ff007f; font-size: 13px;">🎰 GAMBLER (64x40 Grid)</button>
-        </div>
-      </div>
-
-      <!-- Join Multiplayer Room Overlay -->
-      <div id="join-room-overlay" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 22000; font-family: 'Outfit', sans-serif;">
-        <div style="background: rgba(18, 18, 36, 0.95); border: 2px solid #ff007f; box-shadow: 0 0 30px rgba(255, 0, 127, 0.3); padding: 30px; border-radius: 16px; text-align: center; width: 290px; color: #fff; box-sizing: border-box;">
-          <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #ff007f; font-weight: 800;">JOIN CASINO LOBBY</h3>
-          <input type="text" id="join-room-input" placeholder="Lobby Room ID" style="width: 100%; padding: 12px; border: 2px solid rgba(255, 0, 127, 0.3); background: #111; color: #fff; border-radius: 8px; font-size: 14px; text-align: center; margin-bottom: 20px; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
-          <div style="display: flex; gap: 10px;">
-            <button id="join-room-cancel-btn" style="flex: 1; padding: 12px; border: 1px solid #555; background: transparent; border-radius: 8px; color: #ccc; cursor: pointer; font-size: 12px;">CANCEL</button>
-            <button id="join-room-submit-btn" style="flex: 1; padding: 12px; border: none; background: #ff007f; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; font-size: 12px;">JOIN</button>
-          </div>
         </div>
       </div>
 
@@ -1619,14 +1599,6 @@ kbd {
             <div>
               <strong style="color: #fff;">🔧 Breakage & Toilet Repairs</strong>
               <p style="margin: 2px 0 0 0;">Games, ATM machines, and Toilets (bathroom stalls) can break down! Hire **Tech Support** (mechanics) to keep things running.</p>
-            </div>
-            <div>
-              <strong style="color: #fff;">👥 Universal Co-Play</strong>
-              <p style="margin: 2px 0 0 0;">Play Slots, Plinko, Roulette, Blackjack, and Craps together at the same tables in real-time with other managers.</p>
-            </div>
-            <div>
-              <strong style="color: #fff;">🤝 Cross-Play Lobby</strong>
-              <p style="margin: 2px 0 0 0;">Host a lobby to generate a Room ID, allowing desktop and mobile managers to construct co-op casinos together.</p>
             </div>
           </div>
           <button id="tutorial-close-btn" style="width: 100%; padding: 12px; border: none; background: var(--accent-blue); border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 12px;">GOT IT!</button>
@@ -10456,6 +10428,16 @@ kbd {
       }
       if (this.clientGame) {
         this.clientGame.updateHUD();
+      }
+    }
+
+    // Renders an already-accumulated session total into #minigame-session-profit.
+    // Display only: does not mutate this.sessionProfit.
+    updateSessionProfit(value) {
+      const profitEl = document.getElementById('minigame-session-profit');
+      if (profitEl) {
+        profitEl.innerText = (value >= 0 ? '+' : '') + value.toLocaleString();
+        profitEl.style.color = value > 0 ? 'var(--accent-green)' : (value < 0 ? 'var(--accent-pink)' : '#fff');
       }
     }
 
