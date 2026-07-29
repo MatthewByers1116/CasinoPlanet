@@ -207,6 +207,64 @@
       color: var(--accent-gold);
     }
 
+    /* Shared-HUD layout classes mobile.html uses but nothing styles. */
+    .ui-layout-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+    /* Every direct child must re-assert hit-testing; 12 of the 17 would
+       otherwise inherit pointer-events:none and become untappable. */
+    .ui-layout-wrapper > * {
+      pointer-events: auto;
+    }
+    .hud-top-bar {
+      position: absolute;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 6px 8px;
+      box-sizing: border-box;
+      border-radius: 12px;
+      z-index: 9000;
+    }
+    .hud-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+      flex: 0 1 auto;
+      text-align: center;
+    }
+    .hud-label {
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .hud-value {
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+      color: var(--text-primary, #f0f0ff);
+    }
+    /* style.css:119 gives #chip-balance 26px gold for the desktop chip
+       counter; mobile has no .chip-counter ancestor and no 950px override. */
+    #chip-balance {
+      font-size: 12px;
+      color: #39ff14;
+      text-shadow: 0 0 8px rgba(57, 255, 20, 0.4);
+    }
+
     /* Alerts panels placement overrides */
     #complaints-log {
       bottom: 75px !important;
@@ -232,7 +290,7 @@
       <div class="hud-top-bar glass-panel" style="top: 10px; left: 10px; right: 10px; font-family: 'Outfit', sans-serif;">
         <div class="hud-stat">
           <span class="hud-label">🎰 CHIPS</span>
-          <span id="chips-balance" class="hud-value neon-text-green">5,000</span>
+          <span id="chip-balance" class="hud-value neon-text-green">5,000</span>
         </div>
         <div class="hud-stat">
           <span class="hud-label">🧪 RESEARCH</span>
@@ -240,11 +298,15 @@
         </div>
         <div class="hud-stat">
           <span class="hud-label">⭐ RATING</span>
-          <span id="rating-stars" class="hud-value" style="color: var(--accent-gold); text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);">1.0 ★</span>
+          <span id="rating-value" class="hud-value" style="color: var(--accent-gold); text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);">1.0</span>
         </div>
         <div class="hud-stat">
           <span class="hud-label">👥 GUESTS</span>
-          <span id="guest-ratio" class="hud-value" style="color: var(--accent-blue); text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);">0/10</span>
+          <span id="guest-ratio" class="hud-value" style="color: var(--accent-blue); text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);">0 / 10</span>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-label">📅 DAY</span>
+          <span class="hud-value" style="color: var(--accent-gold); text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);"><span id="hud-day-num">1</span> <span id="hud-day-timer">03:00</span></span>
         </div>
       </div>
 

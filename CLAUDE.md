@@ -10,6 +10,9 @@ serves index.html and the browser-based test_runner.html); `python build_single_
 `python build_single_file_mobile.py` (package src/**/*.js + style.css into standalone
 CasinoPlanet.html / CasinoPlanetMobile.html — both git-tracked, expect a diff when rebuilding);
 `python run_integration_tests.py` (headless-Chrome run of the full test_runner.html suite,
-writes test_report.md). No npm/vite workflow is actually used despite package.json listing
+writes test_report.md); `python3 tools/check_id_contract.py` (static check that every DOM id
+shared client code requires exists in index.html and mobile.html; exits non-zero on any gap;
+tier-2 absences are gated on the committed tools/id_contract_waiver.json, regenerated with
+--write-waiver). No npm/vite workflow is actually used despite package.json listing
 vite scripts. Forge/PRs: GitHub, MatthewByers1116/CasinoPlanet, via `gh` CLI. Deploy: none
 observed — standalone built HTML files are the distributable artifact (e.g. for itch.io).
