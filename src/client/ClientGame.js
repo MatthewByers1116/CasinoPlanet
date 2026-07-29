@@ -8,6 +8,7 @@
       this.playerId = 'player_local';
       this.chips = 0;
       this.isInMinigame = false;
+      this.isInQTE = false;
 
       // Build mode state
       this.buildModeItem = null; // 'roulette', 'craps', 'bar' or null
@@ -1130,8 +1131,10 @@
 
       const guestRatioEl = document.getElementById('guest-ratio');
       const happinessBarEl = document.getElementById('happiness-bar');
-      if (guestRatioEl && happinessBarEl) {
+      if (guestRatioEl) {
         guestRatioEl.innerText = ratioDisplay;
+      }
+      if (happinessBarEl) {
         happinessBarEl.style.width = fillPct;
       }
 
@@ -3720,12 +3723,12 @@
       const bio = char.needs ? Math.floor(char.needs.bio) : 100;
       const entertainment = (char.needs && char.needs.entertainment !== undefined) ? Math.floor(char.needs.entertainment) : 100;
 
-      thirstBar.style.width = thirst + '%';
-      thirstVal.innerText = thirst + '%';
-      hungerBar.style.width = hunger + '%';
-      hungerVal.innerText = hunger + '%';
-      bioBar.style.width = bio + '%';
-      bioVal.innerText = bio + '%';
+      if (thirstBar) thirstBar.style.width = thirst + '%';
+      if (thirstVal) thirstVal.innerText = thirst + '%';
+      if (hungerBar) hungerBar.style.width = hunger + '%';
+      if (hungerVal) hungerVal.innerText = hunger + '%';
+      if (bioBar) bioBar.style.width = bio + '%';
+      if (bioVal) bioVal.innerText = bio + '%';
 
       if (role === 'guest') {
         if (entRow) entRow.style.display = 'flex';
@@ -3873,10 +3876,12 @@
         if (incomeRow) incomeRow.style.display = 'flex';
         document.getElementById('upgrade-dialog-desc').innerText = `Manage seats and profit limits for this object.`;
         
-        document.getElementById('upgrade-seat-count').innerText = `${obj.guestCapacity} seats`;
+        const seatCountEl = document.getElementById('upgrade-seat-count');
+        if (seatCountEl) seatCountEl.innerText = `${obj.guestCapacity} seats`;
         document.getElementById('upgrade-seat-cost').innerText = `${capCost.toLocaleString()} Chips`;
 
-        document.getElementById('upgrade-income-val').innerText = `${obj.tickIncome} Chips`;
+        const incomeValEl = document.getElementById('upgrade-income-val');
+        if (incomeValEl) incomeValEl.innerText = `${obj.tickIncome} Chips`;
         document.getElementById('upgrade-income-cost').innerText = `${incCost.toLocaleString()} Chips`;
       }
 
