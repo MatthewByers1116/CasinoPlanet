@@ -1,0 +1,55 @@
+#!/bin/sh
+# tools/verify pre-commit sample -- NOT installed by the toolkit.
+# Wire it up yourself:
+#   ln -s ../../tools/verify/hooks/pre-commit.sample .git/hooks/pre-commit
+#
+# Deliberately does NOT run the browser suite (it needs Chrome and ~35s).
+#
+# It also deliberately does NOT gate on tools/check_id_contract.py's verdict:
+# that checker is RED at 1582b3e (6 problems) and spec section 9-B puts fixing
+# it out of scope, so gating on it would block every commit. It ratchets
+# instead -- the count may fall, never rise.
+python3 - "$@" <<'PY'
+import os, sys
+sys.path.insert(0, os.getcwd())
+from tools.verify import scan, static
+
+BASELINE = 6          # problems at 1582b3e; lower this when they are fixed
+root = os.path.join("tools", "verify")
+failures = []
+
+# The count comes from static.id_contract(), which is the ONE parser (spec C.2:
+# invoke the committed checker, do not reimplement it). The hook used to re-run
+# its own regex and fall back to `0` when it did not match -- so rewording the
+# committed checker's output line made the hook print "0 problem(s), baseline 6"
+# and pass, silently disabling the ratchet. An unreadable verdict is a failure,
+# never a reading of zero.
+idc = static.id_contract(os.getcwd())
+if idc.problem_count is None:
+    failures.append(
+        "id contract: no problem count could be read from "
+        "tools/check_id_contract.py (rc=%d). The ratchet has no number to compare "
+        "against baseline %d, so it is not ratcheting -- fix the parse instead of "
+        "reading an unparseable verdict as 0." % (idc.returncode, BASELINE))
+elif idc.problem_count > BASELINE:
+    failures.append("id contract regressed: %d problems, baseline %d"
+                    % (idc.problem_count, BASELINE))
+else:
+    print("id contract: %d problem(s), baseline %d -- not a gate (spec 9-B)"
+          % (idc.problem_count, BASELINE))
+
+s = scan.scan(root, {"repo": os.getcwd()})
+e = scan.exports_scan(root)
+failures += list(s.problems)
+failures += ["%s:%d %s" % (h.path, h.lineno, h.pattern) for h in s.hits]
+failures += e.problems
+
+if failures:
+    print("tools/verify gates FAILED:")
+    for f in failures:
+        print("  " + str(f))
+    raise SystemExit(1)
+print("tools/verify: scan clean (%d files, %d unverified provenance), "
+      "exports clean (%d callables)"
+      % (s.files_scanned, len(s.unverified_provenance), e.functions_checked))
+PY

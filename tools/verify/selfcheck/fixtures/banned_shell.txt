@@ -1,0 +1,14 @@
+# Negative-control fixtures in a NON-.py file (spec 7.2/7.4).
+#
+# Why this file exists as well as banned.py: detect_lexical's raw-line arm is the
+# only detector that can see a non-.py file at all -- the string-constant arm
+# needs an AST, and there is none here. Every fixture in banned.py is a python
+# string literal, so both arms flag it and neither the walk's file-type handling
+# nor the raw arm alone was ever exercised on its own. If the scan is narrowed to
+# .py files, the markers below stop being flagged and become `stale-fixture`.
+#
+# Nothing in this file is executed, sourced, or referenced by any code.
+
+pkill -f "remote-debugging-port=9401"  # BANNED-FIXTURE: proc-kill src=none:zero-instances-in-the-65-salvaged-scripts-the-4.5-hazard-is-a-shell-command-and-this-is-its-native-file-type
+
+curl -s http://localhost:9401/json/version  # BANNED-FIXTURE: loopback-host src=none:the-hostname-form-A.7-forbids-written-as-a-shell-line-where-only-the-raw-arm-can-see-it
