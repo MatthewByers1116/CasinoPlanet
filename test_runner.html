@@ -162,6 +162,7 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
 
     let summaryRows = [];
     let detailLogs = [];
+    window.__testResults = { done: false, cases: [] };
 
     function writeToLog(msg) {
       detailLogs.push(msg);
@@ -201,11 +202,13 @@ Testing Environment: Browser (Chrome/Edge/Firefox)
         el.querySelector('span:last-child').className = 'pass';
         el.querySelector('span:last-child').innerText = 'PASS';
         summaryRows.push(`| ${name} | ✅ PASS | |`);
+        window.__testResults.cases.push({ name, status: 'pass', message: '' });
       } catch (err) {
         el.querySelector('span:last-child').className = 'fail';
         el.querySelector('span:last-child').innerText = 'FAIL';
         summaryRows.push(`| ${name} | ❌ FAIL | ${err.message} |`);
         writeToLog(`\n### ERROR: ${name} Failed\n\`\`\`\n${err.stack}\n\`\`\`\n`);
+        window.__testResults.cases.push({ name, status: 'fail', message: err.message });
       }
     }
 
@@ -1876,6 +1879,8 @@ ${summaryRows.join('\n')}
       document.getElementById('status-msg').style.color = '#ff4d4d';
       document.getElementById('status-msg').innerText = 'Error saving report: ' + err.message;
     });
+
+    window.__testResults.done = true;
 
     })();
   </script>
