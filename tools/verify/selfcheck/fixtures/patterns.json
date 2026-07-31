@@ -1,0 +1,15 @@
+{
+  "_comment": "Lexical banned-token vocabulary. Each token must appear exactly ONCE in this file; scan.py asserts that so the data file cannot become a hiding place. AST-detected patterns (copy-tree, sleep, evaluate-sentinel, grid-fallback) are defined in scan.py because they are shapes, not strings.",
+  "lexical": {
+    "proc-kill": {
+      "token": "pkill",
+      "why": "spec 4.5: the pattern-matching broadcast killer matches the invoking shell's own argv and kills the caller (reproduced first-hand, exit 144). A.7 requires terminating the specific Popen child.",
+      "salvage_instances": 0
+    },
+    "loopback-host": {
+      "token": "localhost",
+      "why": "spec 4.5/4.6: use 127.0.0.1. serve.py prints a hostname-bearing URL, so B.1's port parse must be token-free.",
+      "salvage_instances": 0
+    }
+  }
+}

@@ -1,0 +1,609 @@
+{
+  "_comment": "Mutation table for success criterion 2. Held as DATA, not as Python source, because several replacement strings are themselves banned patterns (a restored `|| 24`, a marker token) and would make the scan red in the file that merely describes them. mutate.py substitutes @@MARKER@@ with the fixture-marker token at apply time.",
+  "mutations": [
+    {
+      "id": "M01-evaluate-sentinel",
+      "why": "spec 4.1 #3 / A.4: evaluate() must raise, never return a truthy sentinel",
+      "expect": "A.4 negative (throw must raise) and the 7.4 evaluate-sentinel detector",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "            raise JSEvaluationError(_describe(det))",
+          "            return {'__exception__': det}"
+        ]
+      ]
+    },
+    {
+      "id": "M02-grid-fallback-restored",
+      "why": "spec 4.2 / B.4: the ||24 fallback reads a property that does not exist",
+      "expect": "B.4 negative (pre-boot must raise) and the 7.4 grid-fallback detector",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "\"(function(){var c=%s;if(!c||!c.sim||!c.sim.gridManager)return null;\"\n        \"var g=c.sim.gridManager;return {cols:g.cols,rows:g.rows};})()\" % CG)",
+          "\"(function(){var c=%s;var g=(c&&c.sim&&c.sim.gridManager)||\"\n        \"(c&&c.state&&c.state.grid)||{};return {cols:g.cols||24,rows:g.rows||16};})()\" % CG)"
+        ]
+      ]
+    },
+    {
+      "id": "M03-no-cache-disable",
+      "why": "spec 4.5 / A.3: setCacheDisabled is absent from all 65 salvaged scripts",
+      "expect": "A.3 spotcheck",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "    sess.call(\"Network.setCacheDisabled\", {\"cacheDisabled\": not enable_cache})",
+          "    pass"
+        ]
+      ]
+    },
+    {
+      "id": "M04-finite-reader-timeout",
+      "why": "spec 4.4 / A.1: a finite reader timeout silently kills the pump thread",
+      "expect": "A.1 spotcheck",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "        self.s.settimeout(None)",
+          "        self.s.settimeout(30)"
+        ]
+      ]
+    },
+    {
+      "id": "M05-drop-mousemoved",
+      "why": "spec 4.8 / B.6: mousedown reads fields only mousemove updates",
+      "expect": "B.6 spotcheck (click lands on (0,0) instead of the target cell)",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    sess.call(\"Input.dispatchMouseEvent\", {\"type\": \"mouseMoved\", \"x\": p.x, \"y\": p.y,\n                                           \"button\": \"none\", \"clickCount\": 0})",
+          "    pass"
+        ]
+      ]
+    },
+    {
+      "id": "M06-remove-geometry-precondition",
+      "why": "spec 4.8 / B.5: without it the no-scale-term transform silently lies",
+      "expect": "B.5 negative",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    if g[\"attrW\"] != g[\"rectW\"]:",
+          "    if False:"
+        ]
+      ]
+    },
+    {
+      "id": "M07-weaken-precondition-to-parent",
+      "why": "plan D1: parentElement.clientWidth is not what the game divides by",
+      "expect": "B.5 negative (the parent predicate stays green under container padding)",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    if g[\"attrW\"] != g[\"rectW\"]:",
+          "    if g[\"attrW\"] != g[\"parentW\"]:"
+        ]
+      ]
+    },
+    {
+      "id": "M08-precondition-cell-is-null",
+      "why": "spec 4.9 / B.3: grid[y][x]===null predicts success where spacing rejects",
+      "expect": "B.3 negative",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          " canPlaceObject: !!s.gridManager.canPlaceObject(t,x,y),",
+          " canPlaceObject: s.gridManager.grid[y][x]===null,"
+        ]
+      ]
+    },
+    {
+      "id": "M09-remove-hit-test",
+      "why": "spec 4.8 / B.6: occlusion yields a full healthy event sequence and no effect",
+      "expect": "B.6 negatives (occluded cell must raise)",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "def _require_hit(sess: Session, p: Point, gx: int, gy: int, expected_id: str) -> None:\n    h = hit_test(sess, p.x, p.y, expected_id)\n    if not h.hit:",
+          "def _require_hit(sess: Session, p: Point, gx: int, gy: int, expected_id: str) -> None:\n    h = hit_test(sess, p.x, p.y, expected_id)\n    if False:"
+        ]
+      ]
+    },
+    {
+      "id": "M10-default-difficulty",
+      "why": "spec 4.7 / B.2: difficulty decides the economy, grid and pre-placed scene",
+      "expect": "B.2 negative (omitting the argument must be a TypeError)",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "def boot(sess: Session, server: Server, page: str, difficulty: Optional[str],",
+          "def boot(sess: Session, server: Server, page: str, difficulty: Optional[str] = \"easy\","
+        ]
+      ]
+    },
+    {
+      "id": "M11-downgrade-copy-detector-to-substring",
+      "why": "spec 7.4: a literal substring finds 0 of the 5 list-form salvage instances",
+      "expect": "7.4 (stale-fixture + pattern-uncovered on the copy-tree fixture)",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "    out = []\n    for call in _calls(tree):\n        name = _dotted(call.func)\n        if name.endswith(\"copytree\"):",
+          "    out = []\n    for i, line in enumerate(src.splitlines(), 1):\n        if \"cp -r\" in line:\n            out.append(Hit(\"copy-tree\", path, i, line.strip()[:80]))\n    for call in []:\n        name = _dotted(call.func)\n        if name.endswith(\"copytree\"):"
+        ]
+      ]
+    },
+    {
+      "id": "M12-sim-progress-returns-bool",
+      "why": "spec 7.3 rule 2 / 2: oracles are Evidence and are never shared",
+      "expect": "7.3 (annotation rule + runtime rule) and B.8 spotcheck",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "def sim_progress(sess: Session, window: float) -> ProgressObservation:",
+          "def sim_progress(sess: Session, window: float) -> bool:"
+        ],
+        [
+          "tools/verify/game.py",
+          "    return ProgressObservation(a, b, b[\"dayTimer\"] - a[\"dayTimer\"],\n                               b[\"currentDay\"] - a[\"currentDay\"], window)",
+          "    return bool(b[\"dayTimer\"] < a[\"dayTimer\"] or b[\"currentDay\"] > a[\"currentDay\"])"
+        ]
+      ]
+    },
+    {
+      "id": "M13-stray-exemption-marker",
+      "why": "plan D2: the per-line exemption must not be usable outside the fixture tree",
+      "expect": "7.4 (stray-marker)",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "POLL_INTERVAL_S = 0.02",
+          "POLL_INTERVAL_S = 0.02  @@MARKER@@ sleep src=none:trying-to-exempt-real-code"
+        ]
+      ]
+    },
+    {
+      "id": "M14-exclude-fixture-dir-wholesale",
+      "why": "plan D2: excluding the fixture tree is itself the always-green failure 7.4 exists to prevent",
+      "expect": "7.4 (pattern-uncovered for every pattern)",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "        dirnames[:] = [d for d in dirnames if d != \"__pycache__\"]\n        for fn in sorted(filenames):\n            full = os.path.join(dirpath, fn)\n            rel = os.path.relpath(full, root).replace(os.sep, \"/\")\n            try:\n                src = open(full, encoding=\"utf-8\").read()",
+          "        dirnames[:] = [d for d in dirnames if d not in (\"__pycache__\", \"fixtures\")]\n        for fn in sorted(filenames):\n            full = os.path.join(dirpath, fn)\n            rel = os.path.relpath(full, root).replace(os.sep, \"/\")\n            try:\n                src = open(full, encoding=\"utf-8\").read()"
+        ]
+      ]
+    },
+    {
+      "id": "M15-unpin-viewport",
+      "why": "orchestrator amendment: unpinned geometry does not reproduce between honest runs",
+      "expect": "A.3 spotcheck (innerWidth falls back to the wrapper's 800x600 screen)",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "    sess.call(\"Emulation.setDeviceMetricsOverride\", viewport.as_dict())",
+          "    pass"
+        ]
+      ]
+    },
+    {
+      "id": "M16-second-sleep-site",
+      "why": "plan D4: exactly one blocking-wait call site, at cdp.py::_poll_interval",
+      "expect": "7.4 (sleep-sites)",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "def _now() -> float:\n    import time\n    return time.monotonic()",
+          "def _now() -> float:\n    import time\n    time.sleep(0)\n    return time.monotonic()"
+        ]
+      ]
+    },
+    {
+      "id": "M17-verdict-shaped-build-name",
+      "why": "plan D5: build_reproducible() is a verdict-shaped name rule 1 did not catch",
+      "expect": "7.3 (name rule)",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "def build_from_head(sandbox_root: str) -> BuildObservation:",
+          "def build_reproducible(sandbox_root: str) -> BuildObservation:"
+        ],
+        [
+          "tools/verify/static.py",
+          "def build_from_worktree(sandbox_root: str) -> BuildObservation:",
+          "build_from_head = build_reproducible\n\n\ndef build_from_worktree(sandbox_root: str) -> BuildObservation:"
+        ]
+      ]
+    },
+    {
+      "id": "M18-json-new-uses-get",
+      "why": "spec 4.5 / A.2: /json/new requires PUT; GET returns 405",
+      "expect": "every browser check (no session can be opened)",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "\"http://%s:%d/json/new?about:blank\" % (HOST, self.port), method=\"PUT\")",
+          "\"http://%s:%d/json/new?about:blank\" % (HOST, self.port), method=\"GET\")"
+        ]
+      ]
+    },
+    {
+      "id": "M19-ledger-drops-log-channel",
+      "why": "spec 4.3 / A.5: the ledger must read Log.entryAdded as well as both exception channels",
+      "expect": "A.5 spotcheck",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "        elif method == \"Log.entryAdded\":",
+          "        elif method == \"Log.entryAddedNEVER\":"
+        ]
+      ]
+    },
+    {
+      "id": "M20-wait-for-hides-throw",
+      "why": "A.6: a throwing predicate must be 'threw', not 'not ready yet'",
+      "expect": "A.6 negative",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "            if \"err\" in val:",
+          "            if False and \"err\" in val:"
+        ]
+      ]
+    },
+    {
+      "id": "M21-teardown-leaks-profile",
+      "why": "A.7: teardown owns the per-instance user-data-dir it created",
+      "expect": "A.7 spotcheck",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "        shutil.rmtree(self.user_data_dir, ignore_errors=True)",
+          "        pass"
+        ]
+      ]
+    },
+    {
+      "id": "M22-serve-port-hardcoded",
+      "why": "spec 4.6 / B.1: serve.py drifts upward from 8000; never assume the port",
+      "expect": "B.1 negative",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "                box[\"port\"] = int(m.group(1))",
+          "                box[\"port\"] = 8000"
+        ]
+      ]
+    },
+    {
+      "id": "M23-counters-return-empty",
+      "why": "B.7: counters must distinguish 'never fired' from 'handler no-op'ed'",
+      "expect": "B.7 spotcheck",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    return sess.evaluate(\"window.__vc || {}\") or {}",
+          "    return {}"
+        ]
+      ]
+    },
+    {
+      "id": "M24-sandbox-allows-dot-git",
+      "why": "C.1: a sandbox containing .git is not a clean export",
+      "expect": "C.1 negative",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "    if has_git:\n        raise SandboxError(\"sandbox at %s contains .git -- not a clean export\" % dst)",
+          "    if False:\n        raise SandboxError(\"sandbox at %s contains .git -- not a clean export\" % dst)"
+        ]
+      ]
+    },
+    {
+      "id": "M25-id-contract-stops-parsing",
+      "why": "C.2: the committed checker's verdict must be read, not assumed",
+      "expect": "C.2 spotcheck",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "    m = _PROBLEMS_RE.search(p.stdout)",
+          "    m = None"
+        ]
+      ]
+    },
+    {
+      "id": "M26-drop-pipe-escaping",
+      "why": "spec 4.12 / C.4: a note containing an escaped pipe must not truncate",
+      "expect": "C.4 negative",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "        if ch == \"\\\\\" and i + 1 < len(line) and line[i + 1] == \"|\":",
+          "        if False and i + 1 < len(line) and line[i + 1] == \"|\":"
+        ]
+      ]
+    },
+    {
+      "id": "M27-script-stripping-is-a-noop",
+      "why": "spec 4.1 #4 / C.5: a scanner whose comment claims to strip inline <script> must actually strip it",
+      "expect": "C.5 spotcheck and negative",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "def strip_inline_scripts(html: str) -> str:\n    return _SCRIPT_RE.sub(\"\", html)",
+          "def strip_inline_scripts(html: str) -> str:\n    return html"
+        ]
+      ]
+    },
+    {
+      "id": "M28-build-keeps-stale-output",
+      "why": "spec 4.1 #5 / C.3: without deleting first, a silent no-op presents as a clean diff",
+      "expect": "C.3 negative (wrote must be False when nothing was built)",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "    if os.path.exists(out):\n        os.remove(out)                     # so a silent no-op cannot look clean",
+          "    if False:\n        os.remove(out)"
+        ]
+      ]
+    },
+    {
+      "id": "M29-rename-poll-helper",
+      "why": "reviewer F3: the sleep rule compared only the FILENAME, so renaming the helper and putting a 1s sleep in it was invisible",
+      "expect": "7.4 sleep-home (function name) + poll-callers",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "def _poll_interval() -> None:",
+          "def _settle_after_navigate() -> None:"
+        ],
+        [
+          "tools/verify/cdp.py",
+          "                return WaitObservation(\"timed_out\", time.monotonic() - t0, last_value, last_type)\n            _poll_interval()",
+          "                return WaitObservation(\"timed_out\", time.monotonic() - t0, last_value, last_type)\n            _settle_after_navigate()"
+        ],
+        [
+          "tools/verify/cdp.py",
+          "        except Exception:\n            _poll_interval()",
+          "        except Exception:\n            _settle_after_navigate()"
+        ]
+      ]
+    },
+    {
+      "id": "M30-poll-helper-called-in-a-loop",
+      "why": "reviewer F3: calling the ONE permitted helper N times is a fixed sleep with extra steps",
+      "expect": "7.4 poll-callers",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "    sess.call(\"Emulation.setDeviceMetricsOverride\", viewport.as_dict())",
+          "    for _ in range(50):\n        _poll_interval()\n    sess.call(\"Emulation.setDeviceMetricsOverride\", viewport.as_dict())"
+        ]
+      ]
+    },
+    {
+      "id": "M31-bare-bool-method-on-public-class",
+      "why": "reviewer F4: 7.3 only walked module-level defs, so every Session/Browser method was unchecked",
+      "expect": "7.3 name rule + return rule",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "    def drain_events(self, methods: Optional[Sequence[str]] = None) -> list[dict]:",
+          "    def sim_advanced(self) -> bool:\n        return True\n\n    def drain_events(self, methods: Optional[Sequence[str]] = None) -> list[dict]:"
+        ]
+      ]
+    },
+    {
+      "id": "M32-verdict-word-mid-name",
+      "why": "reviewer F4: endswith() missed build_matches_worktree, one of the two names D5 exists to fix",
+      "expect": "7.3 name rule",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "def build_from_worktree(sandbox_root: str) -> BuildObservation:",
+          "def build_matches_worktree(sandbox_root: str) -> BuildObservation:"
+        ],
+        [
+          "tools/verify/static.py",
+          "# --------------------------------------------------------------------------\n# C.4 report parsing",
+          "build_from_worktree = build_matches_worktree\n\n\n# --------------------------------------------------------------------------\n# C.4 report parsing"
+        ]
+      ]
+    },
+    {
+      "id": "M33-toolkit-dirties-tracked-file",
+      "why": "reviewer F2: criterion 7 ran 8th of 57 and as an ABSOLUTE assertion, so it passed while a toolkit function wrote a tracked file",
+      "expect": "8.7 spotcheck (delta)",
+      "edits": [
+        [
+          "tools/verify/static.py",
+          "    os.makedirs(dst, exist_ok=True)\n    ar = subprocess.run([\"git\", \"archive\", \"HEAD\"], cwd=repo,",
+          "    os.makedirs(dst, exist_ok=True)\n    open(os.path.join(repo, \"README.md\"), \"a\").write(\"\\n<!-- toolkit was here -->\\n\")\n    ar = subprocess.run([\"git\", \"archive\", \"HEAD\"], cwd=repo,"
+        ]
+      ]
+    },
+    {
+      "id": "M34-fixture-cites-missing-source",
+      "why": "D2: fixture provenance must be checked, not asserted, whenever the root IS available",
+      "expect": "7.4 bad-provenance",
+      "edits": [
+        [
+          "tools/verify/selfcheck/fixtures/banned.py",
+          "src=repo/serve.py:55",
+          "src=repo/no_such_file.py:1"
+        ]
+      ]
+    },
+    {
+      "id": "M35-hook-gates-on-id-contract",
+      "why": "reviewer F5: a hook that gates on check_id_contract.py's verdict blocks every commit, since it is RED at 1582b3e and spec 9-B puts fixing it out of scope",
+      "expect": "8.5 spotcheck (hook must pass on a pristine tree)",
+      "edits": [
+        [
+          "tools/verify/hooks/pre-commit.sample",
+          "elif idc.problem_count > BASELINE:\n    failures.append(\"id contract regressed: %d problems, baseline %d\"\n                    % (idc.problem_count, BASELINE))",
+          "elif idc.problem_count > 0:\n    failures.append(\"id contract: %d problems (baseline %d)\"\n                    % (idc.problem_count, BASELINE))"
+        ]
+      ]
+    },
+    {
+      "id": "M36-cache-geometry",
+      "why": "reviewer F3: 'geometry re-read per call' was carried as prose with no check; caching it ships wrong coordinates after any floor expansion",
+      "expect": "B.5 spotcheck (geometry re-read per call)",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "def cell_to_point(sess: Session, gx: int, gy: int) -> Point:",
+          "_GEOM_CACHE = {}\n\n\ndef cell_to_point(sess: Session, gx: int, gy: int) -> Point:"
+        ],
+        [
+          "tools/verify/game.py",
+          "    g = _geometry(sess)\n    if g[\"attrW\"] != g[\"rectW\"]:",
+          "    g = _GEOM_CACHE.get(id(sess)) or _geometry(sess)\n    _GEOM_CACHE[id(sess)] = g\n    if g[\"attrW\"] != g[\"rectW\"]:"
+        ]
+      ]
+    },
+    {
+      "id": "M37-aliased-sleep-import",
+      "why": "reviewer F2: `import time as _clock` defeated the dotted-name match, so all three counting rules missed a real 1s sleep",
+      "expect": "7.4 sleep-sites",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "import re\nimport subprocess",
+          "import re\nimport subprocess\nimport time as _clock"
+        ],
+        [
+          "tools/verify/game.py",
+          "    return BootObservation(page, difficulty, sess.viewport, has_overlay, _now() - t0)",
+          "    _clock.sleep(1.0)\n    return BootObservation(page, difficulty, sess.viewport, has_overlay, _now() - t0)"
+        ]
+      ]
+    },
+    {
+      "id": "M38-launder-through-fixture-tree",
+      "why": "reviewer F1: a marked helper under selfcheck/fixtures/, imported from live code, made per-line exemption equal directory-wide exemption",
+      "expect": "7.4 fixture-import",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "from .errors import BootError, GeometryError, OccludedError, SceneError",
+          "from .selfcheck.fixtures import banned as _fx  # noqa: F401\nfrom .errors import BootError, GeometryError, OccludedError, SceneError"
+        ]
+      ]
+    },
+    {
+      "id": "M39-aliased-bool-annotation",
+      "why": "reviewer F8: `Verdict = bool` laundered a shared boolean oracle past the literal annotation test",
+      "expect": "7.3 return rule (via alias)",
+      "edits": [
+        [
+          "tools/verify/cdp.py",
+          "CHROME = \"/usr/local/bin/chrome\"",
+          "Verdict = bool\nCHROME = \"/usr/local/bin/chrome\""
+        ],
+        [
+          "tools/verify/cdp.py",
+          "    def drain_events(self, methods: Optional[Sequence[str]] = None) -> list[dict]:",
+          "    def scene_ready(self) -> Verdict:\n        return True\n\n    def drain_events(self, methods: Optional[Sequence[str]] = None) -> list[dict]:"
+        ]
+      ]
+    },
+    {
+      "id": "M40-hook-missing",
+      "why": "reviewer F4: 8.5's negative asserted only rc!=0, so a missing hook file 'proved' the hook was a gate",
+      "expect": "8.5 negative (must name the defect, not just exit non-zero)",
+      "edits": [
+        [
+          "tools/verify/hooks/pre-commit.sample",
+          "python3 - \"$@\" <<'PY'",
+          "exit 2\npython3 - \"$@\" <<'PY'"
+        ]
+      ]
+    },
+    {
+      "id": "M41-hardcoded-module-list",
+      "why": "iteration-3 finding 1: 7.3's exports rule was scoped to four filenames, so a new module -- the most likely future edit -- was silently unscanned. errors.py was ALREADY unscanned; a whole new oracle.py left the suite at rc=0.",
+      "expect": "7.3 spotcheck (errors.py absent from the discovered set) and the discovery negative control",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "    modules = public_modules(root)",
+          "    modules = [\"cdp.py\", \"game.py\", \"static.py\", \"scan.py\"]"
+        ]
+      ]
+    },
+    {
+      "id": "M42-no-dynamic-import-detection",
+      "why": "iteration-3 finding 2: fixture_import_problems walked only ast.Import/ast.ImportFrom, so importlib.import_module reached into the fixture tree freely and per-line exemption was directory-wide in practice.",
+      "expect": "7.4 negative: a run-time import into the caller-side tree is caught",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "DYNAMIC_IMPORT_CALLS = (\"import_module\", \"__import__\", \"spec_from_file_location\",\n                        \"module_from_spec\", \"exec_module\", \"load_module\",\n                        \"run_module\", \"run_path\")",
+          "DYNAMIC_IMPORT_CALLS = ()"
+        ]
+      ]
+    },
+    {
+      "id": "M43-crit7-baseline-after-import",
+      "why": "iteration-3 finding 3: 8.7's baseline was sampled inside main(), i.e. after the package import, so a module-scope write to a tracked file was absorbed and the suite stayed at rc=0.",
+      "expect": "8.7 negative: an import-time write is inside criterion 7's window",
+      "edits": [
+        [
+          "tools/verify/selfcheck/run.py",
+          "DIRTY_BEFORE_IMPORT = git_dirty(REPO_ROOT)   # <- BEFORE the package import, on purpose\n\nfrom tools.verify import cdp, game, scan, static                      # noqa: E402",
+          "from tools.verify import cdp, game, scan, static                      # noqa: E402\n\nDIRTY_BEFORE_IMPORT = git_dirty(REPO_ROOT)   # mutated: sampled AFTER the import"
+        ]
+      ]
+    },
+    {
+      "id": "M44-docs-drop-the-ratchet-limit",
+      "why": "AMENDMENT 2 makes the scope statement binding: a ratchet presented as a gate is the always-green failure section 7 exists to prevent. 'best-effort' is exactly the vague caveat the amendment rejects.",
+      "expect": "AM2 spotcheck: the ratchet limit and every named limit are documented",
+      "edits": [
+        [
+          "tools/verify/README.md",
+          "**Scope of the claim: this suite is a RATCHET, not a sound gate: it catches the\nidiomatic spelling a cooperating author would write, not a deliberate bypass by\nan author who knows the detector.**",
+          "**Scope of the claim: this tool is best-effort.**"
+        ]
+      ]
+    },
+    {
+      "id": "M45-write-bytecode-caches",
+      "why": "the pre-import criterion-7 window makes byte-code caches visible writes: an import creates untracked tools/**/__pycache__/, which is why criterion 7's literal wording was never satisfiable. Suppressed rather than excluded from the delta, so the suppression must be load-bearing.",
+      "expect": "8.7 spotcheck: __pycache__ appears as a newly dirty path",
+      "edits": [
+        [
+          "tools/verify/selfcheck/run.py",
+          "sys.dont_write_bytecode = True",
+          "sys.dont_write_bytecode = False"
+        ]
+      ]
+    },
+    {
+      "id": "M46-hook-reads-unparseable-verdict-as-zero",
+      "why": "iteration-3 finding 5: the hook re-implemented the id-contract parse and fell back to 0 when the regex missed, so rewording the committed checker's output line made it print '0 problem(s), baseline 6' and pass -- the ratchet disabling itself in silence.",
+      "expect": "8.5 negative: the hook's id-contract ratchet cannot silently disable itself",
+      "edits": [
+        [
+          "tools/verify/hooks/pre-commit.sample",
+          "if idc.problem_count is None:",
+          "if False:"
+        ]
+      ]
+    },
+    {
+      "id": "M47-geometry-under-a-stale-viewport-label",
+      "why": "found by verifying the (never-reviewed) viewport amendment rather than inheriting it: Point.viewport is a STORED label, so moving the metrics override without updating it made every later geometry record name a viewport it was not measured at -- the unreproducible-geometry failure the amendment was written about.",
+      "expect": "B.5 negative: geometry refuses to be reported under a stale viewport label",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    if (g[\"innerW\"], g[\"innerH\"]) != (vp.width, vp.height):",
+          "    if False:"
+        ]
+      ]
+    }
+  ]
+}
