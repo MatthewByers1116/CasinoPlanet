@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as backoff } from 'node:timers/promises';
 
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const fail = (msg) => { console.error(`SELFCHECK FAIL: ${msg}`); process.exit(1); };
+const fail = (msg, code = 1) => { console.error(`SELFCHECK FAIL: ${msg}`); process.exit(code); };
 
 // Predicate poll, not a fixed wait: serve.py's plain-bind port probe sees
 // TIME_WAIT sockets from a previous run and drifts to 8001, which the
@@ -43,6 +43,7 @@ console.log('selfcheck tier 1 OK: no expect import in tests/helpers/');
 // working-tree copy served at the same root layout, so src/, style.css and
 // /save_report all behave as in a real run. A bare file copy would not.
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'cp-selfcheck-'));
+process.on('exit', () => { fs.rmSync(scratch, { recursive: true, force: true }); });
 const EXCLUDE = new Set(['.git', 'node_modules', 'playwright-report', 'test-results', 'docs']);
 fs.cpSync(repoRoot, scratch, {
   recursive: true,
@@ -57,7 +58,7 @@ const anchor = `await runTestCase("${CASE_NAME}", () => {`;
 const runnerPath = path.join(scratch, 'test_runner.html');
 const runner = fs.readFileSync(runnerPath, 'utf8');
 if (runner.split(anchor).length !== 2) {
-  fail(`mutation anchor not found exactly once in test_runner.html — update the anchor in tests/selfcheck.mjs`);
+  fail(`mutation anchor not found exactly once in test_runner.html — update the anchor in tests/selfcheck.mjs`, 2);
 }
 fs.writeFileSync(runnerPath, runner.replace(anchor, `${anchor} throw new Error('SELFCHECK_MUTATION');`));
 console.log(`selfcheck tier 2: sabotaged "${CASE_NAME}" in ${scratch}`);
