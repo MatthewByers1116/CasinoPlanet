@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -53,7 +54,7 @@ DIRTY_BEFORE_IMPORT = git_dirty(REPO_ROOT)   # <- BEFORE the package import, on 
 
 from tools.verify import cdp, game, scan, static                      # noqa: E402
 from tools.verify.errors import (BootError, GeometryError,            # noqa: E402
-                                 JSEvaluationError, OccludedError,
+                                 InputSinkError, JSEvaluationError, OccludedError,
                                  SandboxError, SceneError, TransportError)
 from tools.verify.selfcheck.fixtures import banned, docs              # noqa: E402
 
@@ -70,7 +71,14 @@ DOC = os.path.join(VERIFY, "README.md")
 RATCHET_SENTENCE = ("this suite is a RATCHET, not a sound gate: it catches the "
                     "idiomatic spelling a cooperating author would write, not a "
                     "deliberate bypass by an author who knows the detector")
-REQUIRED_LIMITS = ("L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8")
+# Named limits are DISCOVERED from the doc, not listed here. A hardcoded roster
+# is the defect Amendment 2 required fixing for module coverage (a new file went
+# silently unscanned), and it fails the same way here: adding `### L10` without
+# editing the tuple would leave it unchecked. What stays hardcoded is a floor --
+# the count at the time this rule was written -- so limits can be added but not
+# quietly dropped.
+LIMIT_HEADING_RE = re.compile(r"###\s+(L\d+)\b")
+MIN_LIMITS = 9
 
 
 def _norm(text: str) -> str:
@@ -135,10 +143,10 @@ def static_checks(R: Registry, repo: str, tree: str, scratch: str, salvage: str)
         if obs.hits or obs.problems:
             raise AssertionError("scan not clean:\n  hits: %s\n  problems: %s"
                                  % (obs.hits, "\n           ".join(obs.problems)))
-        return ("%d files, coverage %s, unsourced fixtures %d, provenance UNVERIFIED "
-                "for %d fixture(s)%s"
-                % (obs.files_scanned, obs.patterns_covered, len(obs.unsourced_fixtures),
-                   len(obs.unverified_provenance),
+        return ("%d files, coverage %s, arms %s, unsourced fixtures %d, provenance "
+                "UNVERIFIED for %d fixture(s)%s"
+                % (obs.files_scanned, obs.patterns_covered, obs.arms_covered,
+                   len(obs.unsourced_fixtures), len(obs.unverified_provenance),
                    "" if salvage else " (no --salvage root supplied)"))
     R.run(["7.4"], "spotcheck", "banned scan is clean on the real tree", scan_clean)
 
@@ -150,6 +158,69 @@ def static_checks(R: Registry, repo: str, tree: str, scratch: str, salvage: str)
         return "every pattern proven detectable: %s" % obs.patterns_covered
     R.run(["7.4"], "negative", "each banned pattern has a detected fixture",
           scan_detects_every_fixture)
+
+    def every_lexical_arm_has_a_fixture():
+        """pattern-uncovered is satisfied by EITHER arm, so it cannot see one that
+        has stopped working. detect_lexical's two arms are counted separately."""
+        obs = scan.scan(verify_root, roots)
+        expected = {"%s/%s" % (pid, arm)
+                    for pid in scan.load_patterns(verify_root)
+                    for arm in scan.LEXICAL_ARMS}
+        eq(set(obs.arms_covered), expected, "arm coverage keys")
+        dead = sorted(k for k, n in obs.arms_covered.items() if n == 0)
+        if dead:
+            raise AssertionError("lexical arms with no detected fixture: %s" % dead)
+        return "all %d lexical arms covered: %s" % (len(expected), obs.arms_covered)
+    R.run(["7.4"], "spotcheck", "both arms of every lexical detector have a fixture",
+          every_lexical_arm_has_a_fixture)
+
+    def non_py_files_are_scanned():
+        """The raw arm is the only detector that can see a non-.py file, and
+        every fixture in banned.py is a python string literal that the AST arm
+        also flags. Without a marked fixture in a non-.py file, narrowing the
+        walk to .py would go unnoticed. This asserts one exists and is live."""
+        obs = scan.scan(verify_root, roots)
+        txt = [mk for mk in obs.markers if not mk.path.endswith(".py")]
+        truthy(txt, "no BANNED-FIXTURE marker outside a .py file; the scan's "
+                    "coverage of other file types is unexercised")
+        covered = {mk.pattern for mk in txt
+                   if not any(p.startswith("stale-fixture") and mk.path in p
+                              for p in obs.problems)}
+        eq(covered, set(scan.load_patterns(verify_root)),
+           "every lexical pattern needs a live fixture in a non-.py file")
+        return ("%d files scanned, %d live non-.py fixture(s) in %s"
+                % (obs.files_scanned, len(txt), sorted({mk.path for mk in txt})))
+    R.run(["7.4"], "spotcheck", "the scan reads non-.py files too",
+          non_py_files_are_scanned)
+
+    def a_dead_lexical_arm_is_caught():
+        """The negative control for the check above, and the reproduction of the
+        iteration-4 finding: with the arms conflated, deleting either one left the
+        suite green and a planted token went undetected. Each arm is deleted in
+        turn from the REAL detector and the REAL scan is re-run over the REAL
+        fixture tree; `arm-uncovered` must name the arm that died."""
+        real = scan.detect_lexical
+        out = []
+        try:
+            for dead in scan.LEXICAL_ARMS:
+                def crippled(path, src, lex, in_ast, _dead=dead):
+                    return [h for h in real(path, src, lex, in_ast) if h.arm != _dead]
+                scan.detect_lexical = crippled
+                obs = scan.scan(verify_root, roots)
+                named = [p for p in obs.problems
+                         if p.startswith("arm-uncovered") and repr(dead) in p]
+                truthy(named, "deleting the %r arm raised no arm-uncovered problem; "
+                              "problems were %s" % (dead, obs.problems))
+                truthy(not [p for p in obs.problems if p.startswith("pattern-uncovered")],
+                       "premise check: pattern-uncovered fired too, so it would have "
+                       "caught this on its own and the arm accounting proves nothing")
+                out.append("%s -> %d arm-uncovered, 0 pattern-uncovered"
+                           % (dead, len(named)))
+        finally:
+            scan.detect_lexical = real
+        return "; ".join(out)
+    R.run(["7.4"], "negative", "deleting either lexical arm is caught, and "
+          "pattern-uncovered alone does NOT catch it", a_dead_lexical_arm_is_caught)
 
     def specified_grid_detector_is_too_weak():
         """The rule as written in 7.4 ('left operand is an attribute named
@@ -168,6 +239,120 @@ def static_checks(R: Registry, repo: str, tree: str, scratch: str, salvage: str)
             len(shipped), text[:48])
     R.run(["7.4"], "negative", "7.4's own grid-fallback rule is always-green on "
           "salvage form 2", specified_grid_detector_is_too_weak)
+
+    # ---- byte-code must never be tracked ---------------------------------
+    def _tracked_bytecode(root):
+        """Shared by the spotcheck and its control. Lists tracked paths that are
+        compiled byte-code, which must be none."""
+        out = subprocess.run(["git", "-C", root, "ls-files", "--", "tools"],
+                             stdout=subprocess.PIPE, text=True, check=True)
+        return [p for p in out.stdout.split()
+                if "__pycache__" in p or p.endswith((".pyc", ".pyo"))]
+
+    def no_tracked_bytecode():
+        """Criterion 7's whole design rests on byte-code being UNTRACKED: run.py
+        suppresses writes rather than excluding __pycache__ from the dirty-file
+        delta, because an exclusion would be a hole in the one check that catches
+        stray writes. If a .pyc is tracked, importing the package modifies a
+        TRACKED file and criterion 7 passes only via its already-dirty escape
+        hatch -- an accidental pass. This happened for real: the first `git add -A
+        tools` of this harness swept in 8 .pyc files."""
+        tracked = _tracked_bytecode(tree)
+        eq(tracked, [], "tracked byte-code under tools/ defeats criterion 7")
+        return "no tracked byte-code under tools/; .gitignore covers __pycache__"
+    R.run(["8.7"], "spotcheck", "no byte-code is tracked", no_tracked_bytecode)
+
+    def tracked_bytecode_would_be_caught():
+        """Same predicate, over a throwaway repo where a .pyc IS tracked."""
+        fake = os.path.join(scratch, "pycrepo")
+        os.makedirs(os.path.join(fake, "tools", "verify", "__pycache__"),
+                    exist_ok=True)
+        open(os.path.join(fake, "tools", "verify", "__pycache__",
+                          "cdp.cpython-312.pyc"), "wb").write(b"\x00fake")
+        open(os.path.join(fake, "tools", "verify", "cdp.py"), "w").write("x = 1\n")
+        for cmd in (["init", "-q"], ["add", "-A"]):
+            subprocess.run(["git", "-C", fake] + cmd, check=True,
+                           stdout=subprocess.DEVNULL)
+        found = _tracked_bytecode(fake)
+        truthy(found, "a tracked .pyc went unnoticed in the doctored repo")
+        truthy(not _tracked_bytecode(tree),
+               "premise: the real tree must still be clean")
+        return "doctored repo flagged %s; real tree clean" % found
+    R.run(["8.7"], "negative", "a tracked .pyc is caught",
+          tracked_bytecode_would_be_caught)
+
+    # ---- the mutation table itself ---------------------------------------
+    def _anchor_report(tree_root, table):
+        """Resolve every anchor in a mutation table against a source tree.
+        Shared by the spotcheck and its negative control, so a broken spotcheck
+        cannot hide behind a healthy control."""
+        marker = "# BANNED-" + "FIXTURE:"
+        stale = []
+        for mut in table:
+            for rel, old, _new in mut["edits"]:
+                path = os.path.join(tree_root, rel)
+                try:
+                    text = open(path, encoding="utf-8").read()
+                except OSError:
+                    stale.append((mut["id"], rel, "missing file"))
+                    continue
+                n = text.count(old.replace("@@MARKER@@", marker))
+                if n != 1:
+                    stale.append((mut["id"], rel, "%d occurrences" % n))
+        return stale
+
+    def _load_table():
+        with open(os.path.join(verify_root, "selfcheck", "mutations.json"),
+                  encoding="utf-8") as fh:
+            return json.load(fh)["mutations"]
+
+    def mutation_anchors_resolve():
+        """Nothing else checks the mutation table. A stale anchor -- the ordinary
+        consequence of reformatting a line some mutation is anchored on -- used to
+        surface only 30 minutes into a sweep, where it ABORTED the run: exit 1,
+        indistinguishable from a survivor, with every later mutation never run.
+        mutate.py now reports BROKEN ANCHOR separately and continues; this catches
+        it in a second instead."""
+        table = _load_table()
+        truthy(len(table) >= 54, "mutation table shrank to %d rows" % len(table))
+        stale = _anchor_report(tree, table)
+        eq(stale, [], "mutation anchors that no longer resolve uniquely")
+        ids = [m["id"] for m in table]
+        eq(len(set(ids)), len(ids), "duplicate mutation ids")
+        return ("all %d mutation rows anchor to exactly one site each, over %d "
+                "distinct files" % (len(table),
+                                    len({e[0] for m in table for e in m["edits"]})))
+    R.run(["7.5"], "spotcheck", "every mutation anchor still resolves",
+          mutation_anchors_resolve)
+
+    def stale_anchor_is_caught():
+        """Same resolver, one anchor doctored to text that is not in the tree."""
+        table = json.loads(json.dumps(_load_table()))
+        victim = table[0]
+        victim["edits"][0][1] = "def __this_anchor_was_never_in_the_tree__():"
+        stale = _anchor_report(tree, table)
+        eq([s[0] for s in stale], [victim["id"]],
+           "the resolver must name exactly the doctored row")
+        truthy("0 occurrences" in stale[0][2],
+               "the reason must say the anchor is absent: %s" % (stale[0],))
+        # ...and an anchor that resolves TWICE is equally unusable, because
+        # apply_edits cannot know which site the mutation meant.
+        dup = json.loads(json.dumps(_load_table()))
+        target = dup[0]["edits"][0][0]
+        ambiguous = "\n"          # trivially so -- but assert it, never assume it
+        occurrences = open(os.path.join(tree, target), encoding="utf-8").read().count(
+            ambiguous)
+        truthy(occurrences >= 2,
+               "premise: %r must occur >=2 times in %s to be ambiguous, saw %d"
+               % (ambiguous, target, occurrences))
+        dup[0]["edits"][0][1] = ambiguous
+        dup_stale = _anchor_report(tree, dup)
+        eq([s[0] for s in dup_stale], [dup[0]["id"]],
+           "an ambiguous anchor must be reported, and only that row")
+        return ("absent anchor -> %s; ambiguous anchor (%d sites) -> %s"
+                % (stale[0][2], occurrences, dup_stale[0][2]))
+    R.run(["7.5"], "negative", "a stale or ambiguous mutation anchor is caught",
+          stale_anchor_is_caught)
 
     # ---- 7.3 structural separation ---------------------------------------
     def exports_clean():
@@ -478,9 +663,14 @@ def static_checks(R: Registry, repo: str, tree: str, scratch: str, salvage: str)
         """The ONE implementation, shared by the spotcheck and its negative
         control, so a broken spotcheck cannot hide behind a healthy control."""
         src = _norm(open(path, encoding="utf-8").read())
-        missing = [lid for lid in REQUIRED_LIMITS if ("### %s " % lid) not in src]
+        found = sorted({m.group(1) for m in LIMIT_HEADING_RE.finditer(src)},
+                       key=lambda s: int(s[1:]))
+        # The ids must be L1..Ln with no hole: a deleted limit leaves a gap, which
+        # is how a heading that was dropped rather than never written is caught.
+        expected = ["L%d" % i for i in range(1, len(found) + 1)]
+        missing = [lid for lid in expected if lid not in found]
         thin = []
-        for lid in REQUIRED_LIMITS:
+        for lid in found:
             head = src.find("### %s " % lid)
             if head < 0:
                 continue
@@ -489,33 +679,38 @@ def static_checks(R: Registry, repo: str, tree: str, scratch: str, salvage: str)
             if len(body.strip()) < 200:
                 thin.append(lid)
         states_the_limit = _norm(RATCHET_SENTENCE) in src
-        return src, missing, thin, states_the_limit
+        return src, missing, thin, states_the_limit, found
 
     def limits_are_documented():
-        _src, missing, thin, states = doc_report(DOC)
-        eq(missing, [], "documented limits missing from %s" % DOC)
+        _src, missing, thin, states, found = doc_report(DOC)
+        eq(missing, [], "gap in the discovered limit ids of %s (found %s)"
+                        % (DOC, found))
         eq(thin, [], "limits stated as a bare heading with no specific gap")
         truthy(states, "%s must state the ratchet limit: %r" % (DOC, RATCHET_SENTENCE))
-        return ("%s states the ratchet limit and %d named limits %s, each with a body"
-                % (os.path.relpath(DOC, tree), len(REQUIRED_LIMITS),
-                   list(REQUIRED_LIMITS)))
+        truthy(len(found) >= MIN_LIMITS,
+               "%d named limits, floor is %d -- a limit was removed from the doc "
+               "rather than from the tool" % (len(found), MIN_LIMITS))
+        return ("%s states the ratchet limit and %d DISCOVERED named limits %s, "
+                "each with a body (floor %d)"
+                % (os.path.relpath(DOC, tree), len(found), found, MIN_LIMITS))
     R.run(["AM2"], "spotcheck", "the ratchet limit and every named limit are documented",
           limits_are_documented)
 
     def doc_checker_can_fail():
         doctored = os.path.join(scratch, "README_doctored.md")
         raw = open(DOC, encoding="utf-8").read()
-        victim = REQUIRED_LIMITS[2]
+        victim = "L3"
         cut = _norm("\n".join(ln for ln in raw.splitlines()
                               if not ln.startswith("### %s " % victim)))
         cut = cut.replace(_norm(RATCHET_SENTENCE), "this tool is best-effort")
         open(doctored, "w").write(cut)
-        _s, missing, _t, states = doc_report(doctored)
+        _s, missing, _t, states, found = doc_report(doctored)
         eq(missing, [victim], "same checker, doctored copy of the real doc")
+        truthy(victim not in found, "%s survived deletion of its heading" % victim)
         truthy(not states, "the doctored copy still reads as stating the limit")
         return ("deleting %s's heading and downgrading the ratchet sentence to "
-                "'best-effort' is caught: missing=%s, states-the-limit=%s"
-                % (victim, missing, states))
+                "'best-effort' is caught by DISCOVERY, not by a list: found %s, "
+                "gap at %s, states-the-limit=%s" % (victim, found, missing, states))
     R.run(["AM2"], "negative", "the limits checker fires on a doctored doc",
           doc_checker_can_fail)
 
@@ -1195,6 +1390,23 @@ def b_checks(R: Registry, tree: str, scratch: str) -> None:
         R.run(["B.6"], "negative", "id-less occluder named by class chain",
               b6_neg_noid)
 
+        def b6_neg_tap_occluded():
+            """Both occlusion negatives above drive click_cell, so tap_cell --
+            B.6's DEFAULT MOBILE PRIMITIVE -- had no check on its hit-test at all
+            and `_require_hit` could be deleted from it with the suite still
+            green. The hit-test runs before any dispatch, so the desktop session
+            (where an occluded cell is known to exist at this viewport) exercises
+            the same guard without needing touch emulation."""
+            occ = sess.evaluate(_FIND_OCCLUDED)
+            truthy(occ, "no occluded cell at viewport %s -- must not be skipped" % (vp,))
+            err = raises(OccludedError, game.tap_cell, sess, occ["x"], occ["y"])
+            truthy("width=%d" % vp.width in err,
+                   "error must record the viewport it was measured at: %s" % err)
+            return ("tap_cell refuses cell (%d,%d), intercepted by <%s>: %s"
+                    % (occ["x"], occ["y"], occ["tag"], err[:100]))
+        R.run(["B.6"], "negative", "tap_cell refuses an occluded cell too",
+              b6_neg_tap_occluded)
+
         def b6_spot_touch():
             """4.10: mobile is driven by the touch tap, which reaches
             handleCellClick through Chrome's compat layer -- the only path a
@@ -1227,6 +1439,9 @@ def b_checks(R: Registry, tree: str, scratch: str) -> None:
         R.run(["B.6"], "spotcheck", "mobile touch tap drives the game", b6_spot_touch)
 
         def b6_spot_key():
+            f = game.focus_target(sess)
+            eq(f.sink, False, "a booted page must not start with a text sink "
+                              "focused; focus is <%s>" % f.description)
             game.press_key(sess, "e", "KeyE", 69)
             down = sess.evaluate("!!%s.inputHandler.keys['e']" % game.CG)
             eq(down, False, "keyUp must clear the key after the pair")
@@ -1243,6 +1458,49 @@ def b_checks(R: Registry, tree: str, scratch: str) -> None:
             return ("press_key leaves keys['e']=False (pair complete); a lone keyDown "
                     "leaves it True -- the pair is what makes it a press")
         R.run(["B.6"], "spotcheck", "press_key issues a complete pair", b6_spot_key)
+
+        def b6_neg_key_sink():
+            """press_key's precondition, exercised, and the harm it refuses,
+            measured rather than asserted. A text input is planted and focused --
+            the ordinary way this happens is a chat field holding focus. Then the
+            raw dispatch press_key would have made is issued anyway, and BOTH
+            destinations are read back: the field's value and a window-bound
+            listener's record of the event. Two destinations is the whole reason
+            the guard exists, so if only one fires this check must fail rather
+            than pass on a guard protecting nothing."""
+            sess.evaluate(
+                "(function(){var i=document.createElement('input');"
+                "i.id='__vc_sink';i.type='text';document.body.appendChild(i);"
+                "window.__vc_seen=[];window.addEventListener('keydown',"
+                "function(e){window.__vc_seen.push(e.target.tagName);},false);"
+                "i.focus();})()")
+            try:
+                f = game.focus_target(sess)
+                truthy(f.sink, "planted <input> must read as a sink, got %r"
+                       % f.description)
+                err = raises(InputSinkError, game.press_key, sess, "e", "KeyE", 69)
+                truthy("__vc_sink" in err, "error must name the sink: %s" % err)
+                for t in ("keyDown", "keyUp"):
+                    ev = {"type": t, "key": "e", "code": "KeyE",
+                          "windowsVirtualKeyCode": 69, "nativeVirtualKeyCode": 69}
+                    if t == "keyDown":
+                        ev["text"] = "e"
+                    sess.call("Input.dispatchKeyEvent", ev)
+                landed = sess.evaluate("document.getElementById('__vc_sink').value")
+                seen = sess.evaluate("window.__vc_seen")
+                eq(landed, "e", "destination 1: the character reaches the field")
+                eq(seen, ["INPUT"],
+                   "destination 2: the same keydown reaches a window listener, so "
+                   "the field does NOT shield the page -- the ambiguity is real")
+                return ("press_key refused (%s); dispatching anyway put %r in the "
+                        "field AND delivered keydown to window with target=%s"
+                        % (err[:58], landed, seen))
+            finally:
+                sess.evaluate(
+                    "(function(){var i=document.getElementById('__vc_sink');"
+                    "if(i){i.blur();i.remove();}delete window.__vc_seen;})()")
+        R.run(["B.6"], "negative", "press_key refuses a focused text sink, which "
+              "has two destinations", b6_neg_key_sink)
 
         def b7_spot():
             clear = sess.evaluate(_FIND_CLEAR)

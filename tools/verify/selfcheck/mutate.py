@@ -36,6 +36,19 @@ def copy_tree(src: str, dst: str) -> None:
     tar.wait()
 
 
+class BrokenAnchor(Exception):
+    """The table names source text that is no longer there (or is now ambiguous).
+
+    This is NOT the same failure as a surviving mutation and must never be
+    reported as one. A survivor means the toolkit has a hole; a broken anchor
+    means the table is stale after an ordinary edit. Raising SystemExit here --
+    which is what this used to do -- aborted the whole sweep at the first stale
+    row: the operator saw exit 1, identical to a survivor, while every later
+    mutation silently never ran. Found the hard way, by editing an import line
+    that M38 was anchored on.
+    """
+
+
 def apply_edits(root: str, edits: list) -> list:
     applied = []
     for rel, old, new in edits:
@@ -44,10 +57,10 @@ def apply_edits(root: str, edits: list) -> list:
         path = os.path.join(root, rel)
         text = open(path, encoding="utf-8").read()
         if old not in text:
-            raise SystemExit("ANCHOR MISSING in %s:\n%r" % (rel, old[:160]))
+            raise BrokenAnchor("ANCHOR MISSING in %s: %r" % (rel, old[:160]))
         if text.count(old) != 1:
-            raise SystemExit("ANCHOR NOT UNIQUE (%d) in %s: %r"
-                             % (text.count(old), rel, old[:120]))
+            raise BrokenAnchor("ANCHOR NOT UNIQUE (%d) in %s: %r"
+                               % (text.count(old), rel, old[:120]))
         open(path, "w", encoding="utf-8").write(text.replace(old, new, 1))
         applied.append("%s (%d chars)" % (rel, len(old)))
     return applied
@@ -63,14 +76,22 @@ def main() -> int:
     args = ap.parse_args()
 
     rows = []
-    for mut in load():
-        if args.only and args.only not in mut["id"]:
-            continue
+    broken = []
+    selected = [m for m in load() if not args.only or args.only in m["id"]]
+    for mut in selected:
         root = os.path.join(args.work, mut["id"])
         scratch = os.path.join(args.work, mut["id"] + "-scratch")
         subprocess.run(["rm", "-rf", root, scratch])
         copy_tree(args.tree, root)
-        applied = apply_edits(root, mut["edits"])
+        try:
+            applied = apply_edits(root, mut["edits"])
+        except BrokenAnchor as exc:
+            # Report and keep going: one stale row must not cost the coverage of
+            # every row after it.
+            broken.append((mut["id"], str(exc)))
+            print("%-38s *** BROKEN ANCHOR *** %s" % (mut["id"], exc))
+            subprocess.run(["rm", "-rf", root, scratch])
+            continue
         os.makedirs(scratch, exist_ok=True)
         # --tree is the mutant, and --repo DEFAULTS to it, so a mutation that
         # writes a tracked file lands in the disposable copy, never in the real
@@ -96,10 +117,22 @@ def main() -> int:
 
     survived = [r[0] for r in rows if not r[1]]
     print("=" * 90)
+    print("mutations selected: %d" % len(selected))
     print("mutations applied : %d" % len(rows))
     print("killed            : %d" % (len(rows) - len(survived)))
     print("SURVIVED          : %d %s" % (len(survived), survived))
-    return 1 if survived else 0
+    print("BROKEN ANCHORS    : %d %s" % (len(broken), [b[0] for b in broken]))
+    for mid, msg in broken:
+        print("      %s: %s" % (mid, msg))
+    if len(rows) + len(broken) != len(selected):
+        print("*** %d selected mutation(s) neither ran nor were reported broken"
+              % (len(selected) - len(rows) - len(broken)))
+        return 1
+    # Both are failures, and they are different failures: a survivor means the
+    # toolkit has a hole, a broken anchor means this table is stale. Never let
+    # one be read as the other -- the exit code alone cannot tell them apart, so
+    # the counts above are the report, not the return value.
+    return 1 if (survived or broken) else 0
 
 
 if __name__ == "__main__":

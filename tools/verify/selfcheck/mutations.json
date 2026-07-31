@@ -487,8 +487,8 @@
       "edits": [
         [
           "tools/verify/game.py",
-          "from .errors import BootError, GeometryError, OccludedError, SceneError",
-          "from .selfcheck.fixtures import banned as _fx  # noqa: F401\nfrom .errors import BootError, GeometryError, OccludedError, SceneError"
+          "from .errors import (BootError, GeometryError, InputSinkError, OccludedError,",
+          "from .selfcheck.fixtures import banned as _fx  # noqa: F401\nfrom .errors import (BootError, GeometryError, InputSinkError, OccludedError,"
         ]
       ]
     },
@@ -602,6 +602,102 @@
           "tools/verify/game.py",
           "    if (g[\"innerW\"], g[\"innerH\"]) != (vp.width, vp.height):",
           "    if False:"
+        ]
+      ]
+    },
+    {
+      "id": "M48-lexical-raw-arm-deleted",
+      "why": "iteration-4 finding 1, reproduced verbatim: detect_lexical's raw-line arm is the ONLY detector for the 5 non-.py files in the tree and for every comment in the .py files, but both lexical fixtures are python string literals that the const arm also flags. With the arms conflated this exact edit left the suite at rc=0 / 69 checks / 0 failures while a planted loopback-host token went undetected. (Spelling that token here would itself trip the scan -- see mutate.py's docstring on why this table is data.)",
+      "expect": "7.4 spotcheck 'both arms of every lexical detector have a fixture' and the scan_clean spotcheck, via arm-uncovered for the 'raw' arm of proc-kill and loopback-host",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "            if tok in line:",
+          "            if False:"
+        ]
+      ]
+    },
+    {
+      "id": "M49-lexical-const-arm-deleted",
+      "why": "the converse of M48: the string-constant arm catches a token whose raw line does not contain it (implicit concatenation, and multi-line strings, where the constant's lineno is the opening quote). Under pattern-level coverage alone the raw arm kept every fixture satisfied, so this arm was equally deletable in silence.",
+      "expect": "7.4 spotcheck 'both arms of every lexical detector have a fixture', via arm-uncovered for the 'const' arm",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "                if isinstance(node, ast.Constant) and isinstance(node.value, str) \\\n                        and tok in node.value:",
+          "                if False:"
+        ]
+      ]
+    },
+    {
+      "id": "M50-arm-coverage-accounting-disabled",
+      "why": "the accounting added for finding 1 must itself be falsifiable: if arm-uncovered stops being raised, M48 and M49 silently stop being killed and the fix reverts to the always-green state it replaced.",
+      "expect": "7.4 negative 'deleting either lexical arm is caught' -- with the problem suppressed, the negative control finds no arm-uncovered and fails",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "            if n == 0:\n                problems.append(\n                    \"arm-uncovered:",
+          "            if False:\n                problems.append(\n                    \"arm-uncovered:"
+        ]
+      ]
+    },
+    {
+      "id": "M51-tap-cell-skips-the-hit-test",
+      "why": "iteration-4 finding 2: both occlusion negatives drove click_cell, so tap_cell -- B.6's default mobile primitive -- had its hit-test unchecked and this deletion left the suite green.",
+      "expect": "B.6 negative 'tap_cell refuses an occluded cell too'",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    _require_hit(sess, p, gx, gy, CANVAS_ID)\n    tp = [{\"x\": p.x, \"y\": p.y, \"radiusX\": 5, \"radiusY\": 5, \"force\": 1}]",
+          "    tp = [{\"x\": p.x, \"y\": p.y, \"radiusX\": 5, \"radiusY\": 5, \"force\": 1}]"
+        ]
+      ]
+    },
+    {
+      "id": "M52-press-key-skips-its-precondition",
+      "why": "iteration-4 finding 2, second half: press_key dispatched with no precondition while the plan described all three input primitives as guarded. A key event has no coordinates, so the guard is the focus target rather than a point; this deletes it.",
+      "expect": "B.6 negative 'press_key refuses a focused text sink'",
+      "edits": [
+        [
+          "tools/verify/game.py",
+          "    _require_no_sink(sess, key)\n    for t in (\"keyDown\", \"keyUp\"):",
+          "    for t in (\"keyDown\", \"keyUp\"):"
+        ]
+      ]
+    },
+    {
+      "id": "M53-lexical-scan-narrowed-to-py-files",
+      "why": "the raw arm is the only detector that can see the 6 non-.py files in the tree; before the non-.py fixture existed, narrowing the walk this way removed real coverage with nothing to notice.",
+      "expect": "7.4 spotcheck 'the scan reads non-.py files too', and scan_clean via stale-fixture on the non-.py markers",
+      "edits": [
+        [
+          "tools/verify/scan.py",
+          "            hits.extend(detect_lexical(rel, src, lex, tree))",
+          "            if fn.endswith(\".py\"):\n                hits.extend(detect_lexical(rel, src, lex, tree))"
+        ]
+      ]
+    },
+    {
+      "id": "M54-limit-discovery-made-vacuous",
+      "why": "the named-limit roster was a hardcoded tuple -- the same shape as the hardcoded module list Amendment 2 required replacing, and it fails the same way: a limit added to the doc without editing the tuple goes unchecked. Discovery replaced it, so discovery must itself be falsifiable: a regex that matches nothing would report zero limits and pass if the floor were not enforced.",
+      "expect": "AM2 spotcheck 'the ratchet limit and every named limit are documented' via the MIN_LIMITS floor",
+      "edits": [
+        [
+          "tools/verify/selfcheck/run.py",
+          "LIMIT_HEADING_RE = re.compile(r\"###\\s+(L\\d+)\\b\")",
+          "LIMIT_HEADING_RE = re.compile(r\"###\\s+(ZZ\\d+)\\b\")"
+        ]
+      ]
+    },
+    {
+      "id": "M55-bytecode-tracking-check-disabled",
+      "why": "criterion 7 suppresses byte-code writes rather than excluding __pycache__ from its dirty-file delta, so a TRACKED .pyc turns every import into a tracked-file write and criterion 7 then passes only through its already-dirty escape hatch. The first `git add -A tools` of this harness tracked 8 .pyc files for real, so this fails against a cooperating author.",
+      "expect": "8.7 negative 'a tracked .pyc is caught' -- with the predicate blinded, the doctored repo reports nothing",
+      "edits": [
+        [
+          "tools/verify/selfcheck/run.py",
+          "        return [p for p in out.stdout.split()\n                if \"__pycache__\" in p or p.endswith((\".pyc\", \".pyo\"))]",
+          "        return [p for p in out.stdout.split() if False]"
         ]
       ]
     }

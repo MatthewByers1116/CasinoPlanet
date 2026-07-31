@@ -163,6 +163,23 @@ import from either subtree — so such an oracle cannot become part of the API
 here detects that; it would show up only as the scanned-module count dropping,
 which every run prints.
 
+### L9 — `press_key`'s precondition is about ambiguity, not delivery
+
+The two pointer primitives hit-test the target point before dispatching.
+`press_key` cannot: a key event has no coordinates. Its precondition is that no
+text-entry element holds focus, and the reason is **not** that such an element
+would swallow the key. Measured: with an `<input>` focused, the character lands
+in the field *and* the same `keydown` reaches `window` listeners with
+`target=INPUT` — this game binds its handlers on `window`
+(`src/client/InputHandler.js:27,37`), so a focused field shields nothing. Two
+destinations, no way to attribute what follows; the primitive refuses rather
+than guess.
+
+Consequence: `press_key` does **not** verify that anything is listening for the
+key it sends, and nothing here can. A key dispatched into a page with no handler
+bound succeeds silently. Assert on the state you expected it to change, never on
+`press_key` returning.
+
 ---
 
 ## Known defects, recorded rather than hidden

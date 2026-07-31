@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from .cdp import DESKTOP_VIEWPORT, HOST, MOBILE_VIEWPORT, Session, Viewport
-from .errors import BootError, GeometryError, OccludedError, SceneError
+from .errors import (BootError, GeometryError, InputSinkError, OccludedError,
+                     SceneError)
 
 CANVAS_ID = "game-canvas"
 CG = "window.Casino.clientInstance"
@@ -304,7 +305,67 @@ def tap_cell(sess: Session, gx: int, gy: int) -> InputObservation:
     return InputObservation(gx, gy, p, "touch", _mouse_grid(sess))
 
 
+_FOCUS_JS = """
+(function(){
+  var el = document.activeElement;
+  if (!el || el === document.body) return {sink:false, desc:'body'};
+  var tag = el.tagName.toLowerCase();
+  var type = (el.getAttribute && el.getAttribute('type')) || 'text';
+  var sink = !!el.isContentEditable || tag === 'textarea' || tag === 'select' ||
+    (tag === 'input' &&
+     !/^(button|submit|reset|checkbox|radio|file|image|range|color)$/i.test(type));
+  var d = tag;
+  if (el.id) d += '#' + el.id;
+  var cls = (typeof el.className === 'string') ? el.className : '';
+  if (cls && cls.trim()) d += '.' + cls.trim().split(/\\s+/).join('.');
+  if (tag === 'input') d += '[type=' + type + ']';
+  return {sink: sink, desc: d};
+})()
+"""
+
+
+@dataclass
+class FocusTarget:
+    sink: bool
+    description: str
+
+
+def focus_target(sess: Session) -> FocusTarget:
+    """Who will receive the next key event, and would it swallow it."""
+    r = sess.evaluate(_FOCUS_JS)
+    return FocusTarget(bool(r["sink"]), r["desc"])
+
+
+def _require_no_sink(sess: Session, key: str) -> FocusTarget:
+    f = focus_target(sess)
+    if f.sink:
+        raise InputSinkError(
+            "key %r has two destinations: the focused text-entry element <%s> AND "
+            "the page's own listeners. Blur it before dispatching, or nothing "
+            "measured afterwards can be attributed to one or the other."
+            % (key, f.description))
+    return f
+
+
 def press_key(sess: Session, key: str, code: str, vk: int) -> str:
+    """B.6's third input primitive.
+
+    PRECONDITION SEMANTICS. A key event carries no coordinates, so the point
+    hit-test the two pointer primitives perform has no meaning here; the
+    equivalent question is *who receives it*. A key goes to
+    `document.activeElement` and bubbles up from there, so a focused text field
+    does NOT shield the page -- measured on this game, whose InputHandler binds
+    keydown/keyup on `window` (`src/client/InputHandler.js:27,37`): with an
+    <input> focused, the character lands in the field AND the window listener
+    fires with `target=INPUT`. The refusal is therefore about ambiguity, not
+    interception: two destinations, no way to attribute what follows.
+
+    This is deliberately narrower than the pointer hit-test and is NOT a claim
+    that the game has a listener bound for this key -- nothing here can know
+    that. Previously the function dispatched with no precondition at all while
+    the plan described all three input primitives as guarded before dispatch;
+    stating and enforcing this one is the resolution."""
+    _require_no_sink(sess, key)
     for t in ("keyDown", "keyUp"):
         sess.call("Input.dispatchKeyEvent", {"type": t, "key": key, "code": code,
                                              "windowsVirtualKeyCode": vk,

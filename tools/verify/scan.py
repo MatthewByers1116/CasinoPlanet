@@ -21,6 +21,13 @@ guarded by invariants that can each fail:
   unknown-pattern    a marker naming a pattern id that does not exist
   stale-fixture      a marked line the named detector does NOT flag
   pattern-uncovered  a pattern with zero marked-and-detected fixture lines
+  arm-uncovered      a lexical pattern with zero marked-and-detected fixture
+                     lines for one of its two ARMS (raw line / string constant).
+                     pattern-uncovered alone is not enough: the two arms overlap
+                     on every fixture, so either could be deleted and the other
+                     would keep the marker satisfied -- a detector dying in
+                     silence, which is the always-green failure 7.4 exists to
+                     prevent.
   bad-provenance     src=<root>/<path>:<line> whose text is not contained in the
                      fixture line (i.e. the fixture is not the quoted original)
   token-vocabulary   a lexical token appearing more than once in patterns.json
@@ -51,6 +58,10 @@ MARKER_RE = re.compile(r"#\s*BANNED-FIXTURE:\s*([a-z0-9\-]+)\s+src=(\S+)")
 SLEEP_HOME = ("cdp.py", "_poll_interval")
 AST_PATTERNS = ("copy-tree", "sleep", "evaluate-sentinel", "grid-fallback")
 
+# The two independent halves of detect_lexical. Each is accounted separately;
+# see `arm-uncovered` above for why the pattern-level count is insufficient.
+LEXICAL_ARMS = ("raw", "const")
+
 
 @dataclass(frozen=True)
 class Hit:
@@ -58,6 +69,7 @@ class Hit:
     path: str
     lineno: int
     evidence: str
+    arm: str = "ast"
 
 
 @dataclass(frozen=True)
@@ -78,6 +90,7 @@ class ScanObservation:
     patterns_covered: dict
     unsourced_fixtures: list
     unverified_provenance: list
+    arms_covered: dict
 
 
 # --------------------------------------------------------------------------
@@ -251,21 +264,27 @@ def load_patterns(root: str) -> dict:
 
 def detect_lexical(path: str, src: str, lex: dict, in_ast: Optional[ast.AST]) -> list:
     """Token substring over raw lines, plus -- for .py files -- the same token
-    inside any string constant, since it can appear in either form."""
+    inside any string constant, since it can appear in either form.
+
+    The two arms are deliberately INDEPENDENT: each reports its own Hit even when
+    both land on the same line, and the arm is recorded on the Hit. An earlier
+    version suppressed the `const` arm whenever `raw` had already flagged the
+    line, which made the arms indistinguishable at the fixture and let either one
+    be deleted with the suite still green. scan() dedupes by line for reporting;
+    coverage is counted per arm.
+    """
     out = []
     lines = src.splitlines()
     for pid, spec in lex.items():
         tok = spec["token"]
-        seen = set()
         for i, line in enumerate(lines, 1):
             if tok in line:
-                out.append(Hit(pid, path, i, line.strip()[:90]))
-                seen.add(i)
+                out.append(Hit(pid, path, i, line.strip()[:90], "raw"))
         if in_ast is not None:
             for node in ast.walk(in_ast):
                 if isinstance(node, ast.Constant) and isinstance(node.value, str) \
-                        and tok in node.value and node.lineno not in seen:
-                    out.append(Hit(pid, path, node.lineno, node.value[:90]))
+                        and tok in node.value:
+                    out.append(Hit(pid, path, node.lineno, node.value[:90], "const"))
     return out
 
 
@@ -322,6 +341,7 @@ def scan(root: str, provenance_roots: Optional[dict] = None) -> ScanObservation:
     hits = [h for h in hits if not (h.path == PATTERNS_JSON and h.pattern in lex)]
 
     exempt: set = set()
+    exempt_arms: dict = {}
     unsourced: list = []
     unverified: list = []
     for mk in markers:
@@ -333,13 +353,17 @@ def scan(root: str, provenance_roots: Optional[dict] = None) -> ScanObservation:
             problems.append("unknown-pattern: %s:%d names %r"
                             % (mk.path, mk.lineno, mk.pattern))
             continue
-        if not any(h.pattern == mk.pattern and h.path == mk.path and h.lineno == mk.lineno
-                   for h in hits):
+        matched = [h for h in hits
+                   if h.pattern == mk.pattern and h.path == mk.path
+                   and h.lineno == mk.lineno]
+        if not matched:
             problems.append(
                 "stale-fixture: %s:%d claims %r but the detector does not flag that line"
                 % (mk.path, mk.lineno, mk.pattern))
             continue
-        exempt.add((mk.pattern, mk.path, mk.lineno))
+        key = (mk.pattern, mk.path, mk.lineno)
+        exempt.add(key)
+        exempt_arms.setdefault(key, set()).update(h.arm for h in matched)
         if mk.src.startswith("none:"):
             if len(mk.src) < len("none:") + 10:
                 problems.append("bad-provenance: %s:%d unsourced fixture needs a reason"
@@ -358,13 +382,36 @@ def scan(root: str, provenance_roots: Optional[dict] = None) -> ScanObservation:
             problems.append("pattern-uncovered: %r has no marked-and-detected fixture "
                             "line -- the detector is untested" % pid)
 
+    # Per-ARM coverage for the lexical patterns. A lexical pattern satisfies
+    # pattern-uncovered as long as ONE of its two arms flags the fixture line, so
+    # the pattern-level count cannot see an arm that has stopped working. This
+    # does.
+    arms_covered = {}
+    for pid in lex:
+        for arm in LEXICAL_ARMS:
+            n = sum(1 for (p, _f, _l), arms in exempt_arms.items()
+                    if p == pid and arm in arms)
+            arms_covered["%s/%s" % (pid, arm)] = n
+            if n == 0:
+                problems.append(
+                    "arm-uncovered: %r has no marked-and-detected fixture line for its "
+                    "%r arm -- that arm can be deleted in silence" % (pid, arm))
+
     problems.extend(_sleep_rule(hits, exempt))
     problems.extend(poll_caller_problems(root))
     problems.extend(caller_tree_import_problems(root))
-    live = [h for h in hits
-            if (h.pattern, h.path, h.lineno) not in exempt
-            and not (h.pattern == "sleep" and os.path.basename(h.path) == SLEEP_HOME[0])]
-    return ScanObservation(live, markers, problems, files, covered, unsourced, unverified)
+    live = []
+    reported: set = set()
+    for h in hits:
+        key = (h.pattern, h.path, h.lineno)
+        if key in exempt or key in reported:
+            continue
+        if h.pattern == "sleep" and os.path.basename(h.path) == SLEEP_HOME[0]:
+            continue
+        reported.add(key)
+        live.append(h)
+    return ScanObservation(live, markers, problems, files, covered, unsourced,
+                           unverified, arms_covered)
 
 
 def _sleep_rule(hits: list, exempt: set) -> list:

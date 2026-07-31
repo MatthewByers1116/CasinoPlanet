@@ -30,5 +30,15 @@ class OccludedError(VerifyError):
     pass
 
 
+class InputSinkError(VerifyError):
+    """A keyboard event would reach a focused text-entry element as well as the
+    page. The keyboard analogue of OccludedError: a key event has no coordinates,
+    so the precondition is about the focus target rather than a point -- and it is
+    about AMBIGUITY, not interception. Measured: with an <input> focused, the
+    character lands in the field AND the keydown still reaches window listeners
+    (target=INPUT). Two destinations make anything observed afterwards
+    unattributable, so the primitive refuses instead of guessing."""
+
+
 class SandboxError(VerifyError):
     pass
