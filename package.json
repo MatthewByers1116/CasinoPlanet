@@ -4,14 +4,10 @@
   "description": "Grid-Based Casino Manager & Interactive Arcade",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "ws": "^8.16.0"
+    "test": "playwright test",
+    "test:selfcheck": "node tests/selfcheck.mjs"
   },
   "devDependencies": {
-    "vite": "^5.2.0"
+    "@playwright/test": "^1.62.1"
   }
 }
