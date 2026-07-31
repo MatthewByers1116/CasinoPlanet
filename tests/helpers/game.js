@@ -366,7 +366,7 @@ export async function findLegalCell(page, objType) {
 // readiness wait. Do not add other call sites.
 export async function elapsedWindow(page, ms) {
   const deadline = Date.now() + ms;
-  await page.waitForFunction((d) => Date.now() >= d, deadline, { polling: 100 });
+  await page.waitForFunction((d) => Date.now() >= d, deadline, { polling: 100, timeout: ms + 5_000 });
 }
 
 // Exception ledger (spec D3): installs listeners once and returns a live

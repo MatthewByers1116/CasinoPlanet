@@ -13,17 +13,25 @@ test('test_runner.html full suite', async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') ledger.consoleErrors.push(m.text()); });
 
   await page.goto('/test_runner.html');
-  await page.waitForFunction(
-    () => window.__testResults && window.__testResults.done,
-    null,
-    { timeout: 280_000, polling: 500 },
-  );
-  const results = await page.evaluate(() => window.__testResults);
 
-  await test.info().attach('pageerror-ledger', {
-    body: JSON.stringify(ledger, null, 2),
-    contentType: 'application/json',
-  });
+  // try/finally: the attach must happen even on the timeout path (e.g. an
+  // uncaught top-level throw in test_runner.html's IIFE means `done` never
+  // sets). Without this, a hang throws away the captured pageerrors and the
+  // run reports a bare timeout instead of the exception that caused it.
+  let results;
+  try {
+    await page.waitForFunction(
+      () => window.__testResults && window.__testResults.done,
+      null,
+      { timeout: 280_000, polling: 500 },
+    );
+    results = await page.evaluate(() => window.__testResults);
+  } finally {
+    await test.info().attach('pageerror-ledger', {
+      body: JSON.stringify(ledger, null, 2),
+      contentType: 'application/json',
+    });
+  }
 
   expect(results.cases.length,
     `suite ran ${results.cases.length} cases; floor is ${MIN_CASES} (ratchet — see spec D2)`,

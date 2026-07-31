@@ -17,6 +17,7 @@ const serveRoot = process.env.CP_SERVE_ROOT || repoRoot;
 export default defineConfig({
   testDir: './tests',
   timeout: 300_000,
+  forbidOnly: true,
   use: {
     baseURL: 'http://127.0.0.1:8000',
     launchOptions: {
@@ -32,5 +33,6 @@ export default defineConfig({
     url: 'http://127.0.0.1:8000/',
     reuseExistingServer: false,
     timeout: 30_000,
+    stdout: 'pipe',
   },
 });
